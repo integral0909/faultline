@@ -1,0 +1,26 @@
+/target/
+**/*.rs.bk
+*.profraw
+*.profdata
+
+# Faultline's own per-project state when running the tool on this repository.
+/.faultline/
+
+# Fuzzing output
+/fuzz/target/
+/fuzz/corpus/
+/fuzz/artifacts/
+/fuzz/coverage/
+
+# Snapshot review leftovers
+*.snap.new
+*.pending-snap
+
+# Local environment and editor files
+.env
+.env.*
+!.env.example
+.DS_Store
+.idea/
+.vscode/
+*.swp

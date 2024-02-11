@@ -1,0 +1,18 @@
+[package]
+name = "faultline-source"
+description = "Source files, spans, line indexing and diagnostics for Faultline"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+
+[dev-dependencies]
+proptest.workspace = true
+
+[lints]
+workspace = true
