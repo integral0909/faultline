@@ -1,0 +1,40 @@
+[package]
+name = "faultline-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+license = "MIT OR Apache-2.0"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+faultline-doc = { path = "../crates/faultline-doc" }
+faultline-source = { path = "../crates/faultline-source" }
+
+# Kept out of the main workspace: fuzz targets need a nightly toolchain and
+# sanitizer flags that must not leak into regular builds.
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "parse_json"
+path = "fuzz_targets/parse_json.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "parse_yaml"
+path = "fuzz_targets/parse_yaml.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "uri_pointer"
+path = "fuzz_targets/uri_pointer.rs"
+test = false
+doc = false
+bench = false

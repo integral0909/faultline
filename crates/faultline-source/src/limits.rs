@@ -13,7 +13,10 @@ pub struct Limits {
     /// Maximum nesting depth of arrays/objects/collections in one document.
     pub max_depth: u32,
     /// Maximum number of nodes produced when parsing one document, counting
-    /// every copy made by YAML alias expansion.
+    /// every copy made by YAML alias expansion. A node costs about 90 bytes
+    /// plus roughly 130 per object member, so the default bounds one document
+    /// tree to a few hundred megabytes in the worst case; the largest public
+    /// API descriptions we know of have a few hundred thousand nodes.
     pub max_document_nodes: u64,
 }
 
@@ -21,7 +24,7 @@ impl Limits {
     pub const DEFAULT: Limits = Limits {
         max_file_bytes: 64 * 1024 * 1024,
         max_depth: 256,
-        max_document_nodes: 10_000_000,
+        max_document_nodes: 2_000_000,
     };
 
     pub fn check_file_size(&self, bytes: u64) -> Result<(), LimitExceeded> {

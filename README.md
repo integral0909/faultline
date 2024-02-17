@@ -64,6 +64,7 @@ including the tools used by CI.
 
 * [Architecture](docs/architecture.md)
 * [Development](docs/development.md)
+* [Testing](docs/testing.md)
 * [Design decisions](docs/design-decisions/)
 * [Security policy](SECURITY.md)
 

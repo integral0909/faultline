@@ -10,3 +10,4 @@ New records start from [template.md](template.md) and take the next number.
 | # | Decision | Status |
 |---|---|---|
 | [0001](0001-rust-and-workspace-layout.md) | Rust, and a workspace of focused crates | Accepted |
+| [0002](0002-document-parsing.md) | Own spanned JSON reader; YAML through an event parser | Accepted |

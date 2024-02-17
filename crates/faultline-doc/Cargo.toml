@@ -1,0 +1,21 @@
+[package]
+name = "faultline-doc"
+description = "Spanned JSON/YAML documents, JSON Pointer and URI references for Faultline"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+faultline-source.workspace = true
+indexmap.workspace = true
+saphyr-parser.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+
+[lints]
+workspace = true

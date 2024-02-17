@@ -1,0 +1,47 @@
+name: Fuzz
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "fuzz/**"
+      - "crates/faultline-doc/**"
+      - "crates/faultline-source/**"
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fuzz:
+    name: ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [parse_json, parse_yaml, uri_pointer]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: fuzz
+      - name: Install cargo-fuzz
+        run: cargo install --locked cargo-fuzz
+      # Pull requests only prove the targets still build and survive a short
+      # run; the nightly schedule fuzzes for longer.
+      - name: Fuzz
+        working-directory: fuzz
+        run: |
+          seconds=${{ github.event_name == 'pull_request' && 60 || 600 }}
+          cargo fuzz run ${{ matrix.target }} -- -max_total_time=$seconds
+      - name: Upload crash artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-artifacts-${{ matrix.target }}
+          path: fuzz/artifacts/${{ matrix.target }}
