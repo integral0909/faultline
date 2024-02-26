@@ -16,6 +16,7 @@ categories = ["development-tools", "command-line-utilities"]
 [workspace.dependencies]
 faultline-source = { path = "crates/faultline-source", version = "0.1.0" }
 faultline-doc = { path = "crates/faultline-doc", version = "0.1.0" }
+faultline-ir = { path = "crates/faultline-ir", version = "0.1.0" }
 
 indexmap = "2.7"
 proptest = "1"

@@ -74,6 +74,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "faultline-ir"
+version = "0.1.0"
+dependencies = [
+ "faultline-doc",
+ "faultline-source",
+ "indexmap",
+ "proptest",
+]
+
+[[package]]
 name = "faultline-source"
 version = "0.1.0"
 dependencies = [

@@ -29,6 +29,7 @@ pub use node::{Kind, Member, Node, Object, Value};
 pub use number::{Decimal, Number};
 pub use pointer::{JsonPointer, PointerError};
 pub use uri::{UriError, UriRef};
+pub use write::write_json_string;
 
 /// Absolute ceiling on nesting depth, applied even if
 /// [`Limits::max_depth`](faultline_source::Limits::max_depth) is configured

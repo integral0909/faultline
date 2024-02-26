@@ -3,7 +3,7 @@
 This document describes what Faultline is for, how it is structured, and the
 order in which it is being built. Detailed rationale for individual decisions
 lives in [design-decisions/](design-decisions/); algorithm-level notes live in
-[internals/](internals/).
+[internals/](internals/), starting with [the IR](internals/ir.md).
 
 ## Problem
 

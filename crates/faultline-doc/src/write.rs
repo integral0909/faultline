@@ -29,8 +29,8 @@ fn write_value(value: &Value, out: &mut String) {
         Value::Number(Number::Finite(d)) => {
             let _ = write!(out, "{d}");
         }
-        Value::Number(special) => write_string(&special.to_string(), out),
-        Value::String(s) => write_string(s, out),
+        Value::Number(special) => write_json_string(&special.to_string(), out),
+        Value::String(s) => write_json_string(s, out),
         Value::Array(items) => {
             out.push('[');
             for (i, item) in items.iter().enumerate() {
@@ -47,7 +47,7 @@ fn write_value(value: &Value, out: &mut String) {
                 if i > 0 {
                     out.push(',');
                 }
-                write_string(key, out);
+                write_json_string(key, out);
                 out.push(':');
                 write_value(&value.value, out);
             }
@@ -58,7 +58,7 @@ fn write_value(value: &Value, out: &mut String) {
 
 /// Writes a JSON string literal. Non-ASCII characters are written as-is;
 /// only the characters JSON requires to be escaped are escaped.
-pub(crate) fn write_string(s: &str, out: &mut String) {
+pub fn write_json_string(s: &str, out: &mut String) {
     out.reserve(s.len() + 2);
     out.push('"');
     for c in s.chars() {

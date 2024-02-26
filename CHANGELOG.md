@@ -17,3 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   merge keys, and depth, node-count and alias-expansion limits; RFC 6901 JSON
   Pointer and RFC 3986 URI reference resolution and normalization.
 - Fuzz targets for the JSON reader, YAML loader and URI/pointer handling.
+- `faultline-ir`: the format-independent contract model — type arena with
+  reserve/define for recursive types, HTTP operation and schema-root surfaces,
+  computed request/response polarity (callbacks, `not`, `readOnly`/
+  `writeOnly`), stable textual `IrPath` identities with a parser, structural
+  validation including unguarded-cycle detection, and a deterministic dump.
