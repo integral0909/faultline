@@ -17,9 +17,11 @@ categories = ["development-tools", "command-line-utilities"]
 faultline-source = { path = "crates/faultline-source", version = "0.1.0" }
 faultline-doc = { path = "crates/faultline-doc", version = "0.1.0" }
 faultline-ir = { path = "crates/faultline-ir", version = "0.1.0" }
+faultline-jsonschema = { path = "crates/faultline-jsonschema", version = "0.1.0" }
 
 indexmap = "2.7"
 proptest = "1"
+tempfile = "3"
 saphyr-parser = "0.1"
 
 [workspace.lints.rust]

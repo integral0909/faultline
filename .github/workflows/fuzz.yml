@@ -9,6 +9,8 @@ on:
       - "fuzz/**"
       - "crates/faultline-doc/**"
       - "crates/faultline-source/**"
+      - "crates/faultline-ir/**"
+      - "crates/faultline-jsonschema/**"
 
 permissions:
   contents: read
@@ -23,7 +25,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [parse_json, parse_yaml, uri_pointer]
+        target: [parse_json, parse_yaml, uri_pointer, lower_jsonschema]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly
@@ -38,7 +40,11 @@ jobs:
         working-directory: fuzz
         run: |
           seconds=${{ github.event_name == 'pull_request' && 60 || 600 }}
-          cargo fuzz run ${{ matrix.target }} -- -max_total_time=$seconds
+          target=${{ matrix.target }}
+          mkdir -p "corpus/$target"
+          dirs="corpus/$target"
+          if [ -d "seeds/$target" ]; then dirs="$dirs seeds/$target"; fi
+          cargo fuzz run "$target" $dirs -- -max_total_time=$seconds
       - name: Upload crash artifacts
         if: failure()
         uses: actions/upload-artifact@v4

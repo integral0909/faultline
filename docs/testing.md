@@ -54,6 +54,15 @@ Available targets:
 | `parse_json` | JSON reader; round trip through the serializer |
 | `parse_yaml` | YAML loader under tight node and depth limits |
 | `uri_pointer` | URI resolution and normalization idempotence; JSON Pointer round trips |
+| `lower_jsonschema` | JSON Schema lowering of an entry document and one referenced document; IR invariants |
+
+Hand-written seed inputs live in `fuzz/seeds/<target>/` and are committed;
+the generated corpus in `fuzz/corpus/` is not. Pass both directories to seed a
+run:
+
+```sh
+cargo +nightly fuzz run lower_jsonschema corpus/lower_jsonschema seeds/lower_jsonschema
+```
 
 Crashes are written to `fuzz/artifacts/<target>/`. Reproduce one with
 `cargo +nightly fuzz run <target> <file>`. CI fuzzes every target for one

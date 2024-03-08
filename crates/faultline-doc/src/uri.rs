@@ -132,30 +132,49 @@ impl UriRef {
     }
 
     /// Resolves `reference` against `self` as the base (RFC 3986 §5.2.2).
+    ///
+    /// As the RFC specifies, `..` segments that would climb above the root
+    /// are discarded: `/a` + `../../b` is `/b`. Use
+    /// [`resolve_strict`](Self::resolve_strict) where that must be an error.
     #[must_use]
     pub fn resolve(&self, reference: &UriRef) -> UriRef {
+        self.resolve_impl(reference).0
+    }
+
+    /// Like [`resolve`](Self::resolve), but returns `None` if a `..` segment
+    /// climbs above the root of the path.
+    ///
+    /// Workspace files are addressed as `file:` URIs whose root is the
+    /// workspace directory, so a reference that escapes the root is an attempt
+    /// to read outside the workspace and must be reported, not clamped.
+    pub fn resolve_strict(&self, reference: &UriRef) -> Option<UriRef> {
+        let (resolved, escaped) = self.resolve_impl(reference);
+        (!escaped).then_some(resolved)
+    }
+
+    fn resolve_impl(&self, reference: &UriRef) -> (UriRef, bool) {
         let base = self;
         let r = reference;
         let (scheme, authority, path, query);
         if r.scheme.is_some() {
             scheme = r.scheme.clone();
             authority = r.authority.clone();
-            path = remove_dot_segments(&r.path);
+            path = remove_dot_segments_checked(&r.path);
             query = r.query.clone();
         } else {
             if r.authority.is_some() {
                 authority = r.authority.clone();
-                path = remove_dot_segments(&r.path);
+                path = remove_dot_segments_checked(&r.path);
                 query = r.query.clone();
             } else {
                 if r.path.is_empty() {
-                    path = base.path.clone();
+                    path = (base.path.clone(), false);
                     query = r.query.clone().or_else(|| base.query.clone());
                 } else {
                     path = if r.path.starts_with('/') {
-                        remove_dot_segments(&r.path)
+                        remove_dot_segments_checked(&r.path)
                     } else {
-                        remove_dot_segments(&merge(base, &r.path))
+                        remove_dot_segments_checked(&merge(base, &r.path))
                     };
                     query = r.query.clone();
                 }
@@ -163,13 +182,15 @@ impl UriRef {
             }
             scheme = base.scheme.clone();
         }
-        UriRef {
+        let (path, escaped) = path;
+        let resolved = UriRef {
             scheme,
             authority,
             path,
             query,
             fragment: r.fragment.clone(),
-        }
+        };
+        (resolved, escaped)
     }
 
     /// A normalized copy suitable for comparing identifiers (RFC 3986 §6.2.2
@@ -232,16 +253,24 @@ fn merge(base: &UriRef, reference_path: &str) -> String {
     }
 }
 
-/// RFC 3986 §5.2.4, operating on whole segments rather than repeatedly
-/// rewriting the input buffer.
+/// RFC 3986 §5.2.4.
 fn remove_dot_segments(path: &str) -> String {
+    remove_dot_segments_checked(path).0
+}
+
+/// RFC 3986 §5.2.4, operating on whole segments rather than repeatedly
+/// rewriting the input buffer. The flag reports whether any `..` segment had
+/// nothing left to remove, i.e. tried to climb above the root.
+fn remove_dot_segments_checked(path: &str) -> (String, bool) {
     let mut input = path;
     let mut output: Vec<&str> = Vec::new();
+    let mut escaped = false;
     // Each output entry is a segment *including* its leading '/', except
     // possibly the first, which preserves relative paths like "a/b".
     while !input.is_empty() {
         if let Some(rest) = input.strip_prefix("../") {
             input = rest;
+            escaped = true;
         } else if let Some(rest) = input.strip_prefix("./") {
             input = rest;
         } else if input.starts_with("/./") {
@@ -250,12 +279,15 @@ fn remove_dot_segments(path: &str) -> String {
             input = "/";
         } else if input.starts_with("/../") {
             input = &input[3..];
-            output.pop();
+            escaped |= output.pop().is_none();
         } else if input == "/.." {
             input = "/";
-            output.pop();
-        } else if input == "." || input == ".." {
+            escaped |= output.pop().is_none();
+        } else if input == "." {
             input = "";
+        } else if input == ".." {
+            input = "";
+            escaped = true;
         } else {
             let start = usize::from(input.starts_with('/'));
             let end = input[start..].find('/').map_or(input.len(), |i| i + start);
@@ -267,11 +299,12 @@ fn remove_dot_segments(path: &str) -> String {
     // The RFC algorithm is specified for absolute paths; when `..` consumes the
     // first segment of a relative path the next segment keeps its '/', which
     // would turn "a/../b" into "/b". Keep relative paths relative.
-    if !path.starts_with('/') && joined.starts_with('/') {
+    let joined = if !path.starts_with('/') && joined.starts_with('/') {
         joined[1..].to_owned()
     } else {
         joined
-    }
+    };
+    (joined, escaped)
 }
 
 impl fmt::Display for UriRef {
@@ -498,6 +531,26 @@ mod tests {
         for (r, expected) in cases {
             assert_eq!(resolve(BASE, r), expected, "{r:?}");
         }
+    }
+
+    #[test]
+    fn strict_resolution_reports_escapes_above_the_root() {
+        let base = u("file:///api/v1/openapi.yaml");
+        let ok = |r: &str| base.resolve_strict(&u(r)).map(|x| x.to_string());
+        assert_eq!(
+            ok("../common.yaml").as_deref(),
+            Some("file:///api/common.yaml")
+        );
+        assert_eq!(ok("../../root.yaml").as_deref(), Some("file:///root.yaml"));
+        assert_eq!(ok("../../../etc/passwd"), None);
+        assert_eq!(ok("/../x"), None);
+        assert_eq!(ok("a/../../../../b"), None);
+        assert_eq!(ok("./x/../y#/defs"), Some("file:///api/v1/y#/defs".into()));
+        // Non-strict resolution clamps, as the RFC requires.
+        assert_eq!(
+            base.resolve(&u("../../../etc/passwd")).to_string(),
+            "file:///etc/passwd"
+        );
     }
 
     #[test]

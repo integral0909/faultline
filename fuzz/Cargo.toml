@@ -12,6 +12,8 @@ cargo-fuzz = true
 libfuzzer-sys = "0.4"
 faultline-doc = { path = "../crates/faultline-doc" }
 faultline-source = { path = "../crates/faultline-source" }
+faultline-ir = { path = "../crates/faultline-ir" }
+faultline-jsonschema = { path = "../crates/faultline-jsonschema" }
 
 # Kept out of the main workspace: fuzz targets need a nightly toolchain and
 # sanitizer flags that must not leak into regular builds.
@@ -35,6 +37,13 @@ bench = false
 [[bin]]
 name = "uri_pointer"
 path = "fuzz_targets/uri_pointer.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "lower_jsonschema"
+path = "fuzz_targets/lower_jsonschema.rs"
 test = false
 doc = false
 bench = false

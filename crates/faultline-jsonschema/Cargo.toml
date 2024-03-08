@@ -1,0 +1,22 @@
+[package]
+name = "faultline-jsonschema"
+description = "JSON Schema front end for Faultline: reference resolution and lowering to the IR"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+faultline-doc.workspace = true
+faultline-ir.workspace = true
+faultline-source.workspace = true
+indexmap.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+
+[lints]
+workspace = true

@@ -71,6 +71,7 @@ dependencies = [
  "indexmap",
  "proptest",
  "saphyr-parser",
+ "tempfile",
 ]
 
 [[package]]
@@ -78,6 +79,17 @@ name = "faultline-ir"
 version = "0.1.0"
 dependencies = [
  "faultline-doc",
+ "faultline-source",
+ "indexmap",
+ "proptest",
+]
+
+[[package]]
+name = "faultline-jsonschema"
+version = "0.1.0"
+dependencies = [
+ "faultline-doc",
+ "faultline-ir",
  "faultline-source",
  "indexmap",
  "proptest",

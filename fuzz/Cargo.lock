@@ -52,8 +52,29 @@ name = "faultline-fuzz"
 version = "0.0.0"
 dependencies = [
  "faultline-doc",
+ "faultline-ir",
+ "faultline-jsonschema",
  "faultline-source",
  "libfuzzer-sys",
+]
+
+[[package]]
+name = "faultline-ir"
+version = "0.1.0"
+dependencies = [
+ "faultline-doc",
+ "faultline-source",
+ "indexmap",
+]
+
+[[package]]
+name = "faultline-jsonschema"
+version = "0.1.0"
+dependencies = [
+ "faultline-doc",
+ "faultline-ir",
+ "faultline-source",
+ "indexmap",
 ]
 
 [[package]]

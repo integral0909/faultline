@@ -1,0 +1,1 @@
+{"$schema": "http://json-schema.org/draft-07/schema#", "if": {"properties": {"kind": {"const": "cat"}}}, "then": {"required": ["meows"]}, "else": {"not": {"type": "null"}}, "dependencies": {"a": ["b"], "c": {"minProperties": 2}}, "items": [{"type": "integer", "exclusiveMinimum": 0}], "additionalItems": false}

@@ -14,9 +14,11 @@
 
 pub mod codes;
 mod json;
+pub mod loader;
 mod node;
 pub mod number;
 mod pointer;
+mod store;
 pub mod uri;
 mod write;
 mod yaml;
@@ -28,6 +30,7 @@ use faultline_source::{Diagnostics, Limits, SourceFile, SourceId};
 pub use node::{Kind, Member, Node, Object, Value};
 pub use number::{Decimal, Number};
 pub use pointer::{JsonPointer, PointerError};
+pub use store::{DocumentStore, StoreError, StoredDocument};
 pub use uri::{UriError, UriRef};
 pub use write::write_json_string;
 

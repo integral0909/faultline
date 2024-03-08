@@ -12,3 +12,4 @@ New records start from [template.md](template.md) and take the next number.
 | [0001](0001-rust-and-workspace-layout.md) | Rust, and a workspace of focused crates | Accepted |
 | [0002](0002-document-parsing.md) | Own spanned JSON reader; YAML through an event parser | Accepted |
 | [0003](0003-unified-ir-with-computed-polarity.md) | A unified IR with computed polarity | Accepted |
+| [0004](0004-sandboxed-offline-reference-resolution.md) | Sandboxed, offline-by-default reference resolution | Accepted |

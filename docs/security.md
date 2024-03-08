@@ -23,11 +23,15 @@ including YAML alias expansion (which defeats "billion laughs" documents),
 reference-chain length, files per API, IR nodes, and automaton states for
 regular-expression reasoning. Exceeding a limit is a diagnostic, not a crash.
 
-**Filesystem escape.** References resolve only inside the workspace root.
-`..` traversal beyond the root, absolute paths and symlinks leading outside the
-root are refused.
+**Filesystem escape.** Workspace files are addressed as `file:` URIs rooted
+at the workspace directory. `..` segments that would climb above the root are
+reported during resolution rather than silently clamped, and the loader
+refuses any file whose canonical (symlink-resolved) path lies outside the
+canonical workspace root.
 
-**Network access and SSRF.** Remote references are disabled by default. When
+**Network access and SSRF.** Remote references are disabled by default, and
+the refusal is enforced by the document store for every loader, not by each
+loader individually. When
 enabled, fetching is HTTPS-only, restricted to an allowlist of hosts, refuses
 addresses in private, loopback and link-local ranges after DNS resolution, and
 caps response size and redirects.

@@ -22,3 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   computed request/response polarity (callbacks, `not`, `readOnly`/
   `writeOnly`), stable textual `IrPath` identities with a parser, structural
   validation including unguarded-cycle detection, and a deterministic dump.
+- `faultline-doc`: sandboxed document loading — `FsLoader` confined to the
+  workspace root (including through symbolic links), strict URI resolution
+  that reports `..` escaping the root, a caching `DocumentStore`, and remote
+  documents refused unless explicitly enabled.
+- `faultline-jsonschema`: JSON Schema front end for draft-04 through 2020-12 —
+  identifier and anchor scanning, cross-document references, `$dynamicRef`
+  and `$recursiveRef` resolved against the dynamic scope, lowering of every
+  assertion and applicator keyword into the IR, and diagnostics with source
+  spans for invalid schemas and unresolvable references.
