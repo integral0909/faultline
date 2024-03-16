@@ -31,3 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and `$recursiveRef` resolved against the dynamic scope, lowering of every
   assertion and applicator keyword into the IR, and diagnostics with source
   spans for invalid schemas and unresolvable references.
+- `faultline-subsume`: value-set inclusion between types of two APIs, with an
+  exact validator, a boundary-seeking sampler, exact rational arithmetic, and
+  a checker that answers yes, no with a verified counterexample, or unknown,
+  handling recursive types coinductively.
+- `faultline-diff`: comparison of two APIs — operations, parameters, bodies,
+  responses, callbacks, schema roots and every type position — producing typed
+  changes with polarity and evidence of lost and gained values.

@@ -1,0 +1,558 @@
+//! Structural comparison of two types.
+//!
+//! The walk aligns the two type graphs — members by name, array positions by
+//! index, union variants by identity — records what differs at each pair,
+//! and recurses. Pairs already compared under the same polarity are skipped,
+//! which terminates the walk on recursive types.
+
+use faultline_ir::{
+    Access, ArrayType, Bound, EnumType, IrPath, Meta, NumericType, ObjectType, Polarity, Segment,
+    StringType, TypeId, TypeKind, TypeNode, UnionType,
+};
+
+use crate::align::align_variants;
+use crate::change::{Change, ChangeKind, Facet};
+use crate::differ::{Differ, Direction};
+
+type Local = Vec<(ChangeKind, Direction)>;
+
+impl Differ<'_> {
+    /// Compares the type `old` with `new` at `path`, recording changes.
+    pub(crate) fn compare(&mut self, old: TypeId, new: TypeId, path: &IrPath, polarity: Polarity) {
+        let old = self.old.types.resolve(old);
+        let new = self.new.types.resolve(new);
+        if !self.first_visit(old, new, polarity) {
+            return;
+        }
+        let (on, nn) = (self.old.types.get(old), self.new.types.get(new));
+        self.meta_changes(on, nn, path, polarity);
+
+        let mut local = Local::new();
+        match (&on.kind, &nn.kind) {
+            (TypeKind::String(a), TypeKind::String(b)) => strings(a, b, &mut local),
+            (
+                TypeKind::Integer(a) | TypeKind::Number(a),
+                TypeKind::Integer(b) | TypeKind::Number(b),
+            ) => {
+                let (a_int, b_int) = (
+                    matches!(on.kind, TypeKind::Integer(_)),
+                    matches!(nn.kind, TypeKind::Integer(_)),
+                );
+                if a_int != b_int {
+                    let direction = if b_int {
+                        Direction::Narrowing
+                    } else {
+                        Direction::Widening
+                    };
+                    local.push((ChangeKind::NumericKindChanged { integer: b_int }, direction));
+                }
+                numbers(a, b, &mut local);
+            }
+            (TypeKind::Enum(a), TypeKind::Enum(b)) => enums(a, b, &mut local),
+            (TypeKind::Object(a), TypeKind::Object(b)) => {
+                self.objects(a, b, path, polarity, &mut local);
+            }
+            (TypeKind::Array(a), TypeKind::Array(b)) => {
+                self.arrays(a, b, path, polarity, &mut local);
+            }
+            (TypeKind::Map(a), TypeKind::Map(b)) => {
+                let (ak, av, bk, bv) = (a.key, a.value, b.key, b.value);
+                self.compare(ak, bk, &path.join(Segment::MapKey), polarity);
+                self.compare(av, bv, &path.join(Segment::MapValue), polarity);
+            }
+            (TypeKind::Union(a), TypeKind::Union(b)) => {
+                self.unions(a, b, path, polarity, &mut local);
+            }
+            (TypeKind::Union(a), _) => {
+                let wrapped = single(new);
+                self.variants(&a.variants, &wrapped, path, polarity, &mut local);
+            }
+            (_, TypeKind::Union(b)) => {
+                let wrapped = single(old);
+                self.variants(&wrapped, &b.variants, path, polarity, &mut local);
+            }
+            (TypeKind::AllOf(a), TypeKind::AllOf(b)) if a.len() == b.len() => {
+                for (i, (&x, &y)) in a.iter().zip(b).enumerate() {
+                    self.compare(x, y, &path.join(Segment::AllOf(i)), polarity);
+                }
+            }
+            (TypeKind::Not(a), TypeKind::Not(b)) => {
+                let (a, b) = (*a, *b);
+                self.compare(a, b, &path.join(Segment::Not), polarity.flip());
+            }
+            (TypeKind::AllOf(_), TypeKind::AllOf(_)) => {
+                local.push((ChangeKind::ConstraintChanged, Direction::Either));
+            }
+            (a, b) if std::mem::discriminant(a) == std::mem::discriminant(b) => {}
+            (a, b) => local.push((
+                ChangeKind::TypeChanged {
+                    old: describe(on, a),
+                    new: describe(nn, b),
+                },
+                Direction::Either,
+            )),
+        }
+        self.emit_local(old, new, path, polarity, local);
+    }
+
+    fn meta_changes(&mut self, on: &TypeNode, nn: &TypeNode, path: &IrPath, polarity: Polarity) {
+        let spans = (on.origin, nn.origin);
+        let (a, b): (&Meta, &Meta) = (&on.meta, &nn.meta);
+        if a.deprecated != b.deprecated {
+            self.surface(
+                ChangeKind::DeprecatedChanged {
+                    deprecated: b.deprecated,
+                },
+                path.clone(),
+                polarity,
+                spans,
+            );
+        }
+        if a.access != b.access {
+            self.surface(
+                ChangeKind::AccessChanged {
+                    old: access_name(a.access).into(),
+                    new: access_name(b.access).into(),
+                },
+                path.clone(),
+                polarity,
+                spans,
+            );
+        }
+        if a.default != b.default {
+            self.surface(
+                ChangeKind::DefaultChanged {
+                    old: a.default.clone(),
+                    new: b.default.clone(),
+                },
+                path.clone(),
+                polarity,
+                spans,
+            );
+        }
+    }
+
+    fn objects(
+        &mut self,
+        a: &ObjectType,
+        b: &ObjectType,
+        path: &IrPath,
+        polarity: Polarity,
+        local: &mut Local,
+    ) {
+        let names: Vec<String> = a
+            .fields
+            .iter()
+            .map(|f| f.name.clone())
+            .chain(
+                b.fields
+                    .iter()
+                    .map(|f| f.name.clone())
+                    .filter(|n| a.field(n).is_none()),
+            )
+            .collect();
+        for name in names {
+            match (a.field(&name), b.field(&name)) {
+                (Some(of), None) => {
+                    let kind = ChangeKind::FieldRemoved {
+                        name: name.clone(),
+                        required: of.required,
+                    };
+                    local.push((kind, Direction::Either));
+                }
+                (None, Some(nf)) => {
+                    let kind = ChangeKind::FieldAdded {
+                        name: name.clone(),
+                        required: nf.required,
+                    };
+                    local.push((kind, Direction::Either));
+                }
+                (Some(of), Some(nf)) => {
+                    if of.required != nf.required {
+                        let direction = if nf.required {
+                            Direction::Narrowing
+                        } else {
+                            Direction::Widening
+                        };
+                        let kind = ChangeKind::FieldRequiredChanged {
+                            name: name.clone(),
+                            required: nf.required,
+                        };
+                        local.push((kind, direction));
+                    }
+                    let (ot, nt) = (of.ty, nf.ty);
+                    let child = self.child_polarity(polarity, ot, nt);
+                    if !child.is_none() {
+                        self.compare(ot, nt, &path.join(Segment::Field(name.clone())), child);
+                    }
+                }
+                (None, None) => unreachable!("names come from the fields"),
+            }
+        }
+
+        for (pattern, ot) in &a.pattern_properties {
+            let segment = Segment::PatternProperty(pattern.clone());
+            match b.pattern_properties.iter().find(|(p, _)| p == pattern) {
+                Some((_, nt)) => self.compare(*ot, *nt, &path.join(segment), polarity),
+                None => self.constraint(path.join(segment), polarity),
+            }
+        }
+        for (pattern, _) in &b.pattern_properties {
+            if !a.pattern_properties.iter().any(|(p, _)| p == pattern) {
+                self.constraint(
+                    path.join(Segment::PatternProperty(pattern.clone())),
+                    polarity,
+                );
+            }
+        }
+        self.compare(
+            a.additional,
+            b.additional,
+            &path.join(Segment::Additional),
+            polarity,
+        );
+        match (a.property_names, b.property_names) {
+            (Some(x), Some(y)) => self.compare(x, y, &path.join(Segment::PropertyNames), polarity),
+            (None, None) => {}
+            _ => self.constraint(path.join(Segment::PropertyNames), polarity),
+        }
+        bound_u64(
+            Facet::MinProperties,
+            Some(a.min_properties).filter(|&m| m > 0),
+            Some(b.min_properties).filter(|&m| m > 0),
+            true,
+            local,
+        );
+        bound_u64(
+            Facet::MaxProperties,
+            a.max_properties,
+            b.max_properties,
+            false,
+            local,
+        );
+        if a.dependent_required != b.dependent_required {
+            local.push((ChangeKind::ConstraintChanged, Direction::Either));
+        }
+    }
+
+    fn arrays(
+        &mut self,
+        a: &ArrayType,
+        b: &ArrayType,
+        path: &IrPath,
+        polarity: Polarity,
+        local: &mut Local,
+    ) {
+        let positions = a.prefix_items.len().max(b.prefix_items.len());
+        for i in 0..positions {
+            match (a.prefix_items.get(i), b.prefix_items.get(i)) {
+                (Some(&x), Some(&y)) => {
+                    self.compare(x, y, &path.join(Segment::PrefixItem(i)), polarity);
+                }
+                (Some(&x), None) => {
+                    self.compare(x, b.items, &path.join(Segment::PrefixItem(i)), polarity);
+                }
+                (None, Some(&y)) => {
+                    self.compare(a.items, y, &path.join(Segment::PrefixItem(i)), polarity);
+                }
+                (None, None) => {}
+            }
+        }
+        self.compare(a.items, b.items, &path.join(Segment::Items), polarity);
+        bound_u64(
+            Facet::MinItems,
+            Some(a.min_items).filter(|&m| m > 0),
+            Some(b.min_items).filter(|&m| m > 0),
+            true,
+            local,
+        );
+        bound_u64(Facet::MaxItems, a.max_items, b.max_items, false, local);
+        if a.unique_items != b.unique_items {
+            let direction = if b.unique_items {
+                Direction::Narrowing
+            } else {
+                Direction::Widening
+            };
+            local.push((
+                ChangeKind::UniqueItemsChanged {
+                    unique: b.unique_items,
+                },
+                direction,
+            ));
+        }
+        match (&a.contains, &b.contains) {
+            (Some(x), Some(y)) => {
+                self.compare(x.ty, y.ty, &path.join(Segment::Contains), polarity);
+                bound_u64(Facet::MinContains, Some(x.min), Some(y.min), true, local);
+                bound_u64(Facet::MaxContains, x.max, y.max, false, local);
+            }
+            (None, None) => {}
+            _ => local.push((ChangeKind::ConstraintChanged, Direction::Either)),
+        }
+    }
+
+    fn unions(
+        &mut self,
+        a: &UnionType,
+        b: &UnionType,
+        path: &IrPath,
+        polarity: Polarity,
+        local: &mut Local,
+    ) {
+        if a.mode != b.mode {
+            local.push((
+                ChangeKind::UnionModeChanged {
+                    old: format!("{:?}", a.mode).to_lowercase(),
+                    new: format!("{:?}", b.mode).to_lowercase(),
+                },
+                Direction::Either,
+            ));
+        }
+        if a.discriminator.as_ref().map(|d| &d.property)
+            != b.discriminator.as_ref().map(|d| &d.property)
+        {
+            local.push((ChangeKind::ConstraintChanged, Direction::Either));
+        }
+        self.variants(&a.variants, &b.variants, path, polarity, local);
+    }
+
+    fn variants(
+        &mut self,
+        a: &[TypeId],
+        b: &[TypeId],
+        path: &IrPath,
+        polarity: Polarity,
+        local: &mut Local,
+    ) {
+        for (x, y) in align_variants(self.old, a, self.new, b) {
+            match (x, y) {
+                (Some(i), Some(j)) => {
+                    let segment = if b.len() > 1 {
+                        Some(Segment::Variant(j))
+                    } else {
+                        None
+                    };
+                    let child = segment.map_or_else(|| path.clone(), |s| path.join(s));
+                    self.compare(a[i], b[j], &child, polarity);
+                }
+                (Some(i), None) => {
+                    local.push((ChangeKind::VariantRemoved { index: i }, Direction::Either));
+                }
+                (None, Some(j)) => {
+                    local.push((ChangeKind::VariantAdded { index: j }, Direction::Either));
+                }
+                (None, None) => {}
+            }
+        }
+    }
+
+    fn constraint(&mut self, path: IrPath, polarity: Polarity) {
+        self.push(Change {
+            kind: ChangeKind::ConstraintChanged,
+            path,
+            polarity,
+            old_span: None,
+            new_span: None,
+            effect: None,
+        });
+    }
+
+    /// The polarity for a member: directions in which either version reads
+    /// or writes it. A member made `readOnly` in the new version is still
+    /// compared as a request member, because the old version accepted it.
+    fn child_polarity(&self, polarity: Polarity, old: TypeId, new: TypeId) -> Polarity {
+        let access =
+            |api: &faultline_ir::Api, id: TypeId| api.types.get(api.types.resolve(id)).meta.access;
+        polarity
+            .restrict(access(self.old, old))
+            .union(polarity.restrict(access(self.new, new)))
+    }
+}
+
+fn single(id: TypeId) -> Vec<TypeId> {
+    vec![id]
+}
+
+fn describe(node: &TypeNode, kind: &TypeKind) -> String {
+    match &node.name {
+        Some(name) => format!("{} {name}", kind.describe()),
+        None => kind.describe().to_owned(),
+    }
+}
+
+fn access_name(access: Access) -> &'static str {
+    match access {
+        Access::ReadWrite => "read-write",
+        Access::ReadOnly => "read-only",
+        Access::WriteOnly => "write-only",
+    }
+}
+
+fn strings(a: &StringType, b: &StringType, local: &mut Local) {
+    bound_u64(
+        Facet::MinLength,
+        Some(a.min_length).filter(|&m| m > 0),
+        Some(b.min_length).filter(|&m| m > 0),
+        true,
+        local,
+    );
+    bound_u64(Facet::MaxLength, a.max_length, b.max_length, false, local);
+    if a.pattern != b.pattern {
+        let direction = match (&a.pattern, &b.pattern) {
+            (None, Some(_)) => Direction::Narrowing,
+            (Some(_), None) => Direction::Widening,
+            _ => Direction::Either,
+        };
+        local.push((
+            ChangeKind::PatternChanged {
+                old: a.pattern.clone(),
+                new: b.pattern.clone(),
+            },
+            direction,
+        ));
+    }
+    format_change(a.format.as_ref(), b.format.as_ref(), local);
+}
+
+fn numbers(a: &NumericType, b: &NumericType, local: &mut Local) {
+    bound(
+        Facet::Minimum,
+        a.minimum.as_ref(),
+        b.minimum.as_ref(),
+        true,
+        local,
+    );
+    bound(
+        Facet::Maximum,
+        a.maximum.as_ref(),
+        b.maximum.as_ref(),
+        false,
+        local,
+    );
+    if a.multiple_of != b.multiple_of {
+        let direction = match (&a.multiple_of, &b.multiple_of) {
+            (None, Some(_)) => Direction::Narrowing,
+            (Some(_), None) => Direction::Widening,
+            _ => Direction::Either,
+        };
+        local.push((
+            ChangeKind::BoundChanged {
+                facet: Facet::MultipleOf,
+                old: a.multiple_of.as_ref().map(ToString::to_string),
+                new: b.multiple_of.as_ref().map(ToString::to_string),
+            },
+            direction,
+        ));
+    }
+    format_change(a.format.as_ref(), b.format.as_ref(), local);
+}
+
+fn format_change(a: Option<&String>, b: Option<&String>, local: &mut Local) {
+    if a != b {
+        local.push((
+            ChangeKind::FormatChanged {
+                old: a.cloned(),
+                new: b.cloned(),
+            },
+            Direction::Either,
+        ));
+    }
+}
+
+fn enums(a: &EnumType, b: &EnumType, local: &mut Local) {
+    for value in &a.values {
+        if !b.values.iter().any(|v| v.value == value.value) {
+            local.push((
+                ChangeKind::EnumValueRemoved {
+                    value: value.value.clone(),
+                },
+                Direction::Narrowing,
+            ));
+        }
+    }
+    for value in &b.values {
+        if !a.values.iter().any(|v| v.value == value.value) {
+            local.push((
+                ChangeKind::EnumValueAdded {
+                    value: value.value.clone(),
+                },
+                Direction::Widening,
+            ));
+        }
+    }
+    if a.open != b.open {
+        let direction = if b.open {
+            Direction::Widening
+        } else {
+            Direction::Narrowing
+        };
+        local.push((ChangeKind::ConstraintChanged, direction));
+    }
+}
+
+/// Records a change of a numeric bound. `lower` bounds narrow when raised,
+/// upper bounds when lowered; adding a bound narrows, removing one widens.
+fn bound(facet: Facet, a: Option<&Bound>, b: Option<&Bound>, lower: bool, local: &mut Local) {
+    if a == b {
+        return;
+    }
+    let direction = match (a, b) {
+        (None, Some(_)) => Direction::Narrowing,
+        (Some(_), None) => Direction::Widening,
+        (Some(x), Some(y)) => {
+            let tighter = match x.value.cmp(&y.value) {
+                std::cmp::Ordering::Equal => y.exclusive && !x.exclusive,
+                std::cmp::Ordering::Less => lower,
+                std::cmp::Ordering::Greater => !lower,
+            };
+            if tighter {
+                Direction::Narrowing
+            } else {
+                Direction::Widening
+            }
+        }
+        (None, None) => return,
+    };
+    let show = |b: &Bound| {
+        if b.exclusive {
+            format!("{} (exclusive)", b.value)
+        } else {
+            b.value.to_string()
+        }
+    };
+    local.push((
+        ChangeKind::BoundChanged {
+            facet,
+            old: a.map(show),
+            new: b.map(show),
+        },
+        direction,
+    ));
+}
+
+/// Records a change of a size bound (`None` means no bound).
+fn bound_u64(facet: Facet, a: Option<u64>, b: Option<u64>, lower: bool, local: &mut Local) {
+    if a == b {
+        return;
+    }
+    let direction = match (a, b) {
+        (None, Some(_)) => Direction::Narrowing,
+        (Some(_), None) => Direction::Widening,
+        (Some(x), Some(y)) => {
+            if (y > x) == lower {
+                Direction::Narrowing
+            } else {
+                Direction::Widening
+            }
+        }
+        (None, None) => return,
+    };
+    local.push((
+        ChangeKind::BoundChanged {
+            facet,
+            old: a.map(|v| v.to_string()),
+            new: b.map(|v| v.to_string()),
+        },
+        direction,
+    ));
+}

@@ -13,3 +13,4 @@ New records start from [template.md](template.md) and take the next number.
 | [0002](0002-document-parsing.md) | Own spanned JSON reader; YAML through an event parser | Accepted |
 | [0003](0003-unified-ir-with-computed-polarity.md) | A unified IR with computed polarity | Accepted |
 | [0004](0004-sandboxed-offline-reference-resolution.md) | Sandboxed, offline-by-default reference resolution | Accepted |
+| [0005](0005-three-valued-inclusion-with-verified-witnesses.md) | Three-valued inclusion with verified witnesses | Accepted |

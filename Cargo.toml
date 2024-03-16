@@ -16,13 +16,17 @@ categories = ["development-tools", "command-line-utilities"]
 [workspace.dependencies]
 faultline-source = { path = "crates/faultline-source", version = "0.1.0" }
 faultline-doc = { path = "crates/faultline-doc", version = "0.1.0" }
+faultline-diff = { path = "crates/faultline-diff", version = "0.1.0" }
 faultline-ir = { path = "crates/faultline-ir", version = "0.1.0" }
 faultline-jsonschema = { path = "crates/faultline-jsonschema", version = "0.1.0" }
+faultline-subsume = { path = "crates/faultline-subsume", version = "0.1.0" }
 
 indexmap = "2.7"
+jsonschema = { version = "0.58", default-features = false, features = ["arbitrary-precision"] }
 proptest = "1"
 tempfile = "3"
 saphyr-parser = "0.1"
+serde_json = { version = "1", features = ["arbitrary_precision"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
@@ -39,6 +43,8 @@ must_use_candidate = "allow"
 missing_errors_doc = "allow"
 missing_panics_doc = "allow"
 similar_names = "allow"
+# Two-sided comparisons read best with short symmetric names (l/r, a/b).
+many_single_char_names = "allow"
 # Offsets are u32 by design (see faultline-source); conversions are checked at the boundary.
 cast_possible_truncation = "allow"
 dbg_macro = "warn"

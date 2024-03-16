@@ -1,0 +1,25 @@
+[package]
+name = "faultline-diff"
+description = "Structural and semantic comparison of two Faultline APIs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+faultline-doc.workspace = true
+faultline-ir.workspace = true
+faultline-source.workspace = true
+faultline-subsume.workspace = true
+
+[dev-dependencies]
+faultline-jsonschema.workspace = true
+jsonschema.workspace = true
+proptest.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true
