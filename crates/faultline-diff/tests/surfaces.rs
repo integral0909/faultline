@@ -31,6 +31,7 @@ fn param(name: &str, required: bool, ty: TypeId) -> Parameter {
         name: name.into(),
         required,
         ty,
+        serialization: None,
         meta: Meta::default(),
         origin: None,
     }

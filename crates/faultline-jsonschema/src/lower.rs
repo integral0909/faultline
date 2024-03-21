@@ -20,7 +20,11 @@
 use std::collections::{HashMap, VecDeque};
 use std::rc::Rc;
 
-use faultline_doc::{DocumentStore, JsonPointer, Node, UriRef, Value, loader::LoadError};
+use std::sync::Arc;
+
+use faultline_doc::{
+    DocumentStore, JsonPointer, Node, StoreError, StoredDocument, UriRef, Value, loader::LoadError,
+};
 use faultline_ir::{Api, QualName, TypeId, TypeKind, TypeNode};
 use faultline_source::{Diagnostic, Diagnostics, Span};
 
@@ -147,6 +151,48 @@ impl<'a, 'l> Lowerer<'a, 'l> {
             &mut self.diagnostics,
         );
         Some(root)
+    }
+
+    /// Loads the document at `uri` and registers it for reference
+    /// resolution without treating its root as a schema, as for an OpenAPI
+    /// description whose schemas sit at known positions inside it.
+    pub fn document(&mut self, uri: &UriRef) -> Result<Arc<StoredDocument>, StoreError> {
+        let document = self.store.get(uri)?;
+        self.registry.add_document(Arc::clone(&document));
+        Ok(document)
+    }
+
+    /// The node for the schema at `location` in a registered document,
+    /// scanning it first with `dialect` if it was not reached as part of
+    /// another schema. Returns `None` (with a diagnostic) if the location does
+    /// not hold a schema.
+    pub fn schema_at(&mut self, location: &Location, dialect: Dialect) -> Option<TypeId> {
+        match self
+            .registry
+            .ensure_scanned(location, dialect, &mut self.diagnostics)
+        {
+            Ok(()) => Some(self.lower(location)),
+            Err(error) => {
+                let span = self
+                    .registry
+                    .document(&location.document)
+                    .and_then(|d| d.document.root.pointer(&location.pointer).map(|n| n.span));
+                if let Some(span) = span {
+                    self.diagnostics.push(resolve_diagnostic(
+                        &location.pointer.to_string(),
+                        &error,
+                        span,
+                    ));
+                }
+                None
+            }
+        }
+    }
+
+    /// The API being built, for front ends that add surfaces around the
+    /// schemas they lower.
+    pub fn api_mut(&mut self) -> &mut Api {
+        self.api
     }
 
     /// The node for the schema at `location`, lowering it (and everything it
@@ -462,12 +508,14 @@ fn enter(scope: &Scope, resource: &UriRef) -> Scope {
     }
 }
 
-/// Whether a pointer names an entry of a definitions container.
+/// Whether a pointer names an entry of a definitions container: `$defs` or
+/// `definitions` anywhere, or OpenAPI's `components/schemas` at the root.
 pub(crate) fn is_definition(pointer: &JsonPointer) -> bool {
-    matches!(
-        pointer.tokens(),
-        [.., container, _] if container == "$defs" || container == "definitions"
-    )
+    match pointer.tokens() {
+        [components, schemas, _] if components == "components" && schemas == "schemas" => true,
+        [.., container, _] => container == "$defs" || container == "definitions",
+        _ => false,
+    }
 }
 
 /// The last path segment of a URI without its extension, e.g. `pet` for

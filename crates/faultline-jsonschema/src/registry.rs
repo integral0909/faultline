@@ -191,7 +191,7 @@ impl Registry {
                 }
             }
             // The id keyword depends on the (possibly just updated) dialect.
-            if let Some(id_node) = obj.get(dialect.id_keyword())
+            if let Some(id_node) = dialect.id_keyword().and_then(|keyword| obj.get(keyword))
                 && let Some((new_base, anchor)) = declare_id(id_node, &base, dialect, diagnostics)
             {
                 if let Some(name) = anchor {
@@ -469,7 +469,7 @@ fn declare_id(
 ) -> Option<(UriRef, Option<String>)> {
     let invalid = |diagnostics: &mut Diagnostics, message: &str| {
         diagnostics.push(
-            Diagnostic::error(format!("invalid {}", dialect.id_keyword()))
+            Diagnostic::error(format!("invalid {}", dialect.id_keyword().unwrap_or("$id")))
                 .with_code(codes::INVALID_URI)
                 .with_primary(id_node.span, message.to_owned()),
         );

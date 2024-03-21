@@ -8,7 +8,9 @@
 use std::collections::HashSet;
 
 use faultline_doc::{Node, UriRef, Value};
-use faultline_ir::{Field, Meta, ObjectType, TypeId, TypeKind, TypeNode, UnionMode, UnionType};
+use faultline_ir::{
+    Discriminator, Field, Meta, ObjectType, TypeId, TypeKind, TypeNode, UnionMode, UnionType,
+};
 use faultline_source::{Diagnostic, Span};
 
 use crate::assertions::TypeSet;
@@ -118,10 +120,11 @@ impl Lowerer<'_, '_> {
         }
         for (keyword, mode) in [("anyOf", UnionMode::Any), ("oneOf", UnionMode::Exclusive)] {
             if let Some(variants) = self.schema_list(ctx, keyword) {
+                let discriminator = self.discriminator(ctx, keyword, &variants);
                 parts.push(Part::Kind(TypeKind::Union(UnionType {
                     mode,
                     variants,
-                    discriminator: None,
+                    discriminator,
                 })));
             }
         }
@@ -175,6 +178,71 @@ impl Lowerer<'_, '_> {
                 discriminator: None,
             })));
         }
+    }
+
+    /// An OpenAPI discriminator next to `keyword`'s variants. Explicit
+    /// `mapping` entries name schemas by reference or by component name;
+    /// variants that reference `#/components/schemas/Name` without an
+    /// explicit entry are implicitly mapped from `Name`.
+    fn discriminator(
+        &mut self,
+        ctx: &SchemaCtx<'_>,
+        keyword: &str,
+        variants: &[TypeId],
+    ) -> Option<Discriminator> {
+        let node = ctx.get("discriminator")?;
+        let Some(property) = node.get("propertyName").and_then(Node::as_str) else {
+            self.invalid(
+                ctx,
+                "discriminator",
+                "must be an object with a string propertyName",
+            );
+            return None;
+        };
+        let mut mapping = Vec::new();
+        let mut explicit_targets = Vec::new();
+        if let Some(explicit) = node.get("mapping").and_then(Node::as_object) {
+            for (value, target) in explicit.iter() {
+                let Some(target_text) = target.as_str() else {
+                    continue;
+                };
+                let reference = if target_text.contains(['/', '#']) {
+                    target_text.to_owned()
+                } else {
+                    format!("#/components/schemas/{target_text}")
+                };
+                if let Some(location) = self.reference(ctx, &reference, target.span) {
+                    let id = self.target(&location, &ctx.scope);
+                    mapping.push((value.to_owned(), id));
+                    explicit_targets.push(location);
+                }
+            }
+        }
+        // A schema that is already the target of an explicit mapping is not
+        // also reachable under its implicit name.
+        for (i, &variant) in variants.iter().enumerate() {
+            let reference_node = ctx.node_at(&[keyword, &i.to_string(), "$ref"]);
+            let Some(reference) = reference_node.and_then(Node::as_str) else {
+                continue;
+            };
+            let Some(name) = reference.strip_prefix("#/components/schemas/") else {
+                continue;
+            };
+            if name.contains('/') || mapping.iter().any(|(value, _)| value == name) {
+                continue;
+            }
+            let span = reference_node.map_or(node.span, |n| n.span);
+            let explicitly_mapped = self
+                .reference(ctx, reference, span)
+                .is_some_and(|location| explicit_targets.contains(&location));
+            if !explicitly_mapped {
+                mapping.push((name.to_owned(), variant));
+            }
+        }
+        Some(Discriminator {
+            property: property.to_owned(),
+            mapping,
+        })
     }
 
     /// Objects that have a member named `name`, of any value.

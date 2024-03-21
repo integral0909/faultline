@@ -180,8 +180,60 @@ pub struct Parameter {
     pub name: String,
     pub required: bool,
     pub ty: TypeId,
+    /// How the value is written into the request, where the format says.
+    pub serialization: Option<Serialization>,
     pub meta: Meta,
     pub origin: Option<Span>,
+}
+
+/// How a parameter value is encoded on the wire. Front ends store the
+/// *effective* values, with the format's defaults applied, so that spelling a
+/// default explicitly is not a change.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Serialization {
+    /// `form`, `simple`, `matrix`, `label`, `spaceDelimited`, `pipeDelimited`
+    /// or `deepObject` in OpenAPI.
+    pub style: String,
+    pub explode: bool,
+    /// Reserved characters may appear unencoded.
+    pub allow_reserved: bool,
+    /// An empty value may be sent.
+    pub allow_empty_value: bool,
+}
+
+/// One acceptable combination of security schemes: all of them are needed.
+/// An operation's requirements are alternatives; any one suffices.
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SecurityRequirement {
+    /// Scheme name to required scopes (sorted).
+    pub schemes: std::collections::BTreeMap<String, Vec<String>>,
+}
+
+impl SecurityRequirement {
+    /// Whether this requirement needs no credentials at all.
+    pub fn is_anonymous(&self) -> bool {
+        self.schemes.is_empty()
+    }
+}
+
+impl fmt::Display for SecurityRequirement {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.schemes.is_empty() {
+            return f.write_str("{}");
+        }
+        let parts: Vec<String> = self
+            .schemes
+            .iter()
+            .map(|(name, scopes)| {
+                if scopes.is_empty() {
+                    name.clone()
+                } else {
+                    format!("{name}[{}]", scopes.join(","))
+                }
+            })
+            .collect();
+        f.write_str(&parts.join(" + "))
+    }
 }
 
 impl Parameter {
@@ -284,6 +336,9 @@ pub struct Operation {
     pub request_body: Option<RequestBody>,
     pub responses: Vec<Response>,
     pub callbacks: Vec<Callback>,
+    /// Alternative security requirements (any one suffices). `None` when the
+    /// format has no notion of security; an empty list means none apply.
+    pub security: Option<Vec<SecurityRequirement>>,
     pub meta: Meta,
     pub origin: Option<Span>,
 }
@@ -297,6 +352,7 @@ impl Operation {
             request_body: None,
             responses: Vec::new(),
             callbacks: Vec::new(),
+            security: None,
             meta: Meta::default(),
             origin: None,
         }
@@ -375,6 +431,7 @@ mod tests {
             name: "X-Request-ID".into(),
             required: false,
             ty: TypeId::from_raw(0),
+            serialization: None,
             meta: Meta::default(),
             origin: None,
         };

@@ -39,6 +39,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 
 [[package]]
+name = "faultline-diff"
+version = "0.1.0"
+dependencies = [
+ "faultline-doc",
+ "faultline-ir",
+ "faultline-source",
+ "faultline-subsume",
+]
+
+[[package]]
 name = "faultline-doc"
 version = "0.1.0"
 dependencies = [
@@ -51,9 +61,11 @@ dependencies = [
 name = "faultline-fuzz"
 version = "0.0.0"
 dependencies = [
+ "faultline-diff",
  "faultline-doc",
  "faultline-ir",
  "faultline-jsonschema",
+ "faultline-openapi",
  "faultline-source",
  "libfuzzer-sys",
 ]
@@ -78,8 +90,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "faultline-openapi"
+version = "0.1.0"
+dependencies = [
+ "faultline-doc",
+ "faultline-ir",
+ "faultline-jsonschema",
+ "faultline-source",
+]
+
+[[package]]
 name = "faultline-source"
 version = "0.1.0"
+
+[[package]]
+name = "faultline-subsume"
+version = "0.1.0"
+dependencies = [
+ "faultline-doc",
+ "faultline-ir",
+]
 
 [[package]]
 name = "find-msvc-tools"

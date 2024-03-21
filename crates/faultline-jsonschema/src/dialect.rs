@@ -2,13 +2,20 @@ use std::fmt;
 
 /// A JSON Schema dialect: the specification version whose keyword semantics
 /// apply to a schema resource.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+///
+/// Capabilities are spelled out per dialect rather than derived from an
+/// ordering, because the OpenAPI 3.0 schema object is not a point on the
+/// draft timeline: it is draft-04-like validation without identifiers, plus
+/// `nullable`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Dialect {
     Draft4,
     Draft6,
     Draft7,
     Draft2019_09,
     Draft2020_12,
+    /// The OpenAPI 3.0 Schema Object: an extended subset of draft-05.
+    OpenApi30,
 }
 
 impl Dialect {
@@ -39,56 +46,66 @@ impl Dialect {
             Dialect::Draft7 => "draft-07",
             Dialect::Draft2019_09 => "2019-09",
             Dialect::Draft2020_12 => "2020-12",
+            Dialect::OpenApi30 => "OpenAPI 3.0",
         }
     }
 
-    /// The keyword that declares a resource identifier.
-    pub fn id_keyword(self) -> &'static str {
-        if self == Dialect::Draft4 { "id" } else { "$id" }
+    /// The keyword that declares a resource identifier, if the dialect has
+    /// identifiers at all.
+    pub fn id_keyword(self) -> Option<&'static str> {
+        match self {
+            Dialect::Draft4 => Some("id"),
+            Dialect::OpenApi30 => None,
+            _ => Some("$id"),
+        }
     }
 
-    /// Up to draft-07, `$ref` replaces the whole schema object and sibling
-    /// keywords are ignored. From 2019-09 it is an applicator like `allOf`.
+    /// Up to draft-07 (and in OpenAPI 3.0), `$ref` replaces the whole schema
+    /// object and sibling keywords are ignored. From 2019-09 it is an
+    /// applicator like `allOf`.
     pub fn ref_overrides_siblings(self) -> bool {
-        self <= Dialect::Draft7
+        !self.has_2019_keywords()
     }
 
     /// `$anchor` exists; before 2019-09, anchors were fragment-only `$id`s.
     pub fn has_anchor_keyword(self) -> bool {
-        self >= Dialect::Draft2019_09
+        self.has_2019_keywords()
     }
 
     /// Draft-04 spells exclusive bounds as booleans modifying
     /// `minimum`/`maximum`; later drafts give them their own numeric values.
     pub fn boolean_exclusive_bounds(self) -> bool {
-        self == Dialect::Draft4
+        matches!(self, Dialect::Draft4 | Dialect::OpenApi30)
     }
 
     /// `true` and `false` are valid schemas from draft-06 on.
     pub fn has_boolean_schemas(self) -> bool {
-        self >= Dialect::Draft6
+        self.has_draft6_keywords()
     }
 
     /// `const`, `contains`, `propertyNames` and numeric exclusive bounds.
     pub fn has_draft6_keywords(self) -> bool {
-        self >= Dialect::Draft6
+        !matches!(self, Dialect::Draft4 | Dialect::OpenApi30)
     }
 
     /// `if`/`then`/`else`.
     pub fn has_conditionals(self) -> bool {
-        self >= Dialect::Draft7
+        matches!(
+            self,
+            Dialect::Draft7 | Dialect::Draft2019_09 | Dialect::Draft2020_12
+        )
     }
 
     /// `dependentRequired`/`dependentSchemas`, `minContains`/`maxContains`,
     /// `unevaluated*`, `$defs`. Earlier drafts use `dependencies`.
     pub fn has_2019_keywords(self) -> bool {
-        self >= Dialect::Draft2019_09
+        matches!(self, Dialect::Draft2019_09 | Dialect::Draft2020_12)
     }
 
     /// `prefixItems` for tuples, with `items` for the rest. Earlier drafts
     /// use an array-valued `items` with `additionalItems`.
     pub fn has_prefix_items(self) -> bool {
-        self >= Dialect::Draft2020_12
+        self == Dialect::Draft2020_12
     }
 
     /// `$recursiveRef`/`$recursiveAnchor` (2019-09 only).
@@ -98,7 +115,12 @@ impl Dialect {
 
     /// `$dynamicRef`/`$dynamicAnchor` (2020-12).
     pub fn has_dynamic_ref(self) -> bool {
-        self >= Dialect::Draft2020_12
+        self == Dialect::Draft2020_12
+    }
+
+    /// `nullable: true` adds `null` to the declared types (OpenAPI 3.0).
+    pub fn has_nullable(self) -> bool {
+        self == Dialect::OpenApi30
     }
 }
 
@@ -143,8 +165,12 @@ mod tests {
 
     #[test]
     fn feature_boundaries() {
-        assert_eq!(Dialect::Draft4.id_keyword(), "id");
-        assert_eq!(Dialect::Draft6.id_keyword(), "$id");
+        assert_eq!(Dialect::Draft4.id_keyword(), Some("id"));
+        assert_eq!(Dialect::Draft6.id_keyword(), Some("$id"));
+        assert_eq!(Dialect::OpenApi30.id_keyword(), None);
+        assert!(Dialect::OpenApi30.ref_overrides_siblings());
+        assert!(Dialect::OpenApi30.boolean_exclusive_bounds());
+        assert!(!Dialect::OpenApi30.has_boolean_schemas());
         assert!(Dialect::Draft7.ref_overrides_siblings());
         assert!(!Dialect::Draft2019_09.ref_overrides_siblings());
         assert!(Dialect::Draft2019_09.has_recursive_ref());

@@ -11,6 +11,9 @@ on:
       - "crates/faultline-source/**"
       - "crates/faultline-ir/**"
       - "crates/faultline-jsonschema/**"
+      - "crates/faultline-openapi/**"
+      - "crates/faultline-diff/**"
+      - "crates/faultline-subsume/**"
 
 permissions:
   contents: read
@@ -25,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [parse_json, parse_yaml, uri_pointer, lower_jsonschema]
+        target: [parse_json, parse_yaml, uri_pointer, lower_jsonschema, lower_openapi]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly

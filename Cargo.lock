@@ -183,6 +183,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "faultline-openapi"
+version = "0.1.0"
+dependencies = [
+ "faultline-diff",
+ "faultline-doc",
+ "faultline-ir",
+ "faultline-jsonschema",
+ "faultline-source",
+]
+
+[[package]]
 name = "faultline-source"
 version = "0.1.0"
 dependencies = [

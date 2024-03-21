@@ -35,7 +35,8 @@ pub use path::{IrPath, PathParseError, Segment};
 pub use polarity::{Polarities, Polarity};
 pub use surface::{
     Callback, Content, Header, HttpMethod, Operation, OperationKey, ParamLocation, Parameter,
-    PathTemplate, RequestBody, Response, Role, SchemaRoot, StatusKey,
+    PathTemplate, RequestBody, Response, Role, SchemaRoot, SecurityRequirement, Serialization,
+    StatusKey,
 };
 pub use types::{
     Access, ArrayType, Bound, Contains, Discriminator, EnumType, EnumValue, Field, MapType, Meta,

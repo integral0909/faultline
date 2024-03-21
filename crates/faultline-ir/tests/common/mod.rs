@@ -87,6 +87,7 @@ pub fn param(location: ParamLocation, name: &str, ty: TypeId) -> Parameter {
         name: name.into(),
         required: false,
         ty,
+        serialization: None,
         meta: Meta::default(),
         origin: None,
     }

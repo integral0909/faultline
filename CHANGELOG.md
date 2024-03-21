@@ -38,3 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `faultline-diff`: comparison of two APIs — operations, parameters, bodies,
   responses, callbacks, schema roots and every type position — producing typed
   changes with polarity and evidence of lost and gained values.
+- `faultline-openapi`: OpenAPI 3.0 and 3.1 front end — operations,
+  parameters with effective serialization, request bodies, responses,
+  headers, callbacks, webhooks, security requirements, discriminators, and
+  every component schema, with references across files and FLE2xxx
+  diagnostics.
+- Diff support for parameter serialization, security alternatives, webhooks
+  and discriminator mappings.

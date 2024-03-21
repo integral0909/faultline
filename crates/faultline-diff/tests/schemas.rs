@@ -246,6 +246,18 @@ fn widening_and_metadata() {
 }
 
 #[test]
+fn members_of_unreachable_definitions_are_compared() {
+    let c = changes(
+        r#"{"$defs":{"Tag":{"type":"object","properties":{"a":{"type":"string"}}}}}"#,
+        r#"{"$defs":{"Tag":{"type":"object","properties":{"a":{"type":"integer"}}}}}"#,
+    );
+    assert_eq!(
+        summary(&c),
+        ["type-changed type[Tag].a [none] lost=\"\" gained=0"]
+    );
+}
+
+#[test]
 fn unreachable_definitions_are_compared_without_polarity() {
     let c = changes(
         r#"{"$defs":{"Tag":{"type":"string","maxLength":5}}}"#,

@@ -5,7 +5,7 @@ use indexmap::IndexMap;
 use crate::arena::{TypeArena, TypeId};
 use crate::path::{IrPath, Segment};
 use crate::polarity::Polarity;
-use crate::surface::{Operation, Role, SchemaRoot};
+use crate::surface::{Callback, Operation, Role, SchemaRoot};
 use crate::types::QualName;
 
 /// The format an [`Api`] was lowered from.
@@ -39,6 +39,9 @@ pub struct Api {
     pub format: ApiFormat,
     pub version: Option<String>,
     pub operations: Vec<Operation>,
+    /// Requests the API sends on its own initiative (OpenAPI 3.1 webhooks).
+    /// Values flow the opposite way from ordinary operations.
+    pub webhooks: Vec<Callback>,
     pub schemas: Vec<SchemaRoot>,
     pub types: TypeArena,
     /// Named type definitions, in declaration order.
@@ -60,6 +63,7 @@ impl Api {
             format,
             version: None,
             operations: Vec::new(),
+            webhooks: Vec::new(),
             schemas: Vec::new(),
             types: TypeArena::new(),
             named: IndexMap::new(),
@@ -69,11 +73,17 @@ impl Api {
     /// Every type position where values cross the API boundary, with the
     /// direction they cross it in. The order is deterministic: document order
     /// of operations and, within each, parameters, request body, responses,
-    /// then callbacks; schema roots come last.
+    /// then callbacks; then webhooks; schema roots come last.
     pub fn roots(&self) -> Vec<Root> {
         let mut roots = Vec::new();
         for op in &self.operations {
             operation_roots(op, &IrPath::new(), false, &mut roots);
+        }
+        for webhook in &self.webhooks {
+            let at = IrPath::new().join(Segment::Webhook(webhook.name.clone()));
+            for op in &webhook.operations {
+                operation_roots(op, &at, true, &mut roots);
+            }
         }
         for schema in &self.schemas {
             roots.push(Root {

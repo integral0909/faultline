@@ -1,0 +1,50 @@
+openapi: 3.0.3
+info: {title: Pets, version: 1.2.0}
+security: [{apiKey: []}]
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      parameters:
+        - {name: limit, in: query, schema: {type: integer, format: int32, maximum: 100}}
+        - {name: tags, in: query, style: pipeDelimited, schema: {type: array, items: {type: string}}}
+        - {name: X-Request-ID, in: header, schema: {type: string}}
+        - {name: Accept, in: header, schema: {type: string}}
+      responses:
+        "200":
+          description: ok
+          headers:
+            x-next: {schema: {type: string}}
+            Content-Type: {schema: {type: string}}
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: "#/components/schemas/Pet"}}
+        default: {$ref: "#/components/responses/Error"}
+    post:
+      security: []
+      requestBody:
+        required: true
+        content: {Application/JSON: {schema: {$ref: "#/components/schemas/Pet"}}}
+      responses: {"201": {description: created}, "4XX": {description: client error}}
+  /pets/{petId}:
+    parameters: [{name: petId, in: path, required: true, schema: {type: string}}]
+    get:
+      security: [{oauth: [write, read, read]}, {apiKey: []}]
+      responses: {"200": {description: ok}}
+components:
+  responses:
+    Error:
+      description: error
+      content: {application/json: {schema: {$ref: "#/components/schemas/Error"}}}
+  schemas:
+    Pet:
+      type: object
+      required: [name]
+      properties:
+        id: {type: integer, format: int64, readOnly: true}
+        name: {type: string}
+        tag: {type: string, nullable: true}
+    Error:
+      type: object
+      properties: {code: {type: integer, exclusiveMinimum: true, minimum: 0}}
+    Unused: {type: boolean}

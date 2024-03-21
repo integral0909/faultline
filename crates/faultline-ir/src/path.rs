@@ -15,7 +15,7 @@
 //!
 //! | Segment | Syntax |
 //! |---|---|
-//! | operation, callback, schema root, named type | `op[..]`, `callback[..]`, `schema[..]`, `type[..]` |
+//! | operation, callback, webhook, schema root, named type | `op[..]`, `callback[..]`, `webhook[..]`, `schema[..]`, `type[..]` |
 //! | parameter | `param[query:limit]` |
 //! | request body, response, response header, response body | `request[..]`, `response[..]`, `header[..]`, `body[..]` |
 //! | field | `.name`, or `."any name"` when it contains other characters |
@@ -36,6 +36,7 @@ use crate::surface::ParamLocation;
 pub enum Segment {
     Operation(String),
     Callback(String),
+    Webhook(String),
     Schema(String),
     Type(String),
     Parameter(ParamLocation, String),
@@ -63,6 +64,7 @@ impl Segment {
             self,
             Segment::Operation(_)
                 | Segment::Callback(_)
+                | Segment::Webhook(_)
                 | Segment::Schema(_)
                 | Segment::Type(_)
                 | Segment::Parameter(..)
@@ -187,6 +189,7 @@ fn write_segment(segment: &Segment, out: &mut String) {
     match segment {
         Segment::Operation(s) => keyword(out, "op", s),
         Segment::Callback(s) => keyword(out, "callback", s),
+        Segment::Webhook(s) => keyword(out, "webhook", s),
         Segment::Schema(s) => keyword(out, "schema", s),
         Segment::Type(s) => keyword(out, "type", s),
         Segment::Parameter(loc, name) => keyword(out, "param", &format!("{loc}:{name}")),
@@ -372,6 +375,7 @@ impl PathParser<'_> {
         Ok(match name {
             "op" => Segment::Operation(content),
             "callback" => Segment::Callback(content),
+            "webhook" => Segment::Webhook(content),
             "schema" => Segment::Schema(content),
             "type" => Segment::Type(content),
             "request" => Segment::RequestBody(content),
@@ -528,6 +532,7 @@ mod tests {
         let path: IrPath = [
             Segment::Operation("POST /a]b\\c".into()),
             Segment::Callback("onEvent".into()),
+            Segment::Webhook("newPet".into()),
             Segment::Parameter(ParamLocation::Header, "X-Id".into()),
             Segment::RequestBody("*/*".into()),
             Segment::Field("with space".into()),

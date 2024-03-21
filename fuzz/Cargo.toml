@@ -14,6 +14,8 @@ faultline-doc = { path = "../crates/faultline-doc" }
 faultline-source = { path = "../crates/faultline-source" }
 faultline-ir = { path = "../crates/faultline-ir" }
 faultline-jsonschema = { path = "../crates/faultline-jsonschema" }
+faultline-openapi = { path = "../crates/faultline-openapi" }
+faultline-diff = { path = "../crates/faultline-diff" }
 
 # Kept out of the main workspace: fuzz targets need a nightly toolchain and
 # sanitizer flags that must not leak into regular builds.
@@ -44,6 +46,13 @@ bench = false
 [[bin]]
 name = "lower_jsonschema"
 path = "fuzz_targets/lower_jsonschema.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "lower_openapi"
+path = "fuzz_targets/lower_openapi.rs"
 test = false
 doc = false
 bench = false

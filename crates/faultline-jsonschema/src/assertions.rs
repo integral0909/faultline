@@ -150,7 +150,12 @@ impl Lowerer<'_, '_> {
     /// Lowers `type` and the type-specific keywords. Returns `None` when the
     /// schema places no constraint on the type of values.
     pub(crate) fn typed_part(&mut self, ctx: &SchemaCtx<'_>) -> Option<Typed> {
-        let declared = self.type_keyword(ctx);
+        let mut declared = self.type_keyword(ctx);
+        // OpenAPI 3.0: `nullable` adds null to the *declared* types and has
+        // no effect without `type` (OpenAPI 3.0.3, Schema Object).
+        if ctx.dialect().has_nullable() && self.read_bool(ctx, "nullable") == Some(true) {
+            declared = declared.map(|types| types.with(TypeSet::NULL));
+        }
         let format = ctx.get("format").and_then(Node::as_str);
         let numeric_format = format.is_some_and(|f| NUMERIC_FORMATS.contains(&f));
         let has = |keywords: &[&str]| keywords.iter().any(|k| ctx.get(k).is_some());

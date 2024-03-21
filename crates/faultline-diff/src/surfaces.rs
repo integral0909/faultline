@@ -3,7 +3,8 @@
 //! [`Api::roots`](faultline_ir::Api::roots).
 
 use faultline_ir::{
-    Content, IrPath, Operation, Parameter, Polarity, RequestBody, Response, Role, Segment, TypeId,
+    Content, IrPath, Operation, Parameter, Polarity, RequestBody, Response, Role,
+    SecurityRequirement, Segment, Serialization, TypeId,
 };
 
 use crate::change::ChangeKind;
@@ -67,6 +68,12 @@ impl<'a> Differ<'a> {
             };
             self.surface(kind, path.clone(), request, spans);
         }
+        self.security(
+            old.security.as_deref(),
+            new.security.as_deref(),
+            path,
+            request,
+        );
         self.parameters(&old.parameters, &new.parameters, path, request);
         self.request_bodies(
             old.request_body.as_ref(),
@@ -126,6 +133,17 @@ impl<'a> Differ<'a> {
                     };
                     self.surface(kind, at.clone(), polarity, (p.origin, n.origin));
                 }
+                if let (Some(a), Some(b)) = (&p.serialization, &n.serialization)
+                    && a != b
+                {
+                    let kind = ChangeKind::ParameterSerializationChanged {
+                        location: p.location,
+                        name: p.name.clone(),
+                        old: describe_serialization(a),
+                        new: describe_serialization(b),
+                    };
+                    self.surface(kind, at.clone(), polarity, (p.origin, n.origin));
+                }
                 self.compare(p.ty, n.ty, &at, polarity);
             } else {
                 let kind = ChangeKind::ParameterRemoved {
@@ -146,6 +164,41 @@ impl<'a> Differ<'a> {
                 let at = path.join(Segment::Parameter(n.location, n.identity_name()));
                 self.surface(kind, at, polarity, (None, n.origin));
             }
+        }
+    }
+
+    /// Compares security alternatives as sets. No requirement at all is the
+    /// single anonymous alternative, so "authentication became required"
+    /// appears as the anonymous alternative being removed.
+    fn security(
+        &mut self,
+        old: Option<&[SecurityRequirement]>,
+        new: Option<&[SecurityRequirement]>,
+        path: &IrPath,
+        polarity: Polarity,
+    ) {
+        let (Some(old), Some(new)) = (old, new) else {
+            return;
+        };
+        let effective = |list: &[SecurityRequirement]| -> Vec<String> {
+            if list.is_empty() {
+                vec![SecurityRequirement::default().to_string()]
+            } else {
+                list.iter().map(ToString::to_string).collect()
+            }
+        };
+        let (old, new) = (effective(old), effective(new));
+        for requirement in old.iter().filter(|r| !new.contains(r)) {
+            let kind = ChangeKind::SecurityRequirementRemoved {
+                requirement: requirement.clone(),
+            };
+            self.surface(kind, path.clone(), polarity, (None, None));
+        }
+        for requirement in new.iter().filter(|r| !old.contains(r)) {
+            let kind = ChangeKind::SecurityRequirementAdded {
+                requirement: requirement.clone(),
+            };
+            self.surface(kind, path.clone(), polarity, (None, None));
         }
     }
 
@@ -292,6 +345,30 @@ impl<'a> Differ<'a> {
         }
     }
 
+    pub(crate) fn webhooks(&mut self) {
+        let (old, new) = (self.old, self.new);
+        for hook in &old.webhooks {
+            let at = IrPath::new().join(Segment::Webhook(hook.name.clone()));
+            if let Some(counterpart) = new.webhooks.iter().find(|h| h.name == hook.name) {
+                self.operations(&hook.operations, &counterpart.operations, &at, true);
+            } else {
+                let kind = ChangeKind::WebhookRemoved {
+                    name: hook.name.clone(),
+                };
+                self.surface(kind, at, Polarity::OUT, (hook.origin, None));
+            }
+        }
+        for hook in &new.webhooks {
+            if !old.webhooks.iter().any(|h| h.name == hook.name) {
+                let at = IrPath::new().join(Segment::Webhook(hook.name.clone()));
+                let kind = ChangeKind::WebhookAdded {
+                    name: hook.name.clone(),
+                };
+                self.surface(kind, at, Polarity::OUT, (None, hook.origin));
+            }
+        }
+    }
+
     pub(crate) fn schemas(&mut self) {
         let (old, new) = (self.old, self.new);
         for s in &old.schemas {
@@ -335,6 +412,17 @@ impl<'a> Differ<'a> {
             self.compare(o, n, &path, Polarity::NONE);
         }
     }
+}
+
+fn describe_serialization(s: &Serialization) -> String {
+    let mut out = format!("style={} explode={}", s.style, s.explode);
+    if s.allow_reserved {
+        out.push_str(" allowReserved");
+    }
+    if s.allow_empty_value {
+        out.push_str(" allowEmptyValue");
+    }
+    out
 }
 
 fn role_polarity(role: Role) -> Polarity {

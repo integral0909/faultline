@@ -55,6 +55,7 @@ Available targets:
 | `parse_yaml` | YAML loader under tight node and depth limits |
 | `uri_pointer` | URI resolution and normalization idempotence; JSON Pointer round trips |
 | `lower_jsonschema` | JSON Schema lowering of an entry document and one referenced document; IR invariants |
+| `lower_openapi` | OpenAPI lowering; IR invariants; a description never differs from itself |
 
 Hand-written seed inputs live in `fuzz/seeds/<target>/` and are committed;
 the generated corpus in `fuzz/corpus/` is not. Pass both directories to seed a

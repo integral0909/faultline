@@ -54,6 +54,7 @@ impl<'a> IntoIterator for &'a ChangeSet {
 pub fn diff(old: &Api, new: &Api) -> ChangeSet {
     let mut differ = differ::Differ::new(old, new);
     differ.operations(&old.operations, &new.operations, &IrPath::new(), false);
+    differ.webhooks();
     differ.schemas();
     differ.unreachable_definitions();
     let mut changes = differ.changes;

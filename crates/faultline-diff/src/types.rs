@@ -182,7 +182,10 @@ impl Differ<'_> {
                     }
                     let (ot, nt) = (of.ty, nf.ty);
                     let child = self.child_polarity(polarity, ot, nt);
-                    if !child.is_none() {
+                    // Skip a member only when access modifiers removed every
+                    // direction; unreachable definitions have none to begin
+                    // with and are still compared.
+                    if !child.is_none() || polarity.is_none() {
                         self.compare(ot, nt, &path.join(Segment::Field(name.clone())), child);
                     }
                 }
@@ -308,12 +311,60 @@ impl Differ<'_> {
                 Direction::Either,
             ));
         }
-        if a.discriminator.as_ref().map(|d| &d.property)
-            != b.discriminator.as_ref().map(|d| &d.property)
-        {
-            local.push((ChangeKind::ConstraintChanged, Direction::Either));
-        }
+        self.discriminators(a, b, path, polarity);
         self.variants(&a.variants, &b.variants, path, polarity, local);
+    }
+
+    /// Compares discriminator properties and value mappings. Mapping targets
+    /// are compared by the name of the schema they select.
+    fn discriminators(&mut self, a: &UnionType, b: &UnionType, path: &IrPath, polarity: Polarity) {
+        let (old_api, new_api) = (self.old, self.new);
+        let property = |u: &UnionType| u.discriminator.as_ref().map(|d| d.property.clone());
+        if property(a) != property(b) {
+            let kind = ChangeKind::DiscriminatorChanged {
+                old: property(a),
+                new: property(b),
+            };
+            self.surface(kind, path.clone(), polarity, (None, None));
+            return;
+        }
+        let (Some(da), Some(db)) = (&a.discriminator, &b.discriminator) else {
+            return;
+        };
+        let target = |api: &faultline_ir::Api, id: TypeId| {
+            let node = api.types.get(api.types.resolve(id));
+            node.name
+                .as_ref()
+                .map_or_else(|| node.kind.describe().to_owned(), ToString::to_string)
+        };
+        for (value, old_target) in &da.mapping {
+            let kind = match db.mapping.iter().find(|(v, _)| v == value) {
+                None => ChangeKind::DiscriminatorValueRemoved {
+                    value: value.clone(),
+                },
+                Some((_, new_target)) => {
+                    let old_name = target(old_api, *old_target);
+                    let new_name = target(new_api, *new_target);
+                    if old_name == new_name {
+                        continue;
+                    }
+                    ChangeKind::DiscriminatorValueRetargeted {
+                        value: value.clone(),
+                        old: old_name,
+                        new: new_name,
+                    }
+                }
+            };
+            self.surface(kind, path.clone(), polarity, (None, None));
+        }
+        for (value, _) in &db.mapping {
+            if !da.mapping.iter().any(|(v, _)| v == value) {
+                let kind = ChangeKind::DiscriminatorValueAdded {
+                    value: value.clone(),
+                };
+                self.surface(kind, path.clone(), polarity, (None, None));
+            }
+        }
     }
 
     fn variants(

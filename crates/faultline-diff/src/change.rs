@@ -145,6 +145,26 @@ pub enum ChangeKind {
         name: String,
         required: bool,
     },
+    ParameterSerializationChanged {
+        location: ParamLocation,
+        name: String,
+        old: String,
+        new: String,
+    },
+    /// An acceptable combination of security schemes was added. "Anonymous"
+    /// (no credentials) counts as a combination.
+    SecurityRequirementAdded {
+        requirement: String,
+    },
+    SecurityRequirementRemoved {
+        requirement: String,
+    },
+    WebhookAdded {
+        name: String,
+    },
+    WebhookRemoved {
+        name: String,
+    },
     CallbackAdded {
         name: String,
     },
@@ -214,6 +234,23 @@ pub enum ChangeKind {
         old: String,
         new: String,
     },
+    /// The discriminator property of a union changed (or appeared/vanished).
+    DiscriminatorChanged {
+        old: Option<String>,
+        new: Option<String>,
+    },
+    DiscriminatorValueAdded {
+        value: String,
+    },
+    DiscriminatorValueRemoved {
+        value: String,
+    },
+    /// A discriminator value now selects a different schema.
+    DiscriminatorValueRetargeted {
+        value: String,
+        old: String,
+        new: String,
+    },
     /// Constraints expressed through composition (`allOf`, `not`, ...)
     /// changed in a way that has no finer description.
     ConstraintChanged,
@@ -250,6 +287,11 @@ impl ChangeKind {
             ChangeKind::ResponseHeaderAdded { .. } => "response-header-added",
             ChangeKind::ResponseHeaderRemoved { .. } => "response-header-removed",
             ChangeKind::ResponseHeaderRequiredChanged { .. } => "response-header-required-changed",
+            ChangeKind::ParameterSerializationChanged { .. } => "parameter-serialization-changed",
+            ChangeKind::SecurityRequirementAdded { .. } => "security-requirement-added",
+            ChangeKind::SecurityRequirementRemoved { .. } => "security-requirement-removed",
+            ChangeKind::WebhookAdded { .. } => "webhook-added",
+            ChangeKind::WebhookRemoved { .. } => "webhook-removed",
             ChangeKind::CallbackAdded { .. } => "callback-added",
             ChangeKind::CallbackRemoved { .. } => "callback-removed",
             ChangeKind::SchemaAdded { .. } => "schema-added",
@@ -268,6 +310,10 @@ impl ChangeKind {
             ChangeKind::VariantAdded { .. } => "variant-added",
             ChangeKind::VariantRemoved { .. } => "variant-removed",
             ChangeKind::UnionModeChanged { .. } => "union-mode-changed",
+            ChangeKind::DiscriminatorChanged { .. } => "discriminator-changed",
+            ChangeKind::DiscriminatorValueAdded { .. } => "discriminator-value-added",
+            ChangeKind::DiscriminatorValueRemoved { .. } => "discriminator-value-removed",
+            ChangeKind::DiscriminatorValueRetargeted { .. } => "discriminator-value-retargeted",
             ChangeKind::ConstraintChanged => "constraint-changed",
             ChangeKind::DeprecatedChanged { .. } => "deprecated-changed",
             ChangeKind::AccessChanged { .. } => "access-changed",
