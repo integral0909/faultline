@@ -45,3 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   diagnostics.
 - Diff support for parameter serialization, security alternatives, webhooks
   and discriminator mappings.
+- `faultline-rules`: the rule catalog (FL1xxx value rules, FL2xxx HTTP rules)
+  with explanations, classification of every change into breaking, risky or
+  info according to who sends and who receives at its position, stable
+  finding identifiers, and semantic-version suggestions.

@@ -209,6 +209,28 @@ components:
 }
 
 #[test]
+fn callback_expressions_are_not_path_templates() {
+    let out = lower(&[(
+        "openapi.yaml",
+        r"
+openapi: 3.0.3
+info: {title: T, version: '1'}
+paths:
+  /subscribe:
+    post:
+      responses: {'201': {description: ok}}
+      callbacks:
+        onEvent:
+          '{$request.body#/url}':
+            post: {responses: {'200': {description: ok}}}
+",
+    )]);
+    let api = out.clean();
+    let callback = &api.operations[0].callbacks[0];
+    assert_eq!(callback.operations[0].key.identity(), "POST {}");
+}
+
+#[test]
 fn references_across_files() {
     let out = lower(&[
         (

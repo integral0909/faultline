@@ -15,11 +15,22 @@ use crate::context::{At, Context};
 /// fields (`content`, security schemes).
 const IGNORED_HEADERS: [&str; 3] = ["accept", "content-type", "authorization"];
 
+/// What a Path Item's key is.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ItemKey {
+    /// A URL path template whose `{name}` variables are path parameters.
+    Template,
+    /// A callback's runtime expression or a webhook's name, which may contain
+    /// braces that are not parameters.
+    Expression,
+}
+
 impl Context<'_, '_, '_> {
-    /// The operations of the Path Item at `item` for URL template `path`.
+    /// The operations of the Path Item at `item` under key `path`.
     pub(crate) fn path_item(
         &mut self,
         path: &str,
+        key: ItemKey,
         item: At,
         security: &[SecurityRequirement],
     ) -> Vec<Operation> {
@@ -36,9 +47,9 @@ impl Context<'_, '_, '_> {
         let template = PathTemplate::parse(path);
         let mut operations = Vec::new();
         for method in HttpMethod::ALL {
-            let key = method.as_str().to_ascii_lowercase();
-            if let Some(at) = item.child(&key) {
-                operations.extend(self.operation(method, &template, &at, &shared, security));
+            let field = method.as_str().to_ascii_lowercase();
+            if let Some(at) = item.child(&field) {
+                operations.extend(self.operation(method, &template, key, &at, &shared, security));
             }
         }
         operations
@@ -48,6 +59,7 @@ impl Context<'_, '_, '_> {
         &mut self,
         method: HttpMethod,
         template: &PathTemplate,
+        key: ItemKey,
         at: &At,
         shared: &[Parameter],
         security: &[SecurityRequirement],
@@ -78,7 +90,9 @@ impl Context<'_, '_, '_> {
             .cloned()
             .collect();
         parameters.extend(own);
-        self.check_path_parameters(template, &parameters, at);
+        if key == ItemKey::Template {
+            self.check_path_parameters(template, &parameters, at);
+        }
         op.parameters = parameters;
 
         if let Some(body) = at.child("requestBody") {
@@ -366,7 +380,7 @@ impl Context<'_, '_, '_> {
                 if expression.starts_with("x-") {
                     continue;
                 }
-                operations.extend(self.path_item(&expression, item, security));
+                operations.extend(self.path_item(&expression, ItemKey::Expression, item, security));
             }
             out.push(Callback {
                 name,

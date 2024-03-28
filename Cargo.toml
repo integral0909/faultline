@@ -20,6 +20,7 @@ faultline-diff = { path = "crates/faultline-diff", version = "0.1.0" }
 faultline-ir = { path = "crates/faultline-ir", version = "0.1.0" }
 faultline-jsonschema = { path = "crates/faultline-jsonschema", version = "0.1.0" }
 faultline-openapi = { path = "crates/faultline-openapi", version = "0.1.0" }
+faultline-rules = { path = "crates/faultline-rules", version = "0.1.0" }
 faultline-subsume = { path = "crates/faultline-subsume", version = "0.1.0" }
 
 indexmap = "2.7"

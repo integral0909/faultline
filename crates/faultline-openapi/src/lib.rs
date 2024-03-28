@@ -25,6 +25,7 @@ use faultline_jsonschema::{Dialect, Lowered, Lowerer, Options};
 use faultline_source::{Diagnostic, Diagnostics};
 
 use context::{At, Context};
+use operations::ItemKey;
 
 /// Lowers the OpenAPI description at `entry` into an API named `name`.
 pub fn lower_openapi(entry: &UriRef, store: &mut DocumentStore<'_>, name: &str) -> Lowered {
@@ -166,7 +167,7 @@ fn lower_description(context: &mut Context<'_, '_, '_>, root: &At) {
                     key_span,
                 );
             }
-            for op in context.path_item(&template, item, &security) {
+            for op in context.path_item(&template, ItemKey::Template, item, &security) {
                 let identity = op.key.identity();
                 if let Some(first) = seen.get(&identity) {
                     context.diagnostics.push(
@@ -189,7 +190,7 @@ fn lower_description(context: &mut Context<'_, '_, '_>, root: &At) {
     if let Some(webhooks) = root.child("webhooks") {
         for (name, item) in webhooks.entries() {
             let origin = Some(item.span());
-            let operations = context.path_item(&name, item, &security);
+            let operations = context.path_item(&name, ItemKey::Expression, item, &security);
             context.lowerer.api_mut().webhooks.push(Callback {
                 name,
                 operations,

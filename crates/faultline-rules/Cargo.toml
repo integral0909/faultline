@@ -1,0 +1,23 @@
+[package]
+name = "faultline-rules"
+description = "Rule catalog and classification of API changes for Faultline"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+faultline-diff.workspace = true
+faultline-ir.workspace = true
+
+
+[dev-dependencies]
+faultline-doc.workspace = true
+faultline-openapi.workspace = true
+faultline-source.workspace = true
+
+[lints]
+workspace = true
