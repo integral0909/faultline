@@ -1,0 +1,21 @@
+[package]
+name = "faultline-policy"
+description = "Configuration, waivers, baselines and verdicts for Faultline"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+faultline-diff.workspace = true
+faultline-ir.workspace = true
+faultline-rules.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+
+[lints]
+workspace = true

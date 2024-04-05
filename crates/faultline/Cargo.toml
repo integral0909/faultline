@@ -1,0 +1,30 @@
+[package]
+name = "faultline"
+description = "Find breaking changes in API contracts: OpenAPI, JSON Schema and more"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme = "../../README.md"
+
+[dependencies]
+faultline-diff.workspace = true
+faultline-doc.workspace = true
+faultline-ir.workspace = true
+faultline-jsonschema.workspace = true
+faultline-openapi.workspace = true
+faultline-policy.workspace = true
+faultline-report.workspace = true
+faultline-rules.workspace = true
+faultline-source.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,243 @@
+use faultline_diff::{Change, ChangeKind};
+use faultline_ir::{IrPath, Polarity};
+use faultline_policy::{Baseline, Config, Date, FailOn, Status, evaluate, exit};
+use faultline_rules::{Finding, Severity, classify};
+
+fn finding(api: &str, kind: ChangeKind, path: &str, polarity: Polarity) -> Finding {
+    let change = Change {
+        kind,
+        path: path.parse::<IrPath>().unwrap(),
+        polarity,
+        old_span: None,
+        new_span: None,
+        effect: None,
+    };
+    classify(api, &change)
+}
+
+fn removed(path: &str) -> Finding {
+    finding("public", ChangeKind::OperationRemoved, path, Polarity::IN)
+}
+
+fn added(path: &str) -> Finding {
+    finding(
+        "public",
+        ChangeKind::ResponseAdded {
+            status: faultline_ir::StatusKey::Code(429),
+        },
+        path,
+        Polarity::OUT,
+    )
+}
+
+fn today() -> Date {
+    Date::parse("2026-09-28").unwrap()
+}
+
+#[test]
+fn full_configuration_parses() {
+    let config = Config::parse(
+        r#"
+[workspace]
+root = "."
+
+[[api]]
+name = "public"
+entry = "api/openapi.yaml"
+
+[[api]]
+name = "events"
+entry = "schemas/event.json"
+format = "jsonschema"
+role = "output"
+
+[policy]
+fail_on = "risky"
+baseline = ".faultline/baseline.json"
+
+[[policy.override]]
+rule = "response-added"
+paths = ["op[* /internal/**]**"]
+severity = "info"
+
+[[waiver]]
+finding = "0123456789AB"
+reason = "Field unused since May; confirmed with the mobile team"
+owner = "api-platform"
+expires = "2026-12-31"
+"#,
+    )
+    .unwrap();
+    assert_eq!(config.apis.len(), 2);
+    assert_eq!(config.fail_on, FailOn::Risky);
+    assert_eq!(config.overrides[0].rule, Some("FL2040"));
+    assert_eq!(config.waivers[0].finding, "0123456789ab");
+}
+
+#[test]
+fn problems_are_reported_together() {
+    let error = Config::parse(
+        r#"
+[[api]]
+name = "a"
+entry = "x"
+format = "graphql"
+
+[[api]]
+name = "a"
+entry = "y"
+
+[policy]
+fail_on = "sometimes"
+
+[[policy.override]]
+rule = "FL9999"
+severity = "info"
+
+[[policy.override]]
+rule = "*"
+severity = "fatal"
+
+[[waiver]]
+finding = "nope"
+reason = ""
+expires = "tomorrow"
+"#,
+    )
+    .unwrap_err();
+    let text = error.to_string();
+    for fragment in [
+        "format must be",
+        "another api has the same name",
+        "fail_on must be",
+        "unknown rule \"FL9999\"",
+        "severity must be",
+        "12-digit finding id",
+        "needs a reason",
+        "expires must be a date",
+    ] {
+        assert!(text.contains(fragment), "missing {fragment:?} in {text}");
+    }
+}
+
+#[test]
+fn unknown_keys_are_rejected() {
+    let error = Config::parse("[policy]\nfail-on = \"never\"\n").unwrap_err();
+    assert!(error.to_string().contains("fail-on"), "{error}");
+}
+
+#[test]
+fn overrides_apply_by_rule_path_and_api_with_later_ones_winning() {
+    let config = Config::parse(
+        r#"
+[[api]]
+name = "public"
+entry = "a.yaml"
+
+[[policy.override]]
+rule = "*"
+paths = ["op[* /internal/**]"]
+severity = "info"
+
+[[policy.override]]
+rule = "FL2001"
+paths = ["op[DELETE /internal/keep]"]
+severity = "breaking"
+"#,
+    )
+    .unwrap();
+    let evaluation = evaluate(
+        &config,
+        None,
+        vec![
+            removed("op[GET /internal/x]"),
+            removed("op[DELETE /internal/keep]"),
+            removed("op[GET /public]"),
+        ],
+        today(),
+    );
+    let severities: Vec<(Severity, Option<Severity>)> = evaluation
+        .findings
+        .iter()
+        .map(|e| (e.finding.severity, e.original_severity))
+        .collect();
+    assert_eq!(
+        severities,
+        [
+            (Severity::Info, Some(Severity::Breaking)),
+            (Severity::Breaking, None),
+            (Severity::Breaking, None),
+        ]
+    );
+    assert_eq!(evaluation.failing(), 2);
+    assert_eq!(evaluation.exit_code(), exit::FINDINGS);
+}
+
+#[test]
+fn fail_on_thresholds() {
+    for (fail_on, expected) in [("breaking", 1), ("risky", 2), ("never", 0)] {
+        let config = Config::parse(&format!("[policy]\nfail_on = \"{fail_on}\"\n")).unwrap();
+        let evaluation = evaluate(
+            &config,
+            None,
+            vec![removed("op[GET /a]"), added("op[GET /b]/response[429]")],
+            today(),
+        );
+        assert_eq!(evaluation.failing(), expected, "{fail_on}");
+    }
+}
+
+#[test]
+fn waivers_accept_findings_until_they_expire() {
+    let finding = removed("op[GET /a]");
+    let waiver = |expires: &str| {
+        format!(
+            "[[waiver]]\nfinding = \"{}\"\nreason = \"planned\"\nexpires = \"{expires}\"\n",
+            finding.id
+        )
+    };
+
+    let live = Config::parse(&waiver("2026-09-28")).unwrap();
+    let evaluation = evaluate(&live, None, vec![finding.clone()], today());
+    assert!(
+        matches!(evaluation.findings[0].status, Status::Waived(_)),
+        "the expiry day is still valid"
+    );
+    assert_eq!(evaluation.exit_code(), exit::PASSED);
+
+    let expired = Config::parse(&waiver("2026-09-27")).unwrap();
+    let evaluation = evaluate(&expired, None, vec![finding.clone()], today());
+    assert_eq!(evaluation.findings[0].status, Status::Active);
+    assert_eq!(evaluation.expired_waivers.len(), 1);
+    assert_eq!(evaluation.exit_code(), exit::FINDINGS);
+
+    // The finding is gone but the expired waiver lingers.
+    let evaluation = evaluate(&expired, None, Vec::new(), today());
+    assert_eq!(evaluation.exit_code(), exit::EXPIRED_WAIVER);
+
+    let evaluation = evaluate(&live, None, Vec::new(), today());
+    assert_eq!(evaluation.unused_waivers.len(), 1);
+    assert_eq!(evaluation.exit_code(), exit::PASSED);
+}
+
+#[test]
+fn baselines_accept_existing_findings_only() {
+    let old = removed("op[GET /old]");
+    let baseline = Baseline::from_findings([&old]);
+    let text = baseline.to_json();
+    let parsed = Baseline::parse(&text).unwrap();
+    assert_eq!(parsed, baseline);
+
+    let evaluation = evaluate(
+        &Config::default(),
+        Some(&parsed),
+        vec![old, removed("op[GET /new]")],
+        today(),
+    );
+    assert_eq!(evaluation.findings[0].status, Status::Baselined);
+    assert_eq!(evaluation.findings[1].status, Status::Active);
+    assert_eq!(evaluation.failing(), 1);
+
+    assert!(Baseline::parse("{\"version\": 9, \"findings\": []}").is_err());
+    assert!(Baseline::parse("{\"version\": 1, \"findings\": [], \"extra\": 1}").is_err());
+}

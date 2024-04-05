@@ -1,0 +1,21 @@
+[package]
+name = "faultline-report"
+description = "Human and machine-readable reports of Faultline results"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+faultline-diff.workspace = true
+faultline-ir.workspace = true
+faultline-policy.workspace = true
+faultline-rules.workspace = true
+faultline-source.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

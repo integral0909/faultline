@@ -49,3 +49,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with explanations, classification of every change into breaking, risky or
   info according to who sends and who receives at its position, stable
   finding identifiers, and semantic-version suggestions.
+- `faultline-policy`: `faultline.toml` with strict validation, severity
+  overrides by rule, API and path glob, waivers with mandatory expiry, and
+  baselines.
+- `faultline-report`: text reports with source excerpts and verified example
+  values, versioned JSON, SARIF 2.1.0, Markdown, GitHub annotations and JUnit.
+- `faultline` and the `faultline` command: `diff`, `baseline`, `explain`,
+  `rules` and `ir dump`, with documented exit codes.

@@ -10,20 +10,35 @@ that matters. When Faultline can prove a break it shows a concrete example
 value that demonstrates it.
 
 ```text
-breaking[FL2013]: request body now rejects values it used to accept
-  --> api/openapi.yaml:48:13
+breaking[FL1007]: op[GET /pets]/param[query:limit]: maximum changed from 100 to 50
+  --> v2/openapi.yaml:13:13
    |
-48 |             maxLength: 32
-   |             ^^^^^^^^^^^^^ was 64
+13 |             type: integer
+   |             ^^^^^^^^^^^^^ now (continues to line 15)
+  --> v1/openapi.yaml:13:13
    |
-   = path: op[POST /pets]/request/body[application/json]/.name
-   = example: {"name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+13 |             type: integer
+   |             ------------- before (continues to line 15)
+   |
+   = note: example: 100 was accepted and is now rejected
+   = note: finding id: 6059f23290bf
+   = help: `faultline explain FL1007` describes this rule
 ```
 
-> **Status:** early development. The foundation crates are in place; format
-> front ends, the comparison engine and the CLI are being built milestone by
-> milestone (see [docs/architecture.md](docs/architecture.md#roadmap)). The
-> example above shows the intended output format.
+> **Status:** early development (0.1). OpenAPI 3.0/3.1 and JSON Schema
+> (draft-04 to 2020-12) are supported, with text, JSON, SARIF, Markdown,
+> GitHub annotation and JUnit output. Protobuf, GraphQL and Avro, git-aware
+> checks and a language server are on the [roadmap](docs/architecture.md#roadmap).
+
+## Quick start
+
+```sh
+cargo install --locked --path crates/faultline-cli
+faultline diff examples/petstore/v1/openapi.yaml examples/petstore/v2/openapi.yaml
+```
+
+See [getting started](docs/getting-started.md) and
+[configuration](docs/configuration.md).
 
 ## Why another compatibility checker?
 
@@ -62,6 +77,9 @@ including the tools used by CI.
 
 ## Documentation
 
+* [Getting started](docs/getting-started.md)
+* [Configuration](docs/configuration.md)
+* [Rule reference](docs/rules.md)
 * [Architecture](docs/architecture.md)
 * [Development](docs/development.md)
 * [Testing](docs/testing.md)

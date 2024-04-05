@@ -1,0 +1,32 @@
+[package]
+name = "faultline-cli"
+description = "The faultline command-line tool"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[[bin]]
+name = "faultline"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+faultline.workspace = true
+faultline-ir.workspace = true
+faultline-policy.workspace = true
+faultline-report.workspace = true
+faultline-rules.workspace = true
+faultline-source.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+tempfile.workspace = true
+
+[lints]
+workspace = true
