@@ -22,6 +22,7 @@ faultline-policy.workspace = true
 faultline-report.workspace = true
 faultline-rules.workspace = true
 faultline-source.workspace = true
+faultline-vcs.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

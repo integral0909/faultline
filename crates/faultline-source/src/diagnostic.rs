@@ -94,6 +94,10 @@ impl Diagnostic {
         Self::new(Severity::Warning, message)
     }
 
+    pub fn note(message: impl Into<String>) -> Self {
+        Self::new(Severity::Note, message)
+    }
+
     #[must_use]
     pub fn with_code(mut self, code: DiagnosticCode) -> Self {
         self.code = Some(code);

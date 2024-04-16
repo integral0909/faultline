@@ -104,5 +104,7 @@ added within a version; incompatible changes increment it.
 | `expired_waivers[]`, `unused_waivers[]` | waivers needing attention |
 | `diagnostics[]` | input problems: `severity`, `code`, `message`, `location` |
 
-Locations are `{file, line, column, end_line, end_column}` with one-based
-lines and columns in characters. `witness` is the example value as JSON.
+Locations are `{file, revision, line, column, end_line, end_column}` with one-based
+lines and columns in characters; `revision` names the git revision the file
+was read from, and is `null` for the working tree. `witness` is the example
+value as JSON.

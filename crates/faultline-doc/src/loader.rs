@@ -147,7 +147,10 @@ impl FsLoader {
         let absolute = if path.is_absolute() {
             path.to_path_buf()
         } else {
-            self.root.join(path)
+            // The canonical root may be a verbatim path (`\\?\C:\...` on
+            // Windows), where `/` is not a separator; rebuilding the relative
+            // path from its components uses the native one.
+            self.root.join(path.components().collect::<PathBuf>())
         };
         let canonical = absolute.canonicalize().map_err(|e| io_error(&e))?;
         let relative = canonical
@@ -157,39 +160,52 @@ impl FsLoader {
     }
 
     fn path_for(&self, uri: &UriRef) -> Result<PathBuf, LoadError> {
-        match uri.scheme() {
-            Some(s) if s.eq_ignore_ascii_case("file") => {}
-            Some(s) if is_network_scheme(s) => {
-                return Err(LoadError::RemoteDisabled {
-                    scheme: s.to_ascii_lowercase(),
-                });
-            }
-            other => {
-                return Err(LoadError::UnsupportedScheme {
-                    scheme: other.map(str::to_owned),
-                });
-            }
-        }
-        if uri.authority().is_some_and(|a| !a.is_empty()) {
-            return Err(LoadError::UnsupportedScheme {
-                scheme: Some("file".into()),
-            });
-        }
-        let decoded = percent_decode(uri.path()).ok_or(LoadError::NotFound)?;
         let mut path = self.root.clone();
-        for component in Path::new(decoded.trim_start_matches('/')).components() {
-            match component {
-                Component::Normal(part) => path.push(part),
-                Component::CurDir => {}
-                // Dot segments were removed during URI resolution; anything
-                // left (or a drive prefix on Windows) is not a workspace path.
-                Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
-                    return Err(LoadError::OutsideRoot);
-                }
-            }
+        for segment in workspace_path(uri)? {
+            path.push(segment);
         }
         Ok(path)
     }
+}
+
+/// The path segments a workspace `file:` URI names, relative to the
+/// workspace root: `file:///api/pet%20v1.yaml` is `["api", "pet v1.yaml"]`.
+///
+/// This is the check every workspace loader shares: other schemes, `file:`
+/// URIs with an authority and paths that climb out of the root are refused.
+pub fn workspace_path(uri: &UriRef) -> Result<Vec<String>, LoadError> {
+    match uri.scheme() {
+        Some(s) if s.eq_ignore_ascii_case("file") => {}
+        Some(s) if is_network_scheme(s) => {
+            return Err(LoadError::RemoteDisabled {
+                scheme: s.to_ascii_lowercase(),
+            });
+        }
+        other => {
+            return Err(LoadError::UnsupportedScheme {
+                scheme: other.map(str::to_owned),
+            });
+        }
+    }
+    if uri.authority().is_some_and(|a| !a.is_empty()) {
+        return Err(LoadError::UnsupportedScheme {
+            scheme: Some("file".into()),
+        });
+    }
+    let decoded = percent_decode(uri.path()).ok_or(LoadError::NotFound)?;
+    let mut segments = Vec::new();
+    for component in Path::new(decoded.trim_start_matches('/')).components() {
+        match component {
+            Component::Normal(part) => segments.push(part.to_string_lossy().into_owned()),
+            Component::CurDir => {}
+            // Dot segments were removed during URI resolution; anything left
+            // (or a drive prefix on Windows) is not a workspace path.
+            Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
+                return Err(LoadError::OutsideRoot);
+            }
+        }
+    }
+    Ok(segments)
 }
 
 impl Loader for FsLoader {

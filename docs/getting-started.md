@@ -89,6 +89,48 @@ faultline diff old/config.json new/config.json --role input  # others write thes
 With `--role both` (the default) any change to the accepted values is
 breaking.
 
+## Checking pull requests
+
+List the APIs in `faultline.toml` at the root of the repository:
+
+```toml
+[[api]]
+name = "petstore"
+entry = "api/openapi.yaml"
+```
+
+Then compare the working tree with the branch it will merge into:
+
+```sh
+faultline check --base origin/main
+```
+
+`check` reads the old version of every API straight from git, without a
+second checkout, and compares it with the working tree (or with a commit,
+given `--head`). The old version is taken from the **merge base** of the base
+and the head — the commit the branch started from — so changes merged into
+`main` since then are not reported as if the branch had reverted them. Pass
+`--no-merge-base` to compare with the base revision itself.
+
+Locations in the old version carry the revision (`3f9a2c1b7d4e:api/openapi.yaml`).
+An API that does not exist in the base yet is reported as new and not
+compared. `--api NAME` checks only the named APIs. In GitHub Actions pull
+request builds, `--base` defaults to `origin/$GITHUB_BASE_REF`; the checkout
+needs enough history to contain the merge base (`fetch-depth: 0`). See
+[examples/ci/github-actions.yml](../examples/ci/github-actions.yml).
+
+`diff` can read either side from a revision too. The new path defaults to the
+old one:
+
+```sh
+faultline diff --old-rev v1.4.0 api/openapi.yaml          # tag vs working tree
+faultline diff --old-rev v1.4.0 --new-rev v2.0.0 api/openapi.yaml
+```
+
+Files are read from the revision's tree under the same rules as the working
+tree: references cannot leave the workspace root. Symbolic links and
+submodules inside a revision are not followed.
+
 ## Adopting on an existing API
 
 Record the current findings as accepted, commit the baseline, and only new

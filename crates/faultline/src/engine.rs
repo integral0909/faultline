@@ -1,23 +1,30 @@
 use std::path::{Path, PathBuf};
 
-use faultline_doc::loader::{FsLoader, LoadError};
+use faultline_doc::loader::{FsLoader, LoadError, Loader, workspace_uri};
 use faultline_doc::{DocumentStore, UriRef};
 use faultline_ir::{Api, Role};
 use faultline_jsonschema::Options;
 use faultline_policy::{ApiFormat, SchemaRole};
 use faultline_report::ApiSummary;
 use faultline_rules::{Finding, classify, suggest_bump};
-use faultline_source::{Diagnostic, Diagnostics, Limits, SourceMap};
+use faultline_source::{Diagnostic, DiagnosticCode, Diagnostics, Limits, SourceMap};
+use faultline_vcs::{Repository, VcsError};
 
 use crate::codes;
 
 /// Where to find one version of an API: an entry document inside a workspace
-/// root. References may reach any file under the root and nothing outside it.
+/// root, read from disk or from a git revision. References may reach any
+/// file under the root and nothing outside it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Source {
+    /// A directory on disk. For a revision, the directory's place in the
+    /// repository's working tree says which part of the revision's tree is
+    /// the workspace.
     pub root: PathBuf,
     /// Relative to `root`, or absolute inside it.
     pub entry: PathBuf,
+    /// Read the files from this revision instead of the working tree.
+    pub revision: Option<Revision>,
 }
 
 impl Source {
@@ -25,8 +32,28 @@ impl Source {
         Self {
             root: root.into(),
             entry: entry.into(),
+            revision: None,
         }
     }
+
+    /// The same files, read from `revision`.
+    #[must_use]
+    pub fn at(mut self, revision: Revision) -> Self {
+        self.revision = Some(revision);
+        self
+    }
+}
+
+/// A git revision to read a version from.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Revision {
+    /// Anything `git rev-parse` accepts: `main`, `v1.2.0`, `HEAD~1`, a
+    /// commit id.
+    Named(String),
+    /// The best common ancestor of two revisions: the version a change
+    /// branched from, which is what a pull request should be compared with
+    /// even after its target branch has moved on.
+    MergeBase { base: String, head: String },
 }
 
 /// One API to compare between two versions.
@@ -39,6 +66,9 @@ pub struct Target {
     pub format: Option<ApiFormat>,
     /// For standalone JSON Schemas: which direction documents flow.
     pub role: SchemaRole,
+    /// Whether the API may be new: when set, a missing old entry document
+    /// is noted instead of being an error.
+    pub may_be_new: bool,
 }
 
 impl Target {
@@ -49,6 +79,7 @@ impl Target {
             new,
             format: None,
             role: SchemaRole::Both,
+            may_be_new: false,
         }
     }
 }
@@ -58,6 +89,9 @@ impl Target {
 pub struct Lowered {
     pub api: Option<Api>,
     pub diagnostics: Diagnostics,
+    /// The entry document does not exist (as opposed to failing to parse or
+    /// lower).
+    pub missing_entry: bool,
 }
 
 /// Everything a comparison produced. Spans in diagnostics and findings refer
@@ -89,6 +123,18 @@ impl Engine {
                 target.role,
                 &comparison.sources,
             );
+            if old.missing_entry && target.may_be_new {
+                comparison.diagnostics.push(
+                    Diagnostic::note(format!(
+                        "{}: {} does not exist in {}; the API is new, so there is nothing to compare",
+                        target.name,
+                        target.old.entry.display(),
+                        describe(&target.old)
+                    ))
+                    .with_code(codes::NEW_API),
+                );
+                continue;
+            }
             let new = self.lower(
                 &target.new,
                 &target.name,
@@ -126,44 +172,19 @@ impl Engine {
         role: SchemaRole,
         sources: &SourceMap,
     ) -> Lowered {
-        let failure = |code, message: String| Lowered {
-            api: None,
-            diagnostics: [Diagnostic::error(message).with_code(code)]
-                .into_iter()
-                .collect(),
-        };
-        let loader = match FsLoader::new(&source.root, self.limits.clone()) {
-            Ok(loader) => loader,
-            Err(e) => {
-                return failure(
-                    codes::INVALID_ROOT,
-                    format!(
-                        "cannot use {} as the workspace root: {e}",
-                        source.root.display()
-                    ),
-                );
+        let (loader, entry) = match self.open(source) {
+            Ok(opened) => opened,
+            Err(failure) => {
+                return Lowered {
+                    api: None,
+                    diagnostics: [Diagnostic::error(failure.message).with_code(failure.code)]
+                        .into_iter()
+                        .collect(),
+                    missing_entry: failure.missing_entry,
+                };
             }
         };
-        let entry = match loader.uri_for(&source.entry) {
-            Ok(uri) => uri,
-            Err(LoadError::OutsideRoot) => {
-                return failure(
-                    codes::ENTRY_NOT_FOUND,
-                    format!(
-                        "{} is outside the workspace root {}",
-                        source.entry.display(),
-                        source.root.display()
-                    ),
-                );
-            }
-            Err(e) => {
-                return failure(
-                    codes::ENTRY_NOT_FOUND,
-                    format!("cannot read {}: {e}", source.entry.display()),
-                );
-            }
-        };
-        let mut store = DocumentStore::new(&loader, sources, self.limits.clone());
+        let mut store = DocumentStore::new(loader.as_ref(), sources, self.limits.clone());
         let format = match format {
             Some(format) => format,
             None => match detect_format(&mut store, &entry) {
@@ -188,6 +209,140 @@ impl Engine {
         Lowered {
             api,
             diagnostics: lowered.diagnostics,
+            missing_entry: false,
+        }
+    }
+
+    /// A loader for a source's workspace and the URI of its entry document.
+    fn open(&self, source: &Source) -> Result<(Box<dyn Loader>, UriRef), Failure> {
+        match &source.revision {
+            None => self.open_worktree(source),
+            Some(revision) => self.open_revision(source, revision),
+        }
+    }
+
+    fn open_worktree(&self, source: &Source) -> Result<(Box<dyn Loader>, UriRef), Failure> {
+        let loader = FsLoader::new(&source.root, self.limits.clone()).map_err(|e| {
+            Failure::new(
+                codes::INVALID_ROOT,
+                format!(
+                    "cannot use {} as the workspace root: {e}",
+                    source.root.display()
+                ),
+            )
+        })?;
+        let entry = loader.uri_for(&source.entry).map_err(|e| match e {
+            LoadError::OutsideRoot => outside_root(source),
+            LoadError::NotFound => missing(source),
+            e => Failure::new(
+                codes::ENTRY_NOT_FOUND,
+                format!("cannot read {}: {e}", source.entry.display()),
+            ),
+        })?;
+        Ok((Box::new(loader), entry))
+    }
+
+    fn open_revision(
+        &self,
+        source: &Source,
+        revision: &Revision,
+    ) -> Result<(Box<dyn Loader>, UriRef), Failure> {
+        let root = source.root.canonicalize().map_err(|e| {
+            Failure::new(
+                codes::INVALID_ROOT,
+                format!(
+                    "cannot use {} as the workspace root: {e}",
+                    source.root.display()
+                ),
+            )
+        })?;
+        let git = |e: VcsError| {
+            let code = match e {
+                VcsError::UnknownRevision { .. } | VcsError::NoMergeBase { .. } => {
+                    codes::UNKNOWN_REVISION
+                }
+                _ => codes::GIT,
+            };
+            Failure::new(code, e.to_string())
+        };
+        let repo = Repository::discover(&root).map_err(git)?;
+        let resolved = match revision {
+            Revision::Named(spec) => repo.resolve(spec).map_err(git)?,
+            Revision::MergeBase { base, head } => {
+                let base = repo.resolve(base).map_err(git)?;
+                let head = repo.resolve(head).map_err(git)?;
+                repo.merge_base(&base, &head).map_err(git)?
+            }
+        };
+        let root_in_repo = repo.repo_path(&root).map_err(git)?;
+        // The entry need not exist on disk: it may have been renamed or
+        // deleted since the revision.
+        // As in `FsLoader::uri_for`, rebuild the entry from its components so
+        // it joins correctly onto a verbatim canonical root.
+        let entry_in_repo = repo
+            .repo_path(&root.join(source.entry.components().collect::<PathBuf>()))
+            .map_err(|_| outside_root(source))?;
+        let relative: PathBuf = entry_in_repo
+            .strip_prefix(root_in_repo.as_slice())
+            .ok_or_else(|| outside_root(source))?
+            .iter()
+            .collect();
+        let entry = workspace_uri(&relative);
+        let loader = repo.loader(&resolved, root_in_repo, self.limits.clone());
+        if loader.load(&entry) == Err(LoadError::NotFound) {
+            return Err(missing(source));
+        }
+        Ok((Box::new(loader), entry))
+    }
+}
+
+/// Why a source could not be opened.
+struct Failure {
+    code: DiagnosticCode,
+    message: String,
+    missing_entry: bool,
+}
+
+impl Failure {
+    fn new(code: DiagnosticCode, message: String) -> Self {
+        Self {
+            code,
+            message,
+            missing_entry: false,
+        }
+    }
+}
+
+fn outside_root(source: &Source) -> Failure {
+    Failure::new(
+        codes::ENTRY_NOT_FOUND,
+        format!(
+            "{} is outside the workspace root {}",
+            source.entry.display(),
+            source.root.display()
+        ),
+    )
+}
+
+fn missing(source: &Source) -> Failure {
+    Failure {
+        code: codes::ENTRY_NOT_FOUND,
+        message: format!(
+            "{} does not exist in {}",
+            source.entry.display(),
+            describe(source)
+        ),
+        missing_entry: true,
+    }
+}
+
+/// "the working tree", "revision main" or "the merge base of main and HEAD".
+fn describe(source: &Source) -> String {
+    match &source.revision {
+        None => "the working tree".to_owned(),
+        Some(Revision::Named(spec)) => format!("revision {spec}"),
+        Some(Revision::MergeBase { base, head }) => {
+            format!("the merge base of {base} and {head}")
         }
     }
 }

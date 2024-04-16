@@ -18,6 +18,8 @@ struct Cli {
 enum Command {
     /// Compare two versions of an API description.
     Diff(commands::DiffArgs),
+    /// Compare every API in faultline.toml with a base revision.
+    Check(commands::CheckArgs),
     /// Record the current findings between two versions as accepted.
     Baseline(commands::BaselineArgs),
     /// Explain a rule.

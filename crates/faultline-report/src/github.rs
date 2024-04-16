@@ -33,11 +33,8 @@ pub(crate) fn render(report: &Report<'_>) -> String {
             Severity::Risky => "warning",
             Severity::Info => "notice",
         };
-        let location = f
-            .change
-            .new_span
-            .or(f.change.old_span)
-            .and_then(|s| Location::resolve(report.sources, s));
+        let location =
+            Location::for_annotation(report.sources, &[f.change.new_span, f.change.old_span]);
         let mut message = format!("{}: {}", f.change.path, f.message);
         if let Some(w) = f.witness() {
             let _ = write!(message, "\nexample: {}", short_witness(w));

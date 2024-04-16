@@ -5,6 +5,8 @@ use faultline_source::{SourceMap, SourceName, Span};
 pub struct Location {
     /// Workspace-relative path with `/` separators, or another display name.
     pub file: String,
+    /// The git revision `file` was read from; `None` for the working tree.
+    pub revision: Option<String>,
     pub line: u32,
     /// One-based column in Unicode scalar values.
     pub column: u32,
@@ -24,16 +26,20 @@ impl Location {
         let end = lines.line_col_chars(span.end(), text);
         let start16 = lines.line_col_utf16(span.start(), text);
         let end16 = lines.line_col_utf16(span.end(), text);
-        let name = match file.name() {
-            SourceName::Path(path) => path
-                .components()
-                .map(|c| c.as_os_str().to_string_lossy().into_owned())
-                .collect::<Vec<_>>()
-                .join("/"),
-            other => other.to_string(),
+        let (name, revision) = match file.name() {
+            SourceName::Path(path) => (
+                path.components()
+                    .map(|c| c.as_os_str().to_string_lossy().into_owned())
+                    .collect::<Vec<_>>()
+                    .join("/"),
+                None,
+            ),
+            SourceName::Revision { rev, path } => (path.clone(), Some(rev.clone())),
+            other => (other.to_string(), None),
         };
         Some(Location {
             file: name,
+            revision,
             line: start.line + 1,
             column: start.col + 1,
             end_line: end.line + 1,
@@ -41,5 +47,19 @@ impl Location {
             utf16_column: start16.col + 1,
             utf16_end_column: end16.col + 1,
         })
+    }
+
+    /// The location to annotate for a change, for integrations that show
+    /// annotations on the checked-out files: the first of `spans` in the
+    /// working tree, since line numbers in an older revision would point at
+    /// the wrong lines, and otherwise the first that resolves at all.
+    pub fn for_annotation(sources: &SourceMap, spans: &[Option<Span>]) -> Option<Location> {
+        let resolved: Vec<Location> = spans
+            .iter()
+            .flatten()
+            .filter_map(|s| Location::resolve(sources, *s))
+            .collect();
+        let worktree = resolved.iter().position(|l| l.revision.is_none());
+        resolved.into_iter().nth(worktree.unwrap_or(0))
     }
 }

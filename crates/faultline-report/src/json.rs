@@ -104,7 +104,7 @@ fn finding(report: &Report<'_>, e: &Evaluated) -> Value {
 
 fn location(report: &Report<'_>, span: Option<Span>) -> Value {
     span.and_then(|s| Location::resolve(report.sources, s)).map_or(Value::Null, |l| {
-        json!({"file": l.file, "line": l.line, "column": l.column, "end_line": l.end_line, "end_column": l.end_column})
+        json!({"file": l.file, "revision": l.revision, "line": l.line, "column": l.column, "end_line": l.end_line, "end_column": l.end_column})
     })
 }
 

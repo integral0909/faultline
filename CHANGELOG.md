@@ -56,3 +56,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   values, versioned JSON, SARIF 2.1.0, Markdown, GitHub annotations and JUnit.
 - `faultline` and the `faultline` command: `diff`, `baseline`, `explain`,
   `rules` and `ir dump`, with documented exit codes.
+- `faultline-vcs`: reading workspaces from git revisions without a checkout,
+  with revision parsing, merge bases, the workspace sandbox applied to the
+  revision's tree, size checks before reading blobs, and symbolic links and
+  submodules refused.
+- `faultline check`: compares every `[[api]]` in `faultline.toml` with the
+  merge base of `--base` (or the base itself with `--no-merge-base`), from the
+  working tree or `--head`; APIs missing from the base are reported as new.
+- `diff` and `baseline` accept `--old-rev` and `--new-rev`, and the new path
+  defaults to the old one.
+- JSON report locations include the `revision` they were read from; SARIF and
+  GitHub annotations prefer working-tree locations.

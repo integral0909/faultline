@@ -1,0 +1,21 @@
+[package]
+name = "faultline-vcs"
+description = "Reading API descriptions from git revisions for Faultline"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+faultline-doc.workspace = true
+faultline-source.workspace = true
+gix.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

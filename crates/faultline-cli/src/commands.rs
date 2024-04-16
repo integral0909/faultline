@@ -2,7 +2,7 @@ use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
 use clap::{Args, ValueEnum};
-use faultline::{Engine, Source, Target, default_api_name};
+use faultline::{Engine, Revision, Source, Target, default_api_name};
 use faultline_policy::{ApiFormat, Baseline, Config, Date, FailOn, SchemaRole, evaluate, exit};
 use faultline_report::{Report, render};
 use faultline_source::SourceMap;
@@ -61,22 +61,9 @@ impl From<Threshold> for FailOn {
     }
 }
 
-/// Options shared by commands that load two versions.
+/// Where the workspace and its configuration are.
 #[derive(Debug, Args)]
-pub(crate) struct CompareArgs {
-    /// The old version's entry document.
-    old: PathBuf,
-    /// The new version's entry document.
-    new: PathBuf,
-    /// API name used in reports and finding ids (default: the file stem).
-    #[arg(long)]
-    name: Option<String>,
-    /// Description format (default: detected).
-    #[arg(long, value_enum)]
-    format: Option<Format>,
-    /// For JSON Schemas: which direction documents flow.
-    #[arg(long, value_enum, default_value = "both")]
-    role: Role,
+pub(crate) struct WorkspaceArgs {
     /// Workspace root; references may not leave it (default: the current
     /// directory, or `[workspace] root` in the configuration).
     #[arg(long)]
@@ -86,10 +73,38 @@ pub(crate) struct CompareArgs {
     config: Option<PathBuf>,
 }
 
+/// Options shared by commands that load two versions.
 #[derive(Debug, Args)]
-pub(crate) struct DiffArgs {
+pub(crate) struct CompareArgs {
+    /// The old version's entry document.
+    old: PathBuf,
+    /// The new version's entry document (default: the same path as OLD,
+    /// which is useful with --old-rev).
+    new: Option<PathBuf>,
+    /// Read the old version from this git revision instead of the working
+    /// tree.
+    #[arg(long, value_name = "REV")]
+    old_rev: Option<String>,
+    /// Read the new version from this git revision instead of the working
+    /// tree.
+    #[arg(long, value_name = "REV")]
+    new_rev: Option<String>,
+    /// API name used in reports and finding ids (default: the file stem).
+    #[arg(long)]
+    name: Option<String>,
+    /// Description format (default: detected).
+    #[arg(long, value_enum)]
+    format: Option<Format>,
+    /// For JSON Schemas: which direction documents flow.
+    #[arg(long, value_enum, default_value = "both")]
+    role: Role,
     #[command(flatten)]
-    compare: CompareArgs,
+    workspace: WorkspaceArgs,
+}
+
+/// Options that decide and present the verdict.
+#[derive(Debug, Args)]
+pub(crate) struct GateArgs {
     /// Output format.
     #[arg(long, value_enum, default_value = "text")]
     output: Output,
@@ -99,6 +114,37 @@ pub(crate) struct DiffArgs {
     /// Baseline of accepted findings (overrides configuration).
     #[arg(long)]
     baseline: Option<PathBuf>,
+}
+
+#[derive(Debug, Args)]
+pub(crate) struct DiffArgs {
+    #[command(flatten)]
+    compare: CompareArgs,
+    #[command(flatten)]
+    gate: GateArgs,
+}
+
+#[derive(Debug, Args)]
+pub(crate) struct CheckArgs {
+    /// The revision to compare with, such as origin/main (default:
+    /// `origin/$GITHUB_BASE_REF` when that is set).
+    #[arg(long, value_name = "REV")]
+    base: Option<String>,
+    /// Compare this revision instead of the working tree.
+    #[arg(long, value_name = "REV")]
+    head: Option<String>,
+    /// Compare with BASE itself rather than with the merge base of BASE and
+    /// the head, which also reports changes made on BASE since the head
+    /// branched from it.
+    #[arg(long)]
+    no_merge_base: bool,
+    /// Check only these APIs (by name; repeatable).
+    #[arg(long = "api", value_name = "NAME")]
+    apis: Vec<String>,
+    #[command(flatten)]
+    workspace: WorkspaceArgs,
+    #[command(flatten)]
+    gate: GateArgs,
 }
 
 #[derive(Debug, Args)]
@@ -126,6 +172,7 @@ pub(crate) struct DumpArgs {
 pub(crate) fn run(command: Command) -> i32 {
     let result = match command {
         Command::Diff(args) => diff(&args),
+        Command::Check(args) => check(&args),
         Command::Baseline(args) => baseline(&args),
         Command::Explain { rule } => explain(&rule),
         Command::Rules { markdown } => {
@@ -150,7 +197,7 @@ pub(crate) fn run(command: Command) -> i32 {
 }
 
 /// Loads the configuration and resolves the workspace root.
-fn setup(args: &CompareArgs) -> Result<(Config, PathBuf), String> {
+fn setup(args: &WorkspaceArgs) -> Result<(Config, PathBuf), String> {
     let cwd =
         std::env::current_dir().map_err(|e| format!("cannot read the current directory: {e}"))?;
     let default_root = args.root.clone().unwrap_or_else(|| cwd.clone());
@@ -175,12 +222,19 @@ fn setup(args: &CompareArgs) -> Result<(Config, PathBuf), String> {
 }
 
 fn target(args: &CompareArgs, root: &Path) -> Target {
+    let new = args.new.as_ref().unwrap_or(&args.old);
+    let mut old_source = Source::new(root, &args.old);
+    if let Some(rev) = &args.old_rev {
+        old_source = old_source.at(Revision::Named(rev.clone()));
+    }
+    let mut new_source = Source::new(root, new);
+    if let Some(rev) = &args.new_rev {
+        new_source = new_source.at(Revision::Named(rev.clone()));
+    }
     let mut target = Target::new(
-        args.name
-            .clone()
-            .unwrap_or_else(|| default_api_name(&args.new)),
-        Source::new(root, &args.old),
-        Source::new(root, &args.new),
+        args.name.clone().unwrap_or_else(|| default_api_name(new)),
+        old_source,
+        new_source,
     );
     target.format = args.format.map(Into::into);
     target.role = args.role.into();
@@ -196,7 +250,72 @@ fn today() -> Date {
 }
 
 fn diff(args: &DiffArgs) -> Result<i32, String> {
-    let (mut config, root) = setup(&args.compare)?;
+    let (config, root) = setup(&args.compare.workspace)?;
+    gate(config, &root, &args.gate, &[target(&args.compare, &root)])
+}
+
+/// Compares every configured API between a base revision and the working
+/// tree (or a head revision).
+fn check(args: &CheckArgs) -> Result<i32, String> {
+    let (config, root) = setup(&args.workspace)?;
+    let base = match &args.base {
+        Some(base) => base.clone(),
+        None => match std::env::var("GITHUB_BASE_REF") {
+            Ok(branch) if !branch.is_empty() => format!("origin/{branch}"),
+            _ => {
+                return Err(
+                    "no base revision; pass --base (for example --base origin/main)".to_owned(),
+                );
+            }
+        },
+    };
+    let old_revision = if args.no_merge_base {
+        Revision::Named(base)
+    } else {
+        Revision::MergeBase {
+            base,
+            head: args.head.clone().unwrap_or_else(|| "HEAD".to_owned()),
+        }
+    };
+    if config.apis.is_empty() {
+        return Err(
+            "the configuration defines no [[api]] entries; `faultline check` compares those \
+             (see docs/configuration.md)"
+                .to_owned(),
+        );
+    }
+    for name in &args.apis {
+        if !config.apis.iter().any(|api| &api.name == name) {
+            return Err(format!("no [[api]] named {name} in the configuration"));
+        }
+    }
+    let targets: Vec<Target> = config
+        .apis
+        .iter()
+        .filter(|api| args.apis.is_empty() || args.apis.contains(&api.name))
+        .map(|api| {
+            let old = Source::new(&root, &api.entry).at(old_revision.clone());
+            let mut new = Source::new(&root, &api.entry);
+            if let Some(head) = &args.head {
+                new = new.at(Revision::Named(head.clone()));
+            }
+            let mut target = Target::new(&api.name, old, new);
+            target.format = api.format;
+            target.role = api.role;
+            target.may_be_new = true;
+            target
+        })
+        .collect();
+    gate(config, &root, &args.gate, &targets)
+}
+
+/// Compares `targets`, applies the policy and prints the report.
+fn gate(
+    mut config: Config,
+    root: &Path,
+    args: &GateArgs,
+    targets: &[Target],
+) -> Result<i32, String> {
     if let Some(fail_on) = args.fail_on {
         config.fail_on = fail_on.into();
     }
@@ -213,7 +332,7 @@ fn diff(args: &DiffArgs) -> Result<i32, String> {
         None => None,
     };
 
-    let comparison = Engine::default().compare(&[target(&args.compare, &root)]);
+    let comparison = Engine::default().compare(targets);
     let evaluation = evaluate(&config, baseline.as_ref(), comparison.findings, today());
     let report = Report {
         sources: &comparison.sources,
@@ -230,7 +349,7 @@ fn diff(args: &DiffArgs) -> Result<i32, String> {
 }
 
 fn baseline(args: &BaselineArgs) -> Result<i32, String> {
-    let (_, root) = setup(&args.compare)?;
+    let (_, root) = setup(&args.compare.workspace)?;
     let comparison = Engine::default().compare(&[target(&args.compare, &root)]);
     if comparison.diagnostics.has_errors() {
         for d in &comparison.diagnostics {

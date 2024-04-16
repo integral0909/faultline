@@ -29,6 +29,14 @@ reported during resolution rather than silently clamped, and the loader
 refuses any file whose canonical (symlink-resolved) path lies outside the
 canonical workspace root.
 
+**Git revisions.** Revisions are read from the object database in-process;
+no `git` program, hook, filter or other configured command is run. The
+workspace is the subtree of the revision under the workspace root, so the
+containment rules above apply unchanged. Symbolic links in a revision are
+refused rather than followed, submodules are not entered, and a blob's size
+is checked against the file-size limit from its object header before it is
+read.
+
 **Network access and SSRF.** Remote references are disabled by default, and
 the refusal is enforced by the document store for every loader, not by each
 loader individually. When

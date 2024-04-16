@@ -27,8 +27,9 @@ breaking[FL1007]: op[GET /pets]/param[query:limit]: maximum changed from 100 to 
 
 > **Status:** early development (0.1). OpenAPI 3.0/3.1 and JSON Schema
 > (draft-04 to 2020-12) are supported, with text, JSON, SARIF, Markdown,
-> GitHub annotation and JUnit output. Protobuf, GraphQL and Avro, git-aware
-> checks and a language server are on the [roadmap](docs/architecture.md#roadmap).
+> GitHub annotation and JUnit output, and pull requests can be checked
+> against their base branch straight from git. Protobuf, GraphQL and Avro and
+> a language server are on the [roadmap](docs/architecture.md#roadmap).
 
 ## Quick start
 

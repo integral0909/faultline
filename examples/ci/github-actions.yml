@@ -1,9 +1,15 @@
 # Checks pull requests for breaking API changes against the target branch.
+#
+# Expects a faultline.toml at the repository root listing the APIs:
+#
+#   [[api]]
+#   name = "public"
+#   entry = "api/openapi.yaml"
 name: API compatibility
 
 on:
   pull_request:
-    paths: ["api/**"]
+    paths: ["api/**", "faultline.toml"]
 
 permissions:
   contents: read
@@ -16,19 +22,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # The merge base with the target branch must be in the clone.
           fetch-depth: 0
-      - name: Check out the base version
-        run: git worktree add ../base "origin/${{ github.base_ref }}"
       - name: Install faultline
         run: cargo install --locked --git https://github.com/integral0909/faultline faultline-cli
-      - name: Compare
-        run: |
-          mkdir -p old
-          cp -r ../base/api old/
-          faultline diff old/api/openapi.yaml api/openapi.yaml --output github
+      - name: Check
+        # --base defaults to origin/$GITHUB_BASE_REF in pull request builds.
+        run: faultline check --output github
       - name: SARIF report
         if: always()
-        run: faultline diff old/api/openapi.yaml api/openapi.yaml --output sarif --fail-on never > faultline.sarif
+        run: faultline check --output sarif --fail-on never > faultline.sarif
       - uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:

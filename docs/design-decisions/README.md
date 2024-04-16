@@ -15,3 +15,4 @@ New records start from [template.md](template.md) and take the next number.
 | [0004](0004-sandboxed-offline-reference-resolution.md) | Sandboxed, offline-by-default reference resolution | Accepted |
 | [0005](0005-three-valued-inclusion-with-verified-witnesses.md) | Three-valued inclusion with verified witnesses | Accepted |
 | [0006](0006-stable-finding-ids-and-expiring-waivers.md) | Stable finding ids and expiring waivers | Accepted |
+| [0007](0007-reading-revisions-from-the-object-database.md) | Reading revisions from the object database | Accepted |

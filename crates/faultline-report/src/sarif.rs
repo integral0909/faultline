@@ -65,8 +65,8 @@ fn result(report: &Report<'_>, e: &Evaluated, rule_index: usize) -> Value {
     if let Some(w) = f.witness() {
         let _ = write!(message, " (example: {})", short_witness(w));
     }
-    let span = f.change.new_span.or(f.change.old_span);
-    let physical = span.and_then(|s| Location::resolve(report.sources, s)).map(|l| {
+    let spans = [f.change.new_span, f.change.old_span];
+    let physical = Location::for_annotation(report.sources, &spans).map(|l| {
         json!({
             "physicalLocation": {
                 "artifactLocation": { "uri": l.file },

@@ -19,5 +19,7 @@
 pub mod codes;
 mod engine;
 
-pub use engine::{Comparison, Engine, Lowered, Source, Target, default_api_name, detect_format};
+pub use engine::{
+    Comparison, Engine, Lowered, Revision, Source, Target, default_api_name, detect_format,
+};
 pub use faultline_policy::{ApiFormat, SchemaRole};
