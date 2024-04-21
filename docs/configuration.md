@@ -31,6 +31,13 @@ finding = "6059f23290bf"
 reason = "Limit lowered deliberately; all known clients page at 50"
 owner = "api-platform"
 expires = "2026-12-31"
+
+[network]
+allow_remote = false            # fetch https references at all
+allowed_hosts = []              # e.g. ["schemas.example.com", "*.example.net"]
+# max_bytes = 8388608           # largest remote document
+# timeout_seconds = 20          # per request, 1-300
+# max_redirects = 5             # per document, at most 20
 ```
 
 Command-line flags take precedence over the file: `--fail-on`, `--baseline`,
@@ -83,6 +90,27 @@ checks. The file is JSON, sorted for reviewable diffs:
 ```
 
 Only `id` is matched; the other fields are for readers.
+
+## Remote references
+
+References to `https://` documents are refused unless `[network]` enables
+them, and then only for hosts on `allowed_hosts`: exact names, or
+`*.domain` for every subdomain (not the domain itself). Faultline then:
+
+* fetches over HTTPS only, and never sends credentials from the URL;
+* follows redirects itself, one hop at a time, checking every target
+  against the same rules;
+* resolves the host and refuses to connect if any of its addresses is
+  loopback, private, link-local or otherwise not publicly routable, so an
+  allowlisted name cannot be pointed at internal services;
+* ignores proxy settings, since the address check must apply to the host
+  actually contacted;
+* caps each document at `max_bytes` (and the file-size limit) and each
+  request at `timeout_seconds`.
+
+Each remote document is fetched once per run and shared by both versions
+being compared. Refusals and failures are reported at the reference
+(`FLE1005` and `FLE1006`).
 
 ## Environment
 

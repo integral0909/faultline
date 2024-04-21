@@ -11,8 +11,9 @@
 //! * [`MemoryLoader`] serves fixed contents, for tests and for text that did
 //!   not come from disk.
 //!
-//! Loaders never fetch from the network; remote references are reported as
-//! [`LoadError::RemoteDisabled`] until a network-enabled loader is configured.
+//! Neither loader fetches from the network. Remote references are reported as
+//! [`LoadError::RemoteDisabled`] unless remote access is enabled, in which
+//! case a [`SchemeRouter`] sends them to a separate, policy-enforcing loader.
 
 use std::collections::HashMap;
 use std::fmt::{self, Write as _};
@@ -39,6 +40,11 @@ pub enum LoadError {
     RemoteDisabled {
         scheme: String,
     },
+    /// Network policy forbids fetching the URI (a host not on the allowlist,
+    /// plain HTTP, a private address, ...).
+    Refused(String),
+    /// Fetching a remote document failed.
+    Network(String),
     /// The URI uses a scheme this loader cannot serve.
     UnsupportedScheme {
         scheme: Option<String>,
@@ -65,9 +71,10 @@ impl fmt::Display for LoadError {
             LoadError::UnsupportedScheme { scheme: None } => {
                 f.write_str("the reference has no scheme")
             }
+            LoadError::Refused(reason) => write!(f, "refused by the network policy: {reason}"),
             LoadError::TooLarge(e) => e.fmt(f),
             LoadError::Decode(e) => e.fmt(f),
-            LoadError::Io(message) => f.write_str(message),
+            LoadError::Network(message) | LoadError::Io(message) => f.write_str(message),
         }
     }
 }
@@ -78,6 +85,30 @@ impl std::error::Error for LoadError {}
 pub trait Loader: Send + Sync {
     /// Loads the document at `uri`. The fragment, if any, is ignored.
     fn load(&self, uri: &UriRef) -> Result<Loaded, LoadError>;
+}
+
+/// Sends `http`/`https` URIs to a remote loader, when there is one, and
+/// everything else to the workspace loader.
+pub struct SchemeRouter<'a> {
+    pub workspace: &'a dyn Loader,
+    pub remote: Option<&'a dyn Loader>,
+}
+
+impl fmt::Debug for SchemeRouter<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SchemeRouter")
+            .field("remote", &self.remote.is_some())
+            .finish_non_exhaustive()
+    }
+}
+
+impl Loader for SchemeRouter<'_> {
+    fn load(&self, uri: &UriRef) -> Result<Loaded, LoadError> {
+        match (uri.scheme(), self.remote) {
+            (Some(scheme), Some(remote)) if is_network_scheme(scheme) => remote.load(uri),
+            _ => self.workspace.load(uri),
+        }
+    }
 }
 
 /// Serves documents from a fixed map of URI to text.
@@ -292,7 +323,8 @@ fn encode_path_segment(segment: &str) -> String {
     out
 }
 
-fn is_network_scheme(scheme: &str) -> bool {
+/// Whether `scheme` is fetched over the network (`http`, `https`).
+pub fn is_network_scheme(scheme: &str) -> bool {
     ["http", "https"]
         .iter()
         .any(|s| s.eq_ignore_ascii_case(scheme))
@@ -343,6 +375,29 @@ mod tests {
         assert_eq!(
             display_name(&uri),
             SourceName::Path(PathBuf::from("api specs/pet#1.yaml"))
+        );
+    }
+
+    #[test]
+    fn routers_send_network_schemes_to_the_remote_loader() {
+        let workspace = MemoryLoader::new().with("file:///a.json", "local");
+        let remote = MemoryLoader::new().with("https://example.com/a.json", "remote");
+        let router = SchemeRouter {
+            workspace: &workspace,
+            remote: Some(&remote),
+        };
+        assert_eq!(router.load(&u("file:///a.json")).unwrap().text, "local");
+        assert_eq!(
+            router.load(&u("HTTPS://example.com/a.json")).unwrap().text,
+            "remote"
+        );
+        let offline = SchemeRouter {
+            workspace: &workspace,
+            remote: None,
+        };
+        assert_eq!(
+            offline.load(&u("https://example.com/a.json")),
+            Err(LoadError::NotFound)
         );
     }
 

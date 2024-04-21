@@ -39,10 +39,17 @@ read.
 
 **Network access and SSRF.** Remote references are disabled by default, and
 the refusal is enforced by the document store for every loader, not by each
-loader individually. When
-enabled, fetching is HTTPS-only, restricted to an allowlist of hosts, refuses
-addresses in private, loopback and link-local ranges after DNS resolution, and
-caps response size and redirects.
+loader individually. When enabled in `[network]`, fetching is HTTPS-only and
+restricted to an allowlist of hosts. Redirects are not followed by the HTTP
+client: each hop is checked against the policy again, so a permitted host
+cannot redirect to a forbidden one or downgrade to HTTP. Host names are
+resolved inside the connection path and the connection is refused if any
+resolved address is loopback, private, link-local, carrier-grade NAT,
+documentation, multicast or otherwise reserved (IPv4-mapped, NAT64 and 6to4
+IPv6 addresses are judged by the IPv4 address they carry). Because the
+connection uses exactly the checked addresses, DNS rebinding cannot redirect
+it. Proxies are not used, response size and time are capped, and bodies are
+requested without compression so the size cap applies to what is read.
 
 **Code execution.** Faultline never executes anything found in inputs: there
 are no templates, scripts or plugins. Custom rules are declarative data.

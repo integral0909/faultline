@@ -17,6 +17,9 @@ allow = [
   "Apache-2.0 WITH LLVM-exception",
   "BSD-2-Clause",
   "BSD-3-Clause",
+  # The Mozilla root certificate list bundled by webpki-roots (HTTPS for
+  # remote references) is data under this permissive license.
+  "CDLA-Permissive-2.0",
   "ISC",
   "MIT",
   "Unicode-3.0",

@@ -80,6 +80,14 @@ impl SourceMap {
         file.slice(span).map(str::to_owned)
     }
 
+    /// Every file registered so far, in registration order.
+    pub fn files(&self) -> Vec<Arc<SourceFile>> {
+        self.files
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+    }
+
     pub fn len(&self) -> usize {
         self.files
             .read()

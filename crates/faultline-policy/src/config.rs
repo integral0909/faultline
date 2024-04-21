@@ -25,6 +25,20 @@ struct RawConfig {
     policy: RawPolicy,
     #[serde(default)]
     waiver: Vec<RawWaiver>,
+    #[serde(default)]
+    network: RawNetwork,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawNetwork {
+    #[serde(default)]
+    allow_remote: bool,
+    #[serde(default)]
+    allowed_hosts: Vec<String>,
+    max_bytes: Option<u64>,
+    timeout_seconds: Option<u64>,
+    max_redirects: Option<u32>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -164,6 +178,24 @@ pub struct Waiver {
     pub expires: Date,
 }
 
+/// `[network]`: whether and where remote references may be fetched.
+///
+/// Host patterns are checked when the network policy is built from this,
+/// by the crate that enforces it.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct NetworkConfig {
+    pub allow_remote: bool,
+    pub allowed_hosts: Vec<String>,
+    pub max_bytes: Option<u64>,
+    pub timeout_seconds: Option<u64>,
+    pub max_redirects: Option<u32>,
+}
+
+/// Longest request timeout accepted in `[network]`.
+pub const MAX_TIMEOUT_SECONDS: u64 = 300;
+/// Most redirects accepted in `[network]`.
+pub const MAX_REDIRECTS: u32 = 20;
+
 /// The validated configuration.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Config {
@@ -173,6 +205,7 @@ pub struct Config {
     pub baseline: Option<PathBuf>,
     pub overrides: Vec<Override>,
     pub waivers: Vec<Waiver>,
+    pub network: NetworkConfig,
 }
 
 impl Default for Config {
@@ -184,6 +217,7 @@ impl Default for Config {
             baseline: None,
             overrides: Vec::new(),
             waivers: Vec::new(),
+            network: NetworkConfig::default(),
         }
     }
 }
@@ -221,6 +255,7 @@ impl Config {
         };
         let overrides = overrides(raw.policy.overrides, &apis, &mut problems);
         let waivers = waivers(raw.waiver, &mut problems);
+        let network = network(raw.network, &mut problems);
         if !problems.is_empty() {
             return Err(ConfigError { problems });
         }
@@ -231,7 +266,37 @@ impl Config {
             baseline: raw.policy.baseline,
             overrides,
             waivers,
+            network,
         })
+    }
+}
+
+fn network(raw: RawNetwork, problems: &mut Vec<String>) -> NetworkConfig {
+    if raw.allow_remote && raw.allowed_hosts.is_empty() {
+        problems
+            .push("[network] allow_remote needs at least one entry in allowed_hosts".to_owned());
+    }
+    if raw.max_bytes == Some(0) {
+        problems.push("[network] max_bytes must be positive".to_owned());
+    }
+    if let Some(t) = raw.timeout_seconds
+        && !(1..=MAX_TIMEOUT_SECONDS).contains(&t)
+    {
+        problems.push(format!(
+            "[network] timeout_seconds must be between 1 and {MAX_TIMEOUT_SECONDS}"
+        ));
+    }
+    if raw.max_redirects.is_some_and(|r| r > MAX_REDIRECTS) {
+        problems.push(format!(
+            "[network] max_redirects must be at most {MAX_REDIRECTS}"
+        ));
+    }
+    NetworkConfig {
+        allow_remote: raw.allow_remote,
+        allowed_hosts: raw.allowed_hosts,
+        max_bytes: raw.max_bytes,
+        timeout_seconds: raw.timeout_seconds,
+        max_redirects: raw.max_redirects,
     }
 }
 

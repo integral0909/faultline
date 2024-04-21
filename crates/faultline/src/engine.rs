@@ -1,10 +1,14 @@
+use std::fmt;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::time::Duration;
 
-use faultline_doc::loader::{FsLoader, LoadError, Loader, workspace_uri};
+use faultline_doc::loader::{FsLoader, LoadError, Loader, SchemeRouter, workspace_uri};
 use faultline_doc::{DocumentStore, UriRef};
 use faultline_ir::{Api, Role};
 use faultline_jsonschema::Options;
-use faultline_policy::{ApiFormat, SchemaRole};
+use faultline_net::{HostPattern, NetworkPolicy, RemoteLoader};
+use faultline_policy::{ApiFormat, NetworkConfig, SchemaRole};
 use faultline_report::ApiSummary;
 use faultline_rules::{Finding, classify, suggest_bump};
 use faultline_source::{Diagnostic, DiagnosticCode, Diagnostics, Limits, SourceMap};
@@ -105,12 +109,44 @@ pub struct Comparison {
 }
 
 /// Loads, lowers and compares APIs.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Default)]
 pub struct Engine {
     pub limits: Limits,
+    /// Serves `http`/`https` references. Without one, remote references
+    /// are reported as disabled. Shared by every version and API compared,
+    /// so each remote document is fetched once.
+    remote: Option<Arc<dyn Loader>>,
+}
+
+impl fmt::Debug for Engine {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Engine")
+            .field("limits", &self.limits)
+            .field("remote", &self.remote.is_some())
+            .finish()
+    }
 }
 
 impl Engine {
+    /// Enables remote references, served by `loader`.
+    #[must_use]
+    pub fn with_remote(mut self, loader: Arc<dyn Loader>) -> Self {
+        self.remote = Some(loader);
+        self
+    }
+
+    /// Applies a workspace's `[network]` settings: when remote references
+    /// are allowed, they are fetched over HTTPS under the configured policy.
+    pub fn with_network(self, config: &NetworkConfig) -> Result<Self, String> {
+        match network_policy(config)? {
+            Some(policy) => {
+                let loader = RemoteLoader::https(policy, self.limits.clone());
+                Ok(self.with_remote(Arc::new(loader)))
+            }
+            None => Ok(self),
+        }
+    }
+
     /// Compares every target. Targets whose versions cannot be lowered
     /// without errors contribute diagnostics and no findings.
     pub fn compare(&self, targets: &[Target]) -> Comparison {
@@ -184,7 +220,12 @@ impl Engine {
                 };
             }
         };
-        let mut store = DocumentStore::new(loader.as_ref(), sources, self.limits.clone());
+        let router = SchemeRouter {
+            workspace: loader.as_ref(),
+            remote: self.remote.as_deref(),
+        };
+        let mut store = DocumentStore::new(&router, sources, self.limits.clone());
+        store.allow_remote(self.remote.is_some());
         let format = match format {
             Some(format) => format,
             None => match detect_format(&mut store, &entry) {
@@ -294,6 +335,28 @@ impl Engine {
         }
         Ok((Box::new(loader), entry))
     }
+}
+
+/// The network policy a `[network]` section describes, or `None` when remote
+/// references stay disabled.
+pub fn network_policy(config: &NetworkConfig) -> Result<Option<NetworkPolicy>, String> {
+    if !config.allow_remote {
+        return Ok(None);
+    }
+    let allowed_hosts = config
+        .allowed_hosts
+        .iter()
+        .map(|h| HostPattern::parse(h).map_err(|e| format!("[network] allowed_hosts: {e}")))
+        .collect::<Result<Vec<_>, _>>()?;
+    let defaults = NetworkPolicy::default();
+    Ok(Some(NetworkPolicy {
+        allowed_hosts,
+        max_bytes: config.max_bytes.unwrap_or(defaults.max_bytes),
+        timeout: config
+            .timeout_seconds
+            .map_or(defaults.timeout, Duration::from_secs),
+        max_redirects: config.max_redirects.unwrap_or(defaults.max_redirects),
+    }))
 }
 
 /// Why a source could not be opened.

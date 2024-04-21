@@ -241,6 +241,13 @@ fn target(args: &CompareArgs, root: &Path) -> Target {
     target
 }
 
+/// An engine following the configuration's network policy.
+fn engine(config: &Config) -> Result<Engine, String> {
+    Engine::default()
+        .with_network(&config.network)
+        .map_err(|e| format!("invalid configuration: {e}"))
+}
+
 fn today() -> Date {
     // Reproducible runs (and tests of waiver expiry) can pin the date.
     std::env::var("FAULTLINE_TODAY")
@@ -332,7 +339,7 @@ fn gate(
         None => None,
     };
 
-    let comparison = Engine::default().compare(targets);
+    let comparison = engine(&config)?.compare(targets);
     let evaluation = evaluate(&config, baseline.as_ref(), comparison.findings, today());
     let report = Report {
         sources: &comparison.sources,
@@ -349,8 +356,8 @@ fn gate(
 }
 
 fn baseline(args: &BaselineArgs) -> Result<i32, String> {
-    let (_, root) = setup(&args.compare.workspace)?;
-    let comparison = Engine::default().compare(&[target(&args.compare, &root)]);
+    let (config, root) = setup(&args.compare.workspace)?;
+    let comparison = engine(&config)?.compare(&[target(&args.compare, &root)]);
     if comparison.diagnostics.has_errors() {
         for d in &comparison.diagnostics {
             eprint!(

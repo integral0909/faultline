@@ -243,6 +243,54 @@ fn input_and_configuration_errors_exit_with_2() {
 }
 
 #[test]
+fn remote_references_follow_the_network_policy() {
+    let dir = tempfile::tempdir().unwrap();
+    for version in ["v1", "v2"] {
+        std::fs::create_dir(dir.path().join(version)).unwrap();
+        std::fs::write(
+            dir.path().join(version).join("api.json"),
+            r#"{"properties": {"pet": {"$ref": "https://localhost/pet.json"}}}"#,
+        )
+        .unwrap();
+    }
+    let diff = ["diff", "v1/api.json", "v2/api.json"];
+
+    // Off by default.
+    let output = faultline(dir.path(), &diff);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(stdout(&output).contains("[FLE1005]"), "{}", stdout(&output));
+
+    // Host patterns are validated.
+    std::fs::write(
+        dir.path().join("faultline.toml"),
+        "[network]\nallow_remote = true\nallowed_hosts = [\"https://localhost\"]\n",
+    )
+    .unwrap();
+    let output = faultline(dir.path(), &diff);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        stderr(&output).contains("invalid configuration: [network] allowed_hosts"),
+        "{}",
+        stderr(&output)
+    );
+
+    // An allowlisted name that resolves to a loopback address is refused
+    // when connecting; nothing is fetched.
+    std::fs::write(
+        dir.path().join("faultline.toml"),
+        "[network]\nallow_remote = true\nallowed_hosts = [\"localhost\"]\ntimeout_seconds = 5\n",
+    )
+    .unwrap();
+    let output = faultline(dir.path(), &diff);
+    assert_eq!(output.status.code(), Some(2));
+    let text = stdout(&output);
+    assert!(
+        text.contains("[FLE1005]") && text.contains("non-public address"),
+        "{text}"
+    );
+}
+
+#[test]
 fn explain_rules_and_ir_dump() {
     let dir = workspace();
     let explain = faultline(dir.path(), &["explain", "bound-changed"]);

@@ -17,6 +17,7 @@ faultline-diff.workspace = true
 faultline-doc.workspace = true
 faultline-ir.workspace = true
 faultline-jsonschema.workspace = true
+faultline-net.workspace = true
 faultline-openapi.workspace = true
 faultline-policy.workspace = true
 faultline-report.workspace = true

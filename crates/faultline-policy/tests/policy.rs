@@ -121,6 +121,34 @@ expires = "tomorrow"
 }
 
 #[test]
+fn network_settings_are_validated() {
+    let config = Config::parse(
+        r#"
+[network]
+allow_remote = true
+allowed_hosts = ["schemas.example.com", "*.example.net"]
+timeout_seconds = 5
+max_redirects = 2
+"#,
+    )
+    .unwrap();
+    assert!(config.network.allow_remote);
+    assert_eq!(config.network.allowed_hosts.len(), 2);
+    assert_eq!(config.network.timeout_seconds, Some(5));
+    assert!(!Config::default().network.allow_remote);
+
+    let error = Config::parse(
+        "[network]\nallow_remote = true\nmax_bytes = 0\ntimeout_seconds = 0\nmax_redirects = 99\n",
+    )
+    .unwrap_err();
+    assert_eq!(error.problems.len(), 4, "{error}");
+    assert!(error.to_string().contains("needs at least one entry"));
+
+    let error = Config::parse("[network]\nallow = true\n").unwrap_err();
+    assert!(error.to_string().contains("allow"), "{error}");
+}
+
+#[test]
 fn unknown_keys_are_rejected() {
     let error = Config::parse("[policy]\nfail-on = \"never\"\n").unwrap_err();
     assert!(error.to_string().contains("fail-on"), "{error}");

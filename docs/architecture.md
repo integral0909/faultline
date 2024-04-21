@@ -119,6 +119,7 @@ plugins in v1.
 | `faultline-policy` | `faultline.toml`, overrides, waivers, baselines, verdicts |
 | `faultline-usage` | Usage index and importers |
 | `faultline-vcs` | Reading git revisions without a checkout |
+| `faultline-net` | Remote document retrieval under the network policy |
 | `faultline-report` | Reporters and the versioned JSON report model |
 | `faultline` | Engine orchestration and the stable library API |
 | `faultline-cli` | The `faultline` binary |

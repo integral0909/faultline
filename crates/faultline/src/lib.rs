@@ -21,5 +21,6 @@ mod engine;
 
 pub use engine::{
     Comparison, Engine, Lowered, Revision, Source, Target, default_api_name, detect_format,
+    network_policy,
 };
 pub use faultline_policy::{ApiFormat, SchemaRole};

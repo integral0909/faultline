@@ -80,6 +80,7 @@ including the tools used by CI.
 
 * [Getting started](docs/getting-started.md)
 * [Configuration](docs/configuration.md)
+* [Troubleshooting](docs/troubleshooting.md)
 * [Rule reference](docs/rules.md)
 * [Architecture](docs/architecture.md)
 * [Development](docs/development.md)

@@ -67,3 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   defaults to the old one.
 - JSON report locations include the `revision` they were read from; SARIF and
   GitHub annotations prefer working-tree locations.
+- `faultline-net` and `[network]`: opt-in `https` references restricted to
+  allowlisted hosts, with redirects checked hop by hop, connections refused
+  to non-public addresses after resolution, no proxies, and size, time and
+  redirect limits. Remote documents are fetched once per run.

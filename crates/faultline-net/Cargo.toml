@@ -1,0 +1,18 @@
+[package]
+name = "faultline-net"
+description = "Policy-enforcing retrieval of remote API documents for Faultline"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+faultline-doc.workspace = true
+faultline-source.workspace = true
+ureq.workspace = true
+
+[lints]
+workspace = true

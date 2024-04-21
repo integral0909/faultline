@@ -536,7 +536,7 @@ fn file_stem(uri: &UriRef) -> String {
 fn load_code(error: &LoadError) -> faultline_source::DiagnosticCode {
     match error {
         LoadError::OutsideRoot => codes::REFERENCE_OUTSIDE_ROOT,
-        LoadError::RemoteDisabled { .. } => codes::REMOTE_REFERENCE,
+        LoadError::RemoteDisabled { .. } | LoadError::Refused(_) => codes::REMOTE_REFERENCE,
         _ => codes::LOAD_FAILED,
     }
 }
