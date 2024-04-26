@@ -74,6 +74,22 @@ impl<'a> Differ<'a> {
             path,
             request,
         );
+        let (a, b) = (
+            old.streaming.unwrap_or_default(),
+            new.streaming.unwrap_or_default(),
+        );
+        for (side, was, is, polarity) in [
+            ("request", a.request, b.request, request),
+            ("response", a.response, b.response, response),
+        ] {
+            if was != is {
+                let kind = ChangeKind::StreamingChanged {
+                    side: side.to_owned(),
+                    streaming: is,
+                };
+                self.surface(kind, path.clone(), polarity, spans);
+            }
+        }
         self.parameters(&old.parameters, &new.parameters, path, request);
         self.request_bodies(
             old.request_body.as_ref(),

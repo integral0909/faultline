@@ -148,16 +148,8 @@ impl Checker<'_> {
         {
             proven = false;
         }
-        for (property, required) in &b.dependent_required {
-            let implied = required.iter().all(|name| {
-                a.field(name).is_some_and(|f| f.required)
-                    || a.dependent_required
-                        .iter()
-                        .any(|(p, reqs)| p == property && reqs.contains(name))
-            });
-            if !implied {
-                proven = false;
-            }
+        if !self.implies_member_constraints(a, b) {
+            proven = false;
         }
 
         if proven {
@@ -165,6 +157,33 @@ impl Checker<'_> {
         } else {
             self.search(l, r, "object constraints could not be compared exactly")
         }
+    }
+
+    /// Whether every constraint `b` places on which members appear together
+    /// (exclusive groups, dependent requirements) already holds for `a`.
+    fn implies_member_constraints(&self, a: &ObjectType, b: &ObjectType) -> bool {
+        // Every pair of members the right side excludes must be excluded on
+        // the left too; the samples include objects with every optional
+        // member, so a search finds the pair otherwise.
+        let groups = b.exclusive.iter().all(|group| {
+            let possible: Vec<&String> = group
+                .fields
+                .iter()
+                .filter(|name| a.field(name).is_some() || !self.left_is_empty(a.additional))
+                .collect();
+            possible.len() < 2
+                || a.group_of(possible[0])
+                    .is_some_and(|left| possible.iter().all(|name| left.fields.contains(name)))
+        });
+        let dependencies = b.dependent_required.iter().all(|(property, required)| {
+            required.iter().all(|name| {
+                a.field(name).is_some_and(|f| f.required)
+                    || a.dependent_required
+                        .iter()
+                        .any(|(p, reqs)| p == property && reqs.contains(name))
+            })
+        });
+        groups && dependencies
     }
 
     /// An array of the left type with `witness` at index `index`, rejected by

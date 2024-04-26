@@ -3,7 +3,7 @@
 //! Rule codes are part of the public interface — configuration overrides and
 //! documentation refer to them — so a code is never reused or renumbered.
 //! `FL1xxx` rules concern the values at a position and apply to every format;
-//! `FL2xxx` rules concern HTTP surfaces.
+//! `FL2xxx` rules concern HTTP surfaces; `FL3xxx` rules concern RPC surfaces.
 
 use std::fmt;
 
@@ -113,6 +113,20 @@ rules! {
         "A standalone schema was added.";
     SCHEMA_REMOVED = "FL1024", "schema-removed", Wire, "A schema was removed",
         "A standalone schema was removed; everything that used it loses its contract.";
+    FIELD_RENAMED = "FL1025", "field-renamed", Source, "A field was renamed",
+        "A field kept its number (Protobuf tag) but changed its name. The binary encoding identifies fields by number, so binary data still round-trips; but generated code no longer compiles against the old name, and JSON encodings that use field names stop recognising it.\n\nKeep the old name, or add the new field alongside the old one and deprecate the old one.";
+    FIELD_NUMBER_CHANGED = "FL1026", "field-number-changed", Wire, "A field's number changed",
+        "A field kept its name but moved to another number (Protobuf tag). Binary data written with the old number is read as an unknown field or, worse, as whatever field now has that number.\n\nField numbers are permanent: add a new field instead, and reserve the old number when the old field is removed.";
+    FIELD_ALIASES_CHANGED = "FL1027", "field-aliases-changed", Wire, "Alternative names of a field changed",
+        "The other names a field is accepted under changed, such as a Protobuf `json_name` or an Avro alias. Data written under a removed name is no longer recognised and the value is silently dropped.";
+    FIELD_GROUP_CHANGED = "FL1028", "field-group-changed", Wire, "A field's oneof membership changed",
+        "A field moved into or out of a `oneof`, or its `oneof` gained or lost members. Adding a field to a group means messages that set it together with another member are no longer valid: one of the two values is dropped. Removing a field from a group lets receivers see combinations they never saw before.\n\nOnly add *new* fields to an existing `oneof`.";
+    ENUM_VALUE_RENUMBERED = "FL1029", "enum-value-renumbered", Wire, "An enum value's number changed",
+        "An enum value kept its name but has a new number. Binary data carries the number, so old data now decodes to a different value or an unknown one.\n\nEnum numbers are permanent: add a new value instead.";
+    ENUM_VALUE_RENAMED = "FL1030", "enum-value-renamed", Source, "An enum value was renamed",
+        "An enum number is now spelled differently. Binary data is unaffected, but generated code and JSON encodings that use value names break.";
+    ENCODING_CHANGED = "FL1031", "encoding-changed", Wire, "A number's wire encoding changed",
+        "The encoding of a number changed between incompatible representations, for example Protobuf `int32` to `sint32` (zigzag) or `fixed64` to `uint64` (varint). The binary data of one is misread by the other even when the values would fit.\n\nKeep the encoding; changes between `int32`, `uint32`, `int64`, `uint64` and `bool` are compatible on the wire, as are `sint32`/`sint64`, `fixed32`/`sfixed32` and `fixed64`/`sfixed64`, subject to the value ranges, which Faultline checks separately.";
 
     OPERATION_REMOVED = "FL2001", "operation-removed", Wire, "An operation was removed",
         "An endpoint (method and path) no longer exists. Clients calling it receive errors.\n\nDeprecate the operation first and remove it in a major version.";
@@ -160,6 +174,9 @@ rules! {
         "The API sends a new webhook.";
     WEBHOOK_REMOVED = "FL2073", "webhook-removed", Wire, "A webhook was removed",
         "The API no longer sends a webhook; receivers depending on it are affected.";
+
+    STREAMING_CHANGED = "FL3001", "streaming-changed", Wire, "An RPC changed between unary and streaming",
+        "A request or response of a remote procedure became a stream of messages, or stopped being one. Clients and servers disagree on the call's shape, and every call fails.\n\nAdd a new method with the new shape and deprecate the old one.";
 }
 
 /// Looks up a rule by code (`FL1001`) or name (`type-changed`),

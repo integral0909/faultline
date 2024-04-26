@@ -245,6 +245,10 @@ fn explains(kind: &ChangeKind, reason: &Reason, witness: &Literal) -> bool {
             ChangeKind::FieldRemoved { name, .. } | ChangeKind::FieldAdded { name, .. },
             Reason::UnexpectedProperty(unexpected),
         ) => name == unexpected,
+        (
+            ChangeKind::FieldGroupChanged { name, .. },
+            Reason::ExclusiveMembers { first, second, .. },
+        ) => name == first || name == second,
         // Composite changes are explained by any rejection at the node.
         (ChangeKind::UniqueItemsChanged { .. }, Reason::DuplicateItems)
         | (ChangeKind::NumericKindChanged { .. }, Reason::WrongType { .. })

@@ -338,6 +338,7 @@ impl Lowerer<'_, '_> {
             maximum,
             multiple_of,
             format: None,
+            encoding: None,
         }
     }
 

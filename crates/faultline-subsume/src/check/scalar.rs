@@ -201,6 +201,7 @@ mod tests {
             maximum: max.map(bound),
             multiple_of: step.map(d),
             format: None,
+            encoding: None,
         }
     }
 

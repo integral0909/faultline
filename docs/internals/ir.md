@@ -9,7 +9,7 @@ invariants they carry. The rationale is in
 
 ```text
 Api
-├── operations: Vec<Operation>      HTTP operations (more surface kinds per format)
+├── operations: Vec<Operation>      HTTP operations and RPC methods
 │   ├── parameters, request body    values flowing in
 │   ├── responses                   values flowing out
 │   └── callbacks                   nested operations, direction reversed
@@ -31,15 +31,19 @@ Each `TypeKind` denotes a set of JSON-like values:
 |---|---|
 | `Any`, `Never` | all values; no values |
 | `Null`, `Boolean`, `Bytes` | the obvious sets |
-| `Integer`, `Number` | numbers with inclusive/exclusive bounds, `multipleOf`, declared format |
+| `Integer`, `Number` | numbers with inclusive/exclusive bounds, `multipleOf`, declared format and, for binary formats, wire encoding |
 | `String` | length bounds (code points), ECMA-262 pattern, format |
-| `Enum` | an explicit list of literals; *open* enums (Protobuf 3) document rather than restrict |
-| `Object` | declared fields, pattern properties, additional properties, property-name constraint, size bounds, dependent requirements |
+| `Enum` | an explicit list of literals, with names and numbers where the format has them; *open* enums (Protobuf 3) document rather than restrict |
+| `Object` | declared fields (with wire tags and aliases where the format has them), pattern properties, additional properties, property-name constraint, size bounds, dependent requirements, exclusive groups (Protobuf `oneof`: at most one member present) |
 | `Array` | prefix items, item type, size bounds, uniqueness, `contains` |
 | `Map` | typed keys and values (Protobuf, Avro) |
 | `Union` | `Any` (anyOf), `Exclusive` (oneOf) or `Tagged` (discriminated by the data) |
 | `AllOf`, `Not` | intersection and complement |
 | `Ref` | transparent indirection |
+
+Operations are keyed by method and path template for HTTP, and by
+fully-qualified service and method for RPC (`pets.v1.PetService/GetPet`, the
+gRPC method path). RPC operations record whether each direction is a stream.
 
 Literals (`enum` members, `const`, defaults) are stored as `Literal`, whose
 equality is JSON value equality: object keys are unordered and numbers are
@@ -93,6 +97,7 @@ which is property-tested.
   values and would make recursive comparison unsound);
 * object field names, enum members (by value), operation identities and root
   paths are unique;
+* exclusive groups name declared fields, and no field is in two groups;
 * `named` agrees with the names stored on the nodes.
 
 ## Dump format

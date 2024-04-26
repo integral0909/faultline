@@ -159,3 +159,37 @@ fn named_map_must_agree_with_node_names() {
         }]
     );
 }
+
+#[test]
+fn exclusive_groups_must_name_declared_fields_once() {
+    let mut b = Builder::new();
+    let s = b.string();
+    let id = b.object(&[("email", s, false), ("phone", s, false)]);
+    let TypeKind::Object(obj) = &mut b.api.types.get_mut(id).kind else {
+        unreachable!()
+    };
+    let group = |name: &str, fields: &[&str]| faultline_ir::ExclusiveGroup {
+        name: name.into(),
+        fields: fields.iter().map(|f| (*f).to_owned()).collect(),
+        origin: None,
+    };
+    obj.exclusive = vec![
+        group("contact", &["email", "phone"]),
+        group("other", &["phone", "fax"]),
+    ];
+    assert_eq!(
+        validate(&b.api),
+        [
+            IrError::InvalidExclusiveGroup {
+                ty: id,
+                group: "other".into(),
+                field: "phone".into()
+            },
+            IrError::InvalidExclusiveGroup {
+                ty: id,
+                group: "other".into(),
+                field: "fax".into()
+            },
+        ]
+    );
+}

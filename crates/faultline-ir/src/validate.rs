@@ -34,6 +34,13 @@ pub enum IrError {
         ty: TypeId,
         name: String,
     },
+    /// An exclusive group names a field the object does not declare, or a
+    /// field belongs to two groups.
+    InvalidExclusiveGroup {
+        ty: TypeId,
+        group: String,
+        field: String,
+    },
     DuplicateEnumValue {
         ty: TypeId,
         value: Literal,
@@ -75,6 +82,10 @@ impl fmt::Display for IrError {
             IrError::DuplicateField { ty, name } => {
                 write!(f, "type {ty:?} declares field \"{name}\" twice")
             }
+            IrError::InvalidExclusiveGroup { ty, group, field } => write!(
+                f,
+                "exclusive group {group} of type {ty:?} lists \"{field}\", which is undeclared or in another group"
+            ),
             IrError::DuplicateEnumValue { ty, value } => {
                 write!(f, "enum {ty:?} lists {value} twice")
             }
@@ -132,6 +143,18 @@ fn check_nodes(api: &Api, errors: &mut Vec<IrError>) {
                             ty: id,
                             name: field.name.clone(),
                         });
+                    }
+                }
+                let mut grouped = HashSet::new();
+                for group in &obj.exclusive {
+                    for field in &group.fields {
+                        if !seen.contains(field.as_str()) || !grouped.insert(field.as_str()) {
+                            errors.push(IrError::InvalidExclusiveGroup {
+                                ty: id,
+                                group: group.name.clone(),
+                                field: field.clone(),
+                            });
+                        }
                     }
                 }
             }

@@ -223,10 +223,19 @@ fn surface_pair(kind: &ChangeKind) -> Option<Surface> {
         K::DiscriminatorValueAdded { .. } => Value(pair(Info, Risky)),
         K::DiscriminatorValueRemoved { .. } => Value(pair(Breaking, Info)),
         K::AccessChanged { .. } | K::DefaultChanged { .. } => Value(same(Risky)),
+        K::FieldRenamed { .. } | K::EnumValueRenamed { .. } => Value(same(Risky)),
+        K::FieldTagChanged { .. }
+        | K::EnumValueRenumbered { .. }
+        | K::EncodingChanged { .. }
+        | K::StreamingChanged { .. } => Value(same(Breaking)),
+        K::FieldAliasesChanged { removed, .. } => {
+            Value(same(if removed.is_empty() { Info } else { Risky }))
+        }
         K::TypeChanged { .. }
         | K::FieldAdded { .. }
         | K::FieldRemoved { .. }
         | K::FieldRequiredChanged { .. }
+        | K::FieldGroupChanged { .. }
         | K::EnumValueAdded { .. }
         | K::EnumValueRemoved { .. }
         | K::BoundChanged { .. }
@@ -498,6 +507,80 @@ fn describe(kind: &ChangeKind) -> (&'static Rule, String, String) {
             format!("enum value {value} removed"),
             value.to_string(),
         ),
+        K::EnumValueRenumbered { name, old, new } => (
+            &c::ENUM_VALUE_RENUMBERED,
+            format!("enum value {name} renumbered from {old} to {new}"),
+            name.clone(),
+        ),
+        K::EnumValueRenamed { number, old, new } => (
+            &c::ENUM_VALUE_RENAMED,
+            format!("enum value {number} renamed from {old} to {new}"),
+            number.to_string(),
+        ),
+        K::FieldRenamed { old, new, tag } => (
+            &c::FIELD_RENAMED,
+            format!("field {tag} renamed from `{old}` to `{new}`"),
+            none(),
+        ),
+        K::FieldTagChanged { name, old, new } => (
+            &c::FIELD_NUMBER_CHANGED,
+            format!("field `{name}` moved from number {old} to {new}"),
+            none(),
+        ),
+        K::FieldAliasesChanged {
+            name,
+            removed,
+            added,
+        } => {
+            let list = |names: &[String]| {
+                names
+                    .iter()
+                    .map(|n| format!("`{n}`"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            };
+            let message = match (removed.is_empty(), added.is_empty()) {
+                (false, true) => {
+                    format!("field `{name}` is no longer accepted as {}", list(removed))
+                }
+                (true, false) => format!("field `{name}` is now also accepted as {}", list(added)),
+                _ => format!(
+                    "field `{name}` is no longer accepted as {} but as {}",
+                    list(removed),
+                    list(added)
+                ),
+            };
+            (&c::FIELD_ALIASES_CHANGED, message, none())
+        }
+        K::FieldGroupChanged { name, old, new } => {
+            let message = match (old, new) {
+                (None, Some(g)) => format!("field `{name}` moved into oneof `{g}`"),
+                (Some(g), None) => format!("field `{name}` moved out of oneof `{g}`"),
+                (Some(a), Some(b)) if a != b => {
+                    format!("field `{name}` moved from oneof `{a}` to `{b}`")
+                }
+                (Some(g), Some(_)) => format!("the members of oneof `{g}` around `{name}` changed"),
+                (None, None) => format!("the grouping of field `{name}` changed"),
+            };
+            (&c::FIELD_GROUP_CHANGED, message, name.clone())
+        }
+        K::EncodingChanged { old, new } => (
+            &c::ENCODING_CHANGED,
+            format!("wire encoding changed from {} to {}", show(old), show(new)),
+            none(),
+        ),
+        K::StreamingChanged { side, streaming } => (
+            &c::STREAMING_CHANGED,
+            format!(
+                "the {side} is {}",
+                if *streaming {
+                    "now a stream"
+                } else {
+                    "no longer a stream"
+                }
+            ),
+            side.clone(),
+        ),
         K::BoundChanged { facet, old, new } => (
             &c::BOUND_CHANGED,
             format!(
@@ -636,6 +719,113 @@ pub fn finding_id(api: &str, code: &str, path: &str, detail: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn surface_change(kind: ChangeKind, polarity: Polarity) -> Finding {
+        let change = Change {
+            kind,
+            path: "schema[m].f".parse().unwrap(),
+            polarity,
+            old_span: None,
+            new_span: None,
+            effect: None,
+        };
+        classify("api", &change)
+    }
+
+    #[test]
+    fn identity_changes_have_fixed_severities() {
+        let cases = [
+            (
+                ChangeKind::FieldTagChanged {
+                    name: "f".into(),
+                    old: 1,
+                    new: 2,
+                },
+                "FL1026",
+                Breaking,
+            ),
+            (
+                ChangeKind::FieldRenamed {
+                    old: "f".into(),
+                    new: "g".into(),
+                    tag: 1,
+                },
+                "FL1025",
+                Risky,
+            ),
+            (
+                ChangeKind::EnumValueRenumbered {
+                    name: "CAT".into(),
+                    old: 1,
+                    new: 3,
+                },
+                "FL1029",
+                Breaking,
+            ),
+            (
+                ChangeKind::EnumValueRenamed {
+                    number: 1,
+                    old: "CAT".into(),
+                    new: "FELINE".into(),
+                },
+                "FL1030",
+                Risky,
+            ),
+            (
+                ChangeKind::EncodingChanged {
+                    old: Some("varint".into()),
+                    new: Some("zigzag".into()),
+                },
+                "FL1031",
+                Breaking,
+            ),
+            (
+                ChangeKind::FieldAliasesChanged {
+                    name: "f".into(),
+                    removed: Vec::new(),
+                    added: vec!["fAlias".into()],
+                },
+                "FL1027",
+                Info,
+            ),
+            (
+                ChangeKind::FieldAliasesChanged {
+                    name: "f".into(),
+                    removed: vec!["fAlias".into()],
+                    added: Vec::new(),
+                },
+                "FL1027",
+                Risky,
+            ),
+            (
+                ChangeKind::StreamingChanged {
+                    side: "request".into(),
+                    streaming: true,
+                },
+                "FL3001",
+                Breaking,
+            ),
+        ];
+        for (kind, code, severity) in cases {
+            for polarity in [Polarity::IN, Polarity::OUT] {
+                let finding = surface_change(kind.clone(), polarity);
+                assert_eq!(finding.rule.code, code, "{kind:?}");
+                assert_eq!(finding.severity, severity, "{kind:?} [{polarity}]");
+            }
+        }
+        let moved = surface_change(
+            ChangeKind::FieldAliasesChanged {
+                name: "f".into(),
+                removed: vec!["a".into()],
+                added: vec!["b".into()],
+            },
+            Polarity::IN,
+        );
+        assert_eq!(
+            moved.message,
+            "field `f` is no longer accepted as `a` but as `b`"
+        );
+    }
 
     #[test]
     fn finding_ids_are_stable_and_sensitive_to_each_part() {

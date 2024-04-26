@@ -14,6 +14,7 @@ pub enum ApiFormat {
     OpenApi30,
     OpenApi31,
     JsonSchema,
+    Protobuf,
 }
 
 impl ApiFormat {
@@ -22,6 +23,7 @@ impl ApiFormat {
             ApiFormat::OpenApi30 => "openapi-3.0",
             ApiFormat::OpenApi31 => "openapi-3.1",
             ApiFormat::JsonSchema => "jsonschema",
+            ApiFormat::Protobuf => "protobuf",
         }
     }
 }

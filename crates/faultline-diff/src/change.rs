@@ -197,11 +197,60 @@ pub enum ChangeKind {
         name: String,
         required: bool,
     },
+    /// A field keeps its wire tag under a new name.
+    FieldRenamed {
+        old: String,
+        new: String,
+        tag: u32,
+    },
+    /// A field keeps its name under a new wire tag.
+    FieldTagChanged {
+        name: String,
+        old: u32,
+        new: u32,
+    },
+    /// Names a field is also accepted under were added or removed.
+    FieldAliasesChanged {
+        name: String,
+        removed: Vec<String>,
+        added: Vec<String>,
+    },
+    /// A field moved into, out of, or between exclusive groups, or its
+    /// group gained or lost members.
+    FieldGroupChanged {
+        name: String,
+        old: Option<String>,
+        new: Option<String>,
+    },
     EnumValueAdded {
         value: Literal,
     },
     EnumValueRemoved {
         value: Literal,
+    },
+    /// An enum value keeps its name under a new number.
+    EnumValueRenumbered {
+        name: String,
+        old: i64,
+        new: i64,
+    },
+    /// An enum number is now spelled differently.
+    EnumValueRenamed {
+        number: i64,
+        old: String,
+        new: String,
+    },
+    /// The wire encoding of a number changed (Protobuf `int32` to
+    /// `sint32`): data written one way is misread the other way.
+    EncodingChanged {
+        old: Option<String>,
+        new: Option<String>,
+    },
+    /// An RPC direction changed between one message and a stream.
+    StreamingChanged {
+        /// `request` or `response`.
+        side: String,
+        streaming: bool,
     },
     /// A bound or step changed; `None` means absent.
     BoundChanged {
@@ -300,8 +349,16 @@ impl ChangeKind {
             ChangeKind::FieldAdded { .. } => "field-added",
             ChangeKind::FieldRemoved { .. } => "field-removed",
             ChangeKind::FieldRequiredChanged { .. } => "field-required-changed",
+            ChangeKind::FieldRenamed { .. } => "field-renamed",
+            ChangeKind::FieldTagChanged { .. } => "field-tag-changed",
+            ChangeKind::FieldAliasesChanged { .. } => "field-aliases-changed",
+            ChangeKind::FieldGroupChanged { .. } => "field-group-changed",
             ChangeKind::EnumValueAdded { .. } => "enum-value-added",
             ChangeKind::EnumValueRemoved { .. } => "enum-value-removed",
+            ChangeKind::EnumValueRenumbered { .. } => "enum-value-renumbered",
+            ChangeKind::EnumValueRenamed { .. } => "enum-value-renamed",
+            ChangeKind::EncodingChanged { .. } => "encoding-changed",
+            ChangeKind::StreamingChanged { .. } => "streaming-changed",
             ChangeKind::BoundChanged { .. } => "bound-changed",
             ChangeKind::NumericKindChanged { .. } => "numeric-kind-changed",
             ChangeKind::PatternChanged { .. } => "pattern-changed",

@@ -20,6 +20,7 @@ fn petstore(reverse: bool) -> faultline_ir::Api {
             maximum: Some(Bound::exclusive(Decimal::parse("100").unwrap())),
             multiple_of: None,
             format: Some("int32".into()),
+            encoding: None,
         }))
     };
     let make_status = |b: &mut Builder| {

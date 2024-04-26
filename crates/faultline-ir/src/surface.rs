@@ -116,6 +116,9 @@ pub enum OperationKey {
         method: HttpMethod,
         path: PathTemplate,
     },
+    /// A remote procedure: `service` is fully qualified
+    /// (`petstore.v1.PetService`), as it appears in the gRPC method path.
+    Rpc { service: String, method: String },
 }
 
 impl OperationKey {
@@ -124,6 +127,7 @@ impl OperationKey {
     pub fn identity(&self) -> String {
         match self {
             OperationKey::Http { method, path } => format!("{method} {}", path.normalized()),
+            OperationKey::Rpc { service, method } => format!("{service}/{method}"),
         }
     }
 }
@@ -133,6 +137,7 @@ impl fmt::Display for OperationKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             OperationKey::Http { method, path } => write!(f, "{method} {}", path.raw()),
+            OperationKey::Rpc { service, method } => write!(f, "{service}/{method}"),
         }
     }
 }
@@ -339,8 +344,18 @@ pub struct Operation {
     /// Alternative security requirements (any one suffices). `None` when the
     /// format has no notion of security; an empty list means none apply.
     pub security: Option<Vec<SecurityRequirement>>,
+    /// For RPC operations: which directions carry a stream of messages
+    /// rather than one.
+    pub streaming: Option<Streaming>,
     pub meta: Meta,
     pub origin: Option<Span>,
+}
+
+/// Whether each direction of an RPC is a stream.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Streaming {
+    pub request: bool,
+    pub response: bool,
 }
 
 impl Operation {
@@ -353,6 +368,7 @@ impl Operation {
             responses: Vec::new(),
             callbacks: Vec::new(),
             security: None,
+            streaming: None,
             meta: Meta::default(),
             origin: None,
         }

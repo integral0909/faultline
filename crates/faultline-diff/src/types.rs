@@ -6,8 +6,8 @@
 //! which terminates the walk on recursive types.
 
 use faultline_ir::{
-    Access, ArrayType, Bound, EnumType, IrPath, Meta, NumericType, ObjectType, Polarity, Segment,
-    StringType, TypeId, TypeKind, TypeNode, UnionType,
+    Access, ArrayType, Bound, EnumType, Field, IrPath, Meta, NumericType, ObjectType, Polarity,
+    Segment, StringType, TypeId, TypeKind, TypeNode, UnionType,
 };
 
 use crate::align::align_variants;
@@ -15,6 +15,9 @@ use crate::change::{Change, ChangeKind, Facet};
 use crate::differ::{Differ, Direction};
 
 type Local = Vec<(ChangeKind, Direction)>;
+
+/// Changes to a node's shape that carry no value-level evidence.
+type Shape = Vec<ChangeKind>;
 
 impl Differ<'_> {
     /// Compares the type `old` with `new` at `path`, recording changes.
@@ -28,6 +31,7 @@ impl Differ<'_> {
         self.meta_changes(on, nn, path, polarity);
 
         let mut local = Local::new();
+        let mut shape = Shape::new();
         match (&on.kind, &nn.kind) {
             (TypeKind::String(a), TypeKind::String(b)) => strings(a, b, &mut local),
             (
@@ -47,8 +51,14 @@ impl Differ<'_> {
                     local.push((ChangeKind::NumericKindChanged { integer: b_int }, direction));
                 }
                 numbers(a, b, &mut local);
+                if a.encoding != b.encoding {
+                    shape.push(ChangeKind::EncodingChanged {
+                        old: a.encoding.clone(),
+                        new: b.encoding.clone(),
+                    });
+                }
             }
-            (TypeKind::Enum(a), TypeKind::Enum(b)) => enums(a, b, &mut local),
+            (TypeKind::Enum(a), TypeKind::Enum(b)) => enums(a, b, &mut local, &mut shape),
             (TypeKind::Object(a), TypeKind::Object(b)) => {
                 self.objects(a, b, path, polarity, &mut local);
             }
@@ -93,6 +103,9 @@ impl Differ<'_> {
             )),
         }
         self.emit_local(old, new, path, polarity, local);
+        for kind in shape {
+            self.surface(kind, path.clone(), polarity, (on.origin, nn.origin));
+        }
     }
 
     fn meta_changes(&mut self, on: &TypeNode, nn: &TypeNode, path: &IrPath, polarity: Polarity) {
@@ -140,56 +153,23 @@ impl Differ<'_> {
         polarity: Polarity,
         local: &mut Local,
     ) {
-        let names: Vec<String> = a
-            .fields
-            .iter()
-            .map(|f| f.name.clone())
-            .chain(
-                b.fields
-                    .iter()
-                    .map(|f| f.name.clone())
-                    .filter(|n| a.field(n).is_none()),
-            )
-            .collect();
-        for name in names {
-            match (a.field(&name), b.field(&name)) {
-                (Some(of), None) => {
+        for pair in field_pairs(a, b) {
+            match pair {
+                Pair::Removed(of) => {
                     let kind = ChangeKind::FieldRemoved {
-                        name: name.clone(),
+                        name: of.name.clone(),
                         required: of.required,
                     };
                     local.push((kind, Direction::Either));
                 }
-                (None, Some(nf)) => {
+                Pair::Added(nf) => {
                     let kind = ChangeKind::FieldAdded {
-                        name: name.clone(),
+                        name: nf.name.clone(),
                         required: nf.required,
                     };
                     local.push((kind, Direction::Either));
                 }
-                (Some(of), Some(nf)) => {
-                    if of.required != nf.required {
-                        let direction = if nf.required {
-                            Direction::Narrowing
-                        } else {
-                            Direction::Widening
-                        };
-                        let kind = ChangeKind::FieldRequiredChanged {
-                            name: name.clone(),
-                            required: nf.required,
-                        };
-                        local.push((kind, direction));
-                    }
-                    let (ot, nt) = (of.ty, nf.ty);
-                    let child = self.child_polarity(polarity, ot, nt);
-                    // Skip a member only when access modifiers removed every
-                    // direction; unreachable definitions have none to begin
-                    // with and are still compared.
-                    if !child.is_none() || polarity.is_none() {
-                        self.compare(ot, nt, &path.join(Segment::Field(name.clone())), child);
-                    }
-                }
-                (None, None) => unreachable!("names come from the fields"),
+                Pair::Both(of, nf) => self.field_pair(a, b, of, nf, path, polarity, local),
             }
         }
 
@@ -235,6 +215,86 @@ impl Differ<'_> {
         );
         if a.dependent_required != b.dependent_required {
             local.push((ChangeKind::ConstraintChanged, Direction::Either));
+        }
+    }
+
+    /// Compares a field present in both versions: identity (name, tag,
+    /// aliases), presence, grouping, then its type.
+    #[allow(clippy::too_many_arguments)]
+    fn field_pair(
+        &mut self,
+        a: &ObjectType,
+        b: &ObjectType,
+        of: &Field,
+        nf: &Field,
+        path: &IrPath,
+        polarity: Polarity,
+        local: &mut Local,
+    ) {
+        let name = nf.name.clone();
+        let at = path.join(Segment::Field(name.clone()));
+        let spans = (of.origin, nf.origin);
+        if of.name != nf.name {
+            let tag = nf.tag.unwrap_or_default();
+            let kind = ChangeKind::FieldRenamed {
+                old: of.name.clone(),
+                new: name.clone(),
+                tag,
+            };
+            self.surface(kind, at.clone(), polarity, spans);
+        }
+        if let (Some(old), Some(new)) = (of.tag, nf.tag)
+            && old != new
+        {
+            let kind = ChangeKind::FieldTagChanged {
+                name: name.clone(),
+                old,
+                new,
+            };
+            self.surface(kind, at.clone(), polarity, spans);
+        }
+        let removed: Vec<String> = of
+            .aliases
+            .iter()
+            .filter(|x| !nf.aliases.contains(x))
+            .cloned()
+            .collect();
+        let added: Vec<String> = nf
+            .aliases
+            .iter()
+            .filter(|x| !of.aliases.contains(x))
+            .cloned()
+            .collect();
+        if !removed.is_empty() || !added.is_empty() {
+            let kind = ChangeKind::FieldAliasesChanged {
+                name: name.clone(),
+                removed,
+                added,
+            };
+            self.surface(kind, at.clone(), polarity, spans);
+        }
+        if of.required != nf.required {
+            let direction = if nf.required {
+                Direction::Narrowing
+            } else {
+                Direction::Widening
+            };
+            let kind = ChangeKind::FieldRequiredChanged {
+                name: name.clone(),
+                required: nf.required,
+            };
+            local.push((kind, direction));
+        }
+        if let Some(kind) = group_change(a, b, of, nf) {
+            local.push((kind, Direction::Either));
+        }
+        let (ot, nt) = (of.ty, nf.ty);
+        let child = self.child_polarity(polarity, ot, nt);
+        // Skip a member only when access modifiers removed every direction;
+        // unreachable definitions have none to begin with and are still
+        // compared.
+        if !child.is_none() || polarity.is_none() {
+            self.compare(ot, nt, &at, child);
         }
     }
 
@@ -510,9 +570,136 @@ fn format_change(a: Option<&String>, b: Option<&String>, local: &mut Local) {
     }
 }
 
-fn enums(a: &EnumType, b: &EnumType, local: &mut Local) {
+/// How a field of the old version corresponds to one of the new.
+enum Pair<'a> {
+    Removed(&'a Field),
+    Added(&'a Field),
+    Both(&'a Field, &'a Field),
+}
+
+/// Aligns the fields of two objects. When every field on both sides has a
+/// wire tag, fields are the same field if their tags agree (a renamed field
+/// keeps its data); a name that moved to another tag is still paired, so the
+/// move is reported as such rather than as a removal and an addition.
+/// Otherwise fields are aligned by name.
+fn field_pairs<'a>(a: &'a ObjectType, b: &'a ObjectType) -> Vec<Pair<'a>> {
+    let tagged = |o: &ObjectType| !o.fields.is_empty() && o.fields.iter().all(|f| f.tag.is_some());
+    let mut pairs = Vec::new();
+    if tagged(a) && tagged(b) {
+        let mut used = vec![false; b.fields.len()];
+        let mut unmatched = Vec::new();
+        for of in &a.fields {
+            match b.fields.iter().position(|nf| nf.tag == of.tag) {
+                Some(i) => {
+                    used[i] = true;
+                    pairs.push(Pair::Both(of, &b.fields[i]));
+                }
+                None => unmatched.push(of),
+            }
+        }
+        for of in unmatched {
+            match b
+                .fields
+                .iter()
+                .enumerate()
+                .find(|(i, nf)| !used[*i] && nf.name == of.name)
+            {
+                Some((i, nf)) => {
+                    used[i] = true;
+                    pairs.push(Pair::Both(of, nf));
+                }
+                None => pairs.push(Pair::Removed(of)),
+            }
+        }
+        for (i, nf) in b.fields.iter().enumerate() {
+            if !used[i] {
+                pairs.push(Pair::Added(nf));
+            }
+        }
+    } else {
+        for of in &a.fields {
+            match b.field(&of.name) {
+                Some(nf) => pairs.push(Pair::Both(of, nf)),
+                None => pairs.push(Pair::Removed(of)),
+            }
+        }
+        for nf in &b.fields {
+            if a.field(&nf.name).is_none() {
+                pairs.push(Pair::Added(nf));
+            }
+        }
+    }
+    pairs
+}
+
+/// A change in which fields `nf` excludes, compared with those `of`
+/// excluded. Group names are compared too: a renamed group is visible in
+/// generated code.
+fn group_change(a: &ObjectType, b: &ObjectType, of: &Field, nf: &Field) -> Option<ChangeKind> {
+    let (og, ng) = (a.group_of(&of.name), b.group_of(&nf.name));
+    let members = |o: &ObjectType, g: Option<&faultline_ir::ExclusiveGroup>, own: &str| {
+        let mut names: Vec<String> = g
+            .map(|g| g.fields.iter().filter(|f| *f != own).cloned().collect())
+            .unwrap_or_default();
+        // Only fields that exist in both versions can be compared.
+        names.retain(|n| o.field(n).is_some());
+        names.sort();
+        names
+    };
+    let old_members: Vec<String> = members(a, og, &of.name)
+        .into_iter()
+        .filter(|n| b.field(n).is_some())
+        .collect();
+    let new_members: Vec<String> = members(b, ng, &nf.name)
+        .into_iter()
+        .filter(|n| a.field(n).is_some())
+        .collect();
+    let (old_name, new_name) = (og.map(|g| g.name.clone()), ng.map(|g| g.name.clone()));
+    (old_name != new_name || old_members != new_members).then(|| ChangeKind::FieldGroupChanged {
+        name: nf.name.clone(),
+        old: old_name,
+        new: new_name,
+    })
+}
+
+fn enums(a: &EnumType, b: &EnumType, local: &mut Local, shape: &mut Shape) {
+    // Where values are numbered (Protobuf), a number that is now spelled
+    // differently is one renamed value, not a removal and an addition.
+    let renamed = |value: &faultline_ir::EnumValue, other: &EnumType| {
+        value.number.is_some()
+            && other
+                .values
+                .iter()
+                .any(|v| v.number == value.number && v.name != value.name)
+    };
     for value in &a.values {
-        if !b.values.iter().any(|v| v.value == value.value) {
+        let (Some(name), Some(number)) = (&value.name, value.number) else {
+            continue;
+        };
+        for other in &b.values {
+            if other.name.as_ref() == Some(name)
+                && let Some(new) = other.number.filter(|n| *n != number)
+            {
+                shape.push(ChangeKind::EnumValueRenumbered {
+                    name: name.clone(),
+                    old: number,
+                    new,
+                });
+            }
+            if other.number == Some(number)
+                && let Some(new) = other.name.as_ref().filter(|n| *n != name)
+                && !a.values.iter().any(|v| v.name.as_ref() == Some(new))
+            {
+                shape.push(ChangeKind::EnumValueRenamed {
+                    number,
+                    old: name.clone(),
+                    new: new.clone(),
+                });
+            }
+        }
+    }
+    for value in &a.values {
+        if !b.values.iter().any(|v| v.value == value.value) && !renamed(value, b) {
             local.push((
                 ChangeKind::EnumValueRemoved {
                     value: value.value.clone(),
@@ -522,7 +709,7 @@ fn enums(a: &EnumType, b: &EnumType, local: &mut Local) {
         }
     }
     for value in &b.values {
-        if !a.values.iter().any(|v| v.value == value.value) {
+        if !a.values.iter().any(|v| v.value == value.value) && !renamed(value, a) {
             local.push((
                 ChangeKind::EnumValueAdded {
                     value: value.value.clone(),

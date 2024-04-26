@@ -114,6 +114,9 @@ impl<'a> Sampler<'a> {
     fn objects(&self, o: &ObjectType, depth: usize) -> Vec<Literal> {
         let mut minimal = Vec::new();
         let mut full = Vec::new();
+        // Optional members of exclusive groups, which `full` may only hold
+        // one of per group; each is also tried on its own below.
+        let mut alternatives = Vec::new();
         for field in &o.fields {
             let Some(value) = self.first(field.ty, depth + 1) else {
                 if field.required {
@@ -125,9 +128,23 @@ impl<'a> Sampler<'a> {
             if field.required {
                 minimal.push((field.name.clone(), value.clone()));
             }
-            full.push((field.name.clone(), value));
+            let taken = |members: &[(String, Literal)]| {
+                o.group_of(&field.name)
+                    .is_some_and(|g| members.iter().any(|(name, _)| g.fields.contains(name)))
+            };
+            if field.required || !taken(&full) {
+                full.push((field.name.clone(), value.clone()));
+            }
+            if !field.required && o.group_of(&field.name).is_some() {
+                alternatives.push((field.name.clone(), value));
+            }
         }
         let mut out = vec![object(minimal.clone()), object(full.clone())];
+        for alternative in alternatives {
+            let mut members = minimal.clone();
+            members.push(alternative);
+            out.push(object(members));
+        }
         if let Some(extra) = self.first(o.additional, depth + 1) {
             // Enough undeclared members to reach `minProperties`, and a couple
             // more to probe `maxProperties`.

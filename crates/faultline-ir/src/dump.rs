@@ -55,6 +55,27 @@ pub fn dump(api: &Api) -> String {
     }
     out.push('\n');
 
+    let streams: Vec<String> = api
+        .operations
+        .iter()
+        .filter_map(|op| {
+            let s = op.streaming.filter(|s| s.request || s.response)?;
+            let sides = match (s.request, s.response) {
+                (true, true) => "request, response",
+                (true, false) => "request",
+                _ => "response",
+            };
+            Some(format!("op[{}] streams {sides}", op.key.identity()))
+        })
+        .collect();
+    if !streams.is_empty() {
+        out.push('\n');
+        for line in streams {
+            out.push_str(&line);
+            out.push('\n');
+        }
+    }
+
     if !roots.is_empty() {
         out.push('\n');
         for root in &roots {
@@ -229,6 +250,13 @@ fn write_object(obj: &ObjectType, labels: &Labels, out: &mut String, members: &m
             required.join(", ")
         ));
     }
+    for group in &obj.exclusive {
+        members.push(format!(
+            "at most one of {} ({})",
+            group.fields.join(", "),
+            group.name
+        ));
+    }
 }
 
 fn write_array(arr: &ArrayType, labels: &Labels, out: &mut String) {
@@ -271,6 +299,9 @@ fn write_union(u: &UnionType, labels: &Labels, out: &mut String, members: &mut V
 fn write_numeric(n: &NumericType, out: &mut String) {
     if let Some(format) = &n.format {
         let _ = write!(out, " format={format}");
+    }
+    if let Some(encoding) = &n.encoding {
+        let _ = write!(out, " encoding={encoding}");
     }
     let bound = |name: &str, b: &Bound| {
         if b.exclusive {

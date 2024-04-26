@@ -43,6 +43,12 @@ pub enum Reason {
         property: String,
         missing: String,
     },
+    /// Two members of an exclusive group are both present.
+    ExclusiveMembers {
+        group: String,
+        first: String,
+        second: String,
+    },
     NotInEnum,
     NoVariantMatches,
     SeveralVariantsMatch,
@@ -238,6 +244,16 @@ impl<'a> Validator<'a> {
                 return Membership::Invalid(Reason::DependentRequired {
                     property: property.clone(),
                     missing: missing.clone(),
+                });
+            }
+        }
+        for group in &o.exclusive {
+            let mut present = group.fields.iter().filter(|f| members.contains_key(*f));
+            if let (Some(first), Some(second)) = (present.next(), present.next()) {
+                return Membership::Invalid(Reason::ExclusiveMembers {
+                    group: group.name.clone(),
+                    first: first.clone(),
+                    second: second.clone(),
                 });
             }
         }

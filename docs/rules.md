@@ -33,6 +33,13 @@ at the change, and on the evidence found (see
 | [FL1022](#fl1022) | `default-changed` | semantic | A default value changed |
 | [FL1023](#fl1023) | `schema-added` | wire | A schema was added |
 | [FL1024](#fl1024) | `schema-removed` | wire | A schema was removed |
+| [FL1025](#fl1025) | `field-renamed` | source | A field was renamed |
+| [FL1026](#fl1026) | `field-number-changed` | wire | A field's number changed |
+| [FL1027](#fl1027) | `field-aliases-changed` | wire | Alternative names of a field changed |
+| [FL1028](#fl1028) | `field-group-changed` | wire | A field's oneof membership changed |
+| [FL1029](#fl1029) | `enum-value-renumbered` | wire | An enum value's number changed |
+| [FL1030](#fl1030) | `enum-value-renamed` | source | An enum value was renamed |
+| [FL1031](#fl1031) | `encoding-changed` | wire | A number's wire encoding changed |
 | [FL2001](#fl2001) | `operation-removed` | wire | An operation was removed |
 | [FL2002](#fl2002) | `operation-added` | wire | An operation was added |
 | [FL2003](#fl2003) | `operation-id-changed` | source | An operationId changed |
@@ -56,6 +63,7 @@ at the change, and on the evidence found (see
 | [FL2071](#fl2071) | `callback-removed` | wire | A callback was removed |
 | [FL2072](#fl2072) | `webhook-added` | wire | A webhook was added |
 | [FL2073](#fl2073) | `webhook-removed` | wire | A webhook was removed |
+| [FL3001](#fl3001) | `streaming-changed` | wire | An RPC changed between unary and streaming |
 
 ## FL1001
 
@@ -207,6 +215,58 @@ A standalone schema was added.
 
 A standalone schema was removed; everything that used it loses its contract.
 
+## FL1025
+
+**field-renamed** — A field was renamed
+
+A field kept its number (Protobuf tag) but changed its name. The binary encoding identifies fields by number, so binary data still round-trips; but generated code no longer compiles against the old name, and JSON encodings that use field names stop recognising it.
+
+Keep the old name, or add the new field alongside the old one and deprecate the old one.
+
+## FL1026
+
+**field-number-changed** — A field's number changed
+
+A field kept its name but moved to another number (Protobuf tag). Binary data written with the old number is read as an unknown field or, worse, as whatever field now has that number.
+
+Field numbers are permanent: add a new field instead, and reserve the old number when the old field is removed.
+
+## FL1027
+
+**field-aliases-changed** — Alternative names of a field changed
+
+The other names a field is accepted under changed, such as a Protobuf `json_name` or an Avro alias. Data written under a removed name is no longer recognised and the value is silently dropped.
+
+## FL1028
+
+**field-group-changed** — A field's oneof membership changed
+
+A field moved into or out of a `oneof`, or its `oneof` gained or lost members. Adding a field to a group means messages that set it together with another member are no longer valid: one of the two values is dropped. Removing a field from a group lets receivers see combinations they never saw before.
+
+Only add *new* fields to an existing `oneof`.
+
+## FL1029
+
+**enum-value-renumbered** — An enum value's number changed
+
+An enum value kept its name but has a new number. Binary data carries the number, so old data now decodes to a different value or an unknown one.
+
+Enum numbers are permanent: add a new value instead.
+
+## FL1030
+
+**enum-value-renamed** — An enum value was renamed
+
+An enum number is now spelled differently. Binary data is unaffected, but generated code and JSON encodings that use value names break.
+
+## FL1031
+
+**encoding-changed** — A number's wire encoding changed
+
+The encoding of a number changed between incompatible representations, for example Protobuf `int32` to `sint32` (zigzag) or `fixed64` to `uint64` (varint). The binary data of one is misread by the other even when the values would fit.
+
+Keep the encoding; changes between `int32`, `uint32`, `int64`, `uint64` and `bool` are compatible on the wire, as are `sint32`/`sint64`, `fixed32`/`sfixed32` and `fixed64`/`sfixed64`, subject to the value ranges, which Faultline checks separately.
+
 ## FL2001
 
 **operation-removed** — An operation was removed
@@ -346,3 +406,11 @@ The API sends a new webhook.
 **webhook-removed** — A webhook was removed
 
 The API no longer sends a webhook; receivers depending on it are affected.
+
+## FL3001
+
+**streaming-changed** — An RPC changed between unary and streaming
+
+A request or response of a remote procedure became a stream of messages, or stopped being one. Clients and servers disagree on the call's shape, and every call fails.
+
+Add a new method with the new shape and deprecate the old one.

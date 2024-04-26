@@ -36,10 +36,11 @@ pub use polarity::{Polarities, Polarity};
 pub use surface::{
     Callback, Content, Header, HttpMethod, Operation, OperationKey, ParamLocation, Parameter,
     PathTemplate, RequestBody, Response, Role, SchemaRoot, SecurityRequirement, Serialization,
-    StatusKey,
+    StatusKey, Streaming,
 };
 pub use types::{
-    Access, ArrayType, Bound, Contains, Discriminator, EnumType, EnumValue, Field, MapType, Meta,
-    NumericType, ObjectType, QualName, StringType, TypeKind, TypeNode, UnionMode, UnionType,
+    Access, ArrayType, Bound, Contains, Discriminator, EnumType, EnumValue, ExclusiveGroup, Field,
+    MapType, Meta, NumericType, ObjectType, QualName, StringType, TypeKind, TypeNode, UnionMode,
+    UnionType,
 };
 pub use validate::{IrError, validate};

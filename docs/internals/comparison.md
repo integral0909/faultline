@@ -82,13 +82,22 @@ decided. A step budget bounds the total work.
 | callbacks | name; polarity reverses inside |
 | schema roots | name |
 
-Types at matched positions are compared structurally: members by name,
+Types at matched positions are compared structurally: members by name (by
+wire tag when every member on both sides has one, so a renamed Protobuf field
+is one field, and a name that moved to another tag is reported as the move),
 array positions by index, union variants by named type, then by JSON type,
 then by kind in order. A non-union compared with a union is treated as a
 one-variant union, so `string` becoming `string | null` is a variant addition
 rather than a type change. Pairs already compared under the same polarity are
 skipped, which terminates the walk on recursive types and reports each change
 once.
+
+Identity changes that do not alter the value set are reported as shape
+changes: renamed fields, fields with new tags or aliases, enum values with
+new numbers or names (numbered enum values are matched by number and by name),
+changed wire encodings and RPC directions that became or stopped being
+streams. Changes to exclusive groups do alter the value set and carry
+evidence: moving two fields into a group loses every value that sets both.
 
 Named types that no root reaches are compared on their own with no polarity.
 

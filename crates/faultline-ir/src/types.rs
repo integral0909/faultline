@@ -174,6 +174,11 @@ pub struct NumericType {
     pub multiple_of: Option<Decimal>,
     /// The declared representation (`int32`, `int64`, `float`, `double`, ...).
     pub format: Option<String>,
+    /// How values are encoded on the wire, for binary formats (Protobuf's
+    /// `varint`, `zigzag`, `fixed32`, ...). Representations with the same
+    /// encoding read each other's data; different encodings do not, even
+    /// when the value sets agree.
+    pub encoding: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
@@ -231,6 +236,18 @@ pub struct ObjectType {
     pub max_properties: Option<u64>,
     /// `property → properties that become required when it is present`.
     pub dependent_required: Vec<(String, Vec<String>)>,
+    /// Groups of fields of which at most one may be present (Protobuf
+    /// `oneof`).
+    pub exclusive: Vec<ExclusiveGroup>,
+}
+
+/// Fields that exclude each other: a value sets at most one of them.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ExclusiveGroup {
+    pub name: String,
+    /// Names of declared fields, in declaration order.
+    pub fields: Vec<String>,
+    pub origin: Option<Span>,
 }
 
 impl ObjectType {
@@ -245,11 +262,19 @@ impl ObjectType {
             min_properties: 0,
             max_properties: None,
             dependent_required: Vec::new(),
+            exclusive: Vec::new(),
         }
     }
 
     pub fn field(&self, name: &str) -> Option<&Field> {
         self.fields.iter().find(|f| f.name == name)
+    }
+
+    /// The exclusive group `name` belongs to, if any.
+    pub fn group_of(&self, name: &str) -> Option<&ExclusiveGroup> {
+        self.exclusive
+            .iter()
+            .find(|g| g.fields.iter().any(|f| f == name))
     }
 }
 
