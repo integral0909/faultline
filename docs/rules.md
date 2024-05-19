@@ -271,7 +271,7 @@ Keep the encoding; changes between `int32`, `uint32`, `int64`, `uint64` and `boo
 
 **operation-removed** — An operation was removed
 
-An endpoint (method and path) no longer exists. Clients calling it receive errors.
+An operation (an HTTP method and path, or an RPC method) no longer exists. Clients calling it receive errors.
 
 Deprecate the operation first and remove it in a major version.
 
@@ -279,7 +279,7 @@ Deprecate the operation first and remove it in a major version.
 
 **operation-added** — An operation was added
 
-A new endpoint was added.
+A new operation (an HTTP endpoint or an RPC method) was added.
 
 ## FL2003
 

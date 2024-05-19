@@ -16,3 +16,4 @@ New records start from [template.md](template.md) and take the next number.
 | [0005](0005-three-valued-inclusion-with-verified-witnesses.md) | Three-valued inclusion with verified witnesses | Accepted |
 | [0006](0006-stable-finding-ids-and-expiring-waivers.md) | Stable finding ids and expiring waivers | Accepted |
 | [0007](0007-reading-revisions-from-the-object-database.md) | Reading revisions from the object database | Accepted |
+| [0008](0008-protobuf-compared-as-its-wire-format.md) | Protobuf compared as its wire format | Accepted |

@@ -1,0 +1,17 @@
+syntax = "proto2";
+package legacy;
+import "common.proto";
+message Search {
+  required string query = 1;
+  optional int32 page = 2 [default = -1];
+  repeated group Result = 3 {
+    required string url = 4;
+    optional common.Id id = 5;
+  }
+  oneof filter { string tag = 6; int64 since = 7; }
+  map<string, bytes> extra = 8;
+  extensions 100 to max;
+  reserved 9 to 11, "old";
+}
+extend Search { optional string trace = 100; }
+enum Mode { option allow_alias = true; FAST = 1; QUICK = 1; }

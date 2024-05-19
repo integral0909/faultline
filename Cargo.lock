@@ -427,6 +427,7 @@ dependencies = [
  "faultline-net",
  "faultline-openapi",
  "faultline-policy",
+ "faultline-protobuf",
  "faultline-report",
  "faultline-rules",
  "faultline-source",
@@ -525,6 +526,18 @@ dependencies = [
  "serde",
  "serde_json",
  "toml",
+]
+
+[[package]]
+name = "faultline-protobuf"
+version = "0.1.0"
+dependencies = [
+ "faultline-diff",
+ "faultline-doc",
+ "faultline-ir",
+ "faultline-rules",
+ "faultline-source",
+ "proptest",
 ]
 
 [[package]]

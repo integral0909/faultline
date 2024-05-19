@@ -14,6 +14,7 @@ use crate::{Command, IrCommand, Output};
 pub(crate) enum Format {
     Openapi,
     Jsonschema,
+    Protobuf,
 }
 
 impl From<Format> for ApiFormat {
@@ -21,6 +22,7 @@ impl From<Format> for ApiFormat {
         match format {
             Format::Openapi => ApiFormat::OpenApi,
             Format::Jsonschema => ApiFormat::JsonSchema,
+            Format::Protobuf => ApiFormat::Protobuf,
         }
     }
 }

@@ -129,9 +129,9 @@ rules! {
         "The encoding of a number changed between incompatible representations, for example Protobuf `int32` to `sint32` (zigzag) or `fixed64` to `uint64` (varint). The binary data of one is misread by the other even when the values would fit.\n\nKeep the encoding; changes between `int32`, `uint32`, `int64`, `uint64` and `bool` are compatible on the wire, as are `sint32`/`sint64`, `fixed32`/`sfixed32` and `fixed64`/`sfixed64`, subject to the value ranges, which Faultline checks separately.";
 
     OPERATION_REMOVED = "FL2001", "operation-removed", Wire, "An operation was removed",
-        "An endpoint (method and path) no longer exists. Clients calling it receive errors.\n\nDeprecate the operation first and remove it in a major version.";
+        "An operation (an HTTP method and path, or an RPC method) no longer exists. Clients calling it receive errors.\n\nDeprecate the operation first and remove it in a major version.";
     OPERATION_ADDED = "FL2002", "operation-added", Wire, "An operation was added",
-        "A new endpoint was added.";
+        "A new operation (an HTTP endpoint or an RPC method) was added.";
     OPERATION_ID_CHANGED = "FL2003", "operation-id-changed", Source, "An operationId changed",
         "The `operationId` changed. The wire contract is unaffected, but generated SDKs usually derive method names from it, so client code stops compiling.";
     PARAMETER_ADDED = "FL2010", "parameter-added", Wire, "A parameter was added",

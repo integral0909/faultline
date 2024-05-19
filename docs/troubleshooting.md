@@ -83,6 +83,21 @@ depends on which branches of a conditional or union evaluated a member, and
 Faultline treats such members as always evaluated. Changes that only matter
 for some instances of that schema may be missed; the warning marks where.
 
+## Protobuf
+
+**`FLE3002` cannot find import.** Imports are searched from the entry file's
+directory upwards to the workspace root; the note lists the directories
+tried. Make the workspace root (`--root`) contain the import root, or move
+the entry so that an ancestor of it is the import root.
+
+**`FLE3003` cannot find type / not imported.** Names resolve as in `protoc`:
+from the innermost scope outwards, where the first scope containing the first
+component of the name decides. A type from another file must be imported
+directly or re-exported with `import public`.
+
+**`FLE3001` syntax errors in valid files.** Faultline reads proto2, proto3
+and editions. Please report files `protoc` accepts and Faultline does not.
+
 ## Findings
 
 **A change is reported at a different path than expected.** A type shared by

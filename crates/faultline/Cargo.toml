@@ -19,6 +19,7 @@ faultline-ir.workspace = true
 faultline-jsonschema.workspace = true
 faultline-net.workspace = true
 faultline-openapi.workspace = true
+faultline-protobuf.workspace = true
 faultline-policy.workspace = true
 faultline-report.workspace = true
 faultline-rules.workspace = true

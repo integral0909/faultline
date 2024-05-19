@@ -67,6 +67,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   defaults to the old one.
 - JSON report locations include the `revision` they were read from; SARIF and
   GitHub annotations prefer working-tree locations.
+- IR support for RPC formats: RPC operations with streaming, exclusive field
+  groups (`oneof`) understood by validation, sampling and inclusion checking,
+  fields matched by wire tag, aliases, numbered enum values and wire
+  encodings, with rules FL1025–FL1031 and FL3001.
+- `faultline-protobuf`: proto2, proto3 and editions — lexer, parser with
+  error recovery, import loading with built-in well-known types, `protoc`
+  name resolution and validation (FLE3xxx), and lowering of the binary wire
+  format. `.proto` entries are detected by extension.
+- A fuzz target for the Protobuf front end, and a gRPC example.
 - `faultline-net` and `[network]`: opt-in `https` references restricted to
   allowlisted hosts, with redirects checked hop by hop, connections refused
   to non-public addresses after resolution, no proxies, and size, time and

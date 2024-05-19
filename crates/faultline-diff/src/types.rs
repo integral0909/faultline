@@ -273,6 +273,21 @@ impl Differ<'_> {
             };
             self.surface(kind, at.clone(), polarity, spans);
         }
+        // Declarations on the field itself, as opposed to its (possibly
+        // shared) type: a deprecated Protobuf field, a proto2 default.
+        if of.meta.deprecated != nf.meta.deprecated {
+            let kind = ChangeKind::DeprecatedChanged {
+                deprecated: nf.meta.deprecated,
+            };
+            self.surface(kind, at.clone(), polarity, spans);
+        }
+        if of.meta.default != nf.meta.default {
+            let kind = ChangeKind::DefaultChanged {
+                old: of.meta.default.clone(),
+                new: nf.meta.default.clone(),
+            };
+            self.surface(kind, at.clone(), polarity, spans);
+        }
         if of.required != nf.required {
             let direction = if nf.required {
                 Direction::Narrowing
@@ -285,8 +300,8 @@ impl Differ<'_> {
             };
             local.push((kind, direction));
         }
-        if let Some(kind) = group_change(a, b, of, nf) {
-            local.push((kind, Direction::Either));
+        if let Some(change) = group_change(a, b, of, nf) {
+            local.push(change);
         }
         let (ot, nt) = (of.ty, nf.ty);
         let child = self.child_polarity(polarity, ot, nt);
@@ -633,9 +648,15 @@ fn field_pairs<'a>(a: &'a ObjectType, b: &'a ObjectType) -> Vec<Pair<'a>> {
 }
 
 /// A change in which fields `nf` excludes, compared with those `of`
-/// excluded. Group names are compared too: a renamed group is visible in
-/// generated code.
-fn group_change(a: &ObjectType, b: &ObjectType, of: &Field, nf: &Field) -> Option<ChangeKind> {
+/// excluded, and which way it moves the value set: excluding more fields
+/// only removes values, excluding fewer only adds them. Group names are
+/// compared too: a renamed group is visible in generated code.
+fn group_change(
+    a: &ObjectType,
+    b: &ObjectType,
+    of: &Field,
+    nf: &Field,
+) -> Option<(ChangeKind, Direction)> {
     let (og, ng) = (a.group_of(&of.name), b.group_of(&nf.name));
     let members = |o: &ObjectType, g: Option<&faultline_ir::ExclusiveGroup>, own: &str| {
         let mut names: Vec<String> = g
@@ -655,11 +676,23 @@ fn group_change(a: &ObjectType, b: &ObjectType, of: &Field, nf: &Field) -> Optio
         .filter(|n| a.field(n).is_some())
         .collect();
     let (old_name, new_name) = (og.map(|g| g.name.clone()), ng.map(|g| g.name.clone()));
-    (old_name != new_name || old_members != new_members).then(|| ChangeKind::FieldGroupChanged {
+    if old_name == new_name && old_members == new_members {
+        return None;
+    }
+    let covers = |outer: &[String], inner: &[String]| inner.iter().all(|n| outer.contains(n));
+    let direction = if covers(&new_members, &old_members) {
+        Direction::Narrowing
+    } else if covers(&old_members, &new_members) {
+        Direction::Widening
+    } else {
+        Direction::Either
+    };
+    let kind = ChangeKind::FieldGroupChanged {
         name: nf.name.clone(),
         old: old_name,
         new: new_name,
-    })
+    };
+    Some((kind, direction))
 }
 
 fn enums(a: &EnumType, b: &EnumType, local: &mut Local, shape: &mut Shape) {

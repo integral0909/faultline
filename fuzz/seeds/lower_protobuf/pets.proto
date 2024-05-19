@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package pets.v1;
+
+import "google/protobuf/timestamp.proto";
+import "pets/v1/species.proto";
+
+// A pet in the store.
+message Pet {
+  string id = 1;
+  string name = 2;
+  Species species = 3;
+  int32 age_months = 4;
+  repeated string tags = 5;
+  google.protobuf.Timestamp listed_at = 6;
+  string owner_email = 7;
+  string owner_phone = 8;
+}
+
+message GetPetRequest {
+  string id = 1;
+}
+
+message ListPetsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+}
+
+message ListPetsResponse {
+  repeated Pet pets = 1;
+  string next_page_token = 2;
+}
+
+message DeletePetRequest {
+  string id = 1;
+}
+
+message DeletePetResponse {}
+
+// Buy, sell and browse pets.
+service PetService {
+  rpc GetPet(GetPetRequest) returns (Pet);
+  rpc ListPets(ListPetsRequest) returns (ListPetsResponse);
+  rpc DeletePet(DeletePetRequest) returns (DeletePetResponse);
+}

@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package pets.v1;
+
+enum Species {
+  SPECIES_UNSPECIFIED = 0;
+  SPECIES_CAT = 1;
+  SPECIES_DOG = 2;
+  SPECIES_BIRD = 3;
+}

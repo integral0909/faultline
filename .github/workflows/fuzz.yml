@@ -12,6 +12,7 @@ on:
       - "crates/faultline-ir/**"
       - "crates/faultline-jsonschema/**"
       - "crates/faultline-openapi/**"
+      - "crates/faultline-protobuf/**"
       - "crates/faultline-diff/**"
       - "crates/faultline-subsume/**"
 
@@ -28,7 +29,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [parse_json, parse_yaml, uri_pointer, lower_jsonschema, lower_openapi]
+        target: [parse_json, parse_yaml, uri_pointer, lower_jsonschema, lower_openapi, lower_protobuf]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly

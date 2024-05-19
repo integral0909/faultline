@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package pets.v1;
+
+import "google/protobuf/timestamp.proto";
+import "pets/v1/species.proto";
+
+// A pet in the store.
+message Pet {
+  string id = 1;
+  // Renamed from `name`; the number, and so binary data, is unchanged.
+  string display_name = 2;
+  Species species = 3;
+  // Was int32: larger values now fit, but old clients truncate them.
+  int64 age_months = 4;
+  repeated string tags = 5;
+  google.protobuf.Timestamp listed_at = 6;
+  // The two ways to reach the owner can no longer both be set.
+  oneof owner_contact {
+    string owner_email = 7;
+    string owner_phone = 8;
+  }
+}
+
+message GetPetRequest {
+  string id = 1;
+}
+
+message ListPetsRequest {
+  // Was int32 with the default varint encoding.
+  sint32 page_size = 1;
+  string page_token = 2;
+}
+
+message ListPetsResponse {
+  repeated Pet pets = 1;
+  string next_page_token = 2;
+}
+
+// Buy, sell and browse pets.
+service PetService {
+  rpc GetPet(GetPetRequest) returns (Pet);
+  // Now streams pets instead of returning pages.
+  rpc ListPets(ListPetsRequest) returns (stream ListPetsResponse);
+}

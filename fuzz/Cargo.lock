@@ -66,6 +66,7 @@ dependencies = [
  "faultline-ir",
  "faultline-jsonschema",
  "faultline-openapi",
+ "faultline-protobuf",
  "faultline-source",
  "libfuzzer-sys",
 ]
@@ -96,6 +97,15 @@ dependencies = [
  "faultline-doc",
  "faultline-ir",
  "faultline-jsonschema",
+ "faultline-source",
+]
+
+[[package]]
+name = "faultline-protobuf"
+version = "0.1.0"
+dependencies = [
+ "faultline-doc",
+ "faultline-ir",
  "faultline-source",
 ]
 

@@ -89,6 +89,7 @@ struct RawWaiver {
 pub enum ApiFormat {
     OpenApi,
     JsonSchema,
+    Protobuf,
 }
 
 impl ApiFormat {
@@ -96,6 +97,7 @@ impl ApiFormat {
         match text {
             "openapi" => Some(ApiFormat::OpenApi),
             "jsonschema" | "json-schema" => Some(ApiFormat::JsonSchema),
+            "protobuf" | "proto" => Some(ApiFormat::Protobuf),
             _ => None,
         }
     }
@@ -313,7 +315,7 @@ fn apis(raw: Vec<RawApi>, problems: &mut Vec<String>) -> Vec<ApiConfig> {
         let format = api.format.as_deref().and_then(|text| {
             ApiFormat::parse(text).or_else(|| {
                 problems.push(format!(
-                    "{at}: format must be \"openapi\" or \"jsonschema\", not \"{text}\""
+                    "{at}: format must be \"openapi\", \"jsonschema\" or \"protobuf\", not \"{text}\""
                 ));
                 None
             })

@@ -224,6 +224,22 @@ impl Engine {
             workspace: loader.as_ref(),
             remote: self.remote.as_deref(),
         };
+        // `.proto` files are not JSON or YAML documents: they are read by
+        // their own front end, which follows imports rather than references.
+        if format == Some(ApiFormat::Protobuf) || (format.is_none() && is_proto(&entry)) {
+            let lowered = faultline_protobuf::lower_protobuf(
+                &entry,
+                loader.as_ref(),
+                sources,
+                name,
+                ir_role(role),
+            );
+            return Lowered {
+                api: lowered.api,
+                diagnostics: lowered.diagnostics,
+                missing_entry: false,
+            };
+        }
         let mut store = DocumentStore::new(&router, sources, self.limits.clone());
         store.allow_remote(self.remote.is_some());
         let format = match format {
@@ -242,6 +258,7 @@ impl Engine {
                 Options::default(),
                 ir_role(role),
             ),
+            ApiFormat::Protobuf => unreachable!("handled above"),
         };
         let mut api = lowered.api;
         if let Some(api) = &mut api {
@@ -408,6 +425,13 @@ fn describe(source: &Source) -> String {
             format!("the merge base of {base} and {head}")
         }
     }
+}
+
+/// Whether the entry is a Protobuf file, by its extension.
+fn is_proto(entry: &UriRef) -> bool {
+    std::path::Path::new(entry.path())
+        .extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("proto"))
 }
 
 /// Recognizes OpenAPI (and Swagger, so the OpenAPI front end can say it is

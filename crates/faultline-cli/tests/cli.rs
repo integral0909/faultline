@@ -333,3 +333,51 @@ fn committed_rule_reference_is_current() {
         "docs/rules.md is out of date; regenerate it with FAULTLINE_UPDATE_DOCS=1 cargo test -p faultline-cli"
     );
 }
+
+#[test]
+fn protobuf_descriptions_are_detected_and_compared() {
+    let dir = repo().join("examples/grpc");
+    let output = faultline(
+        &dir,
+        &[
+            "diff",
+            "v1/pets/v1/pets.proto",
+            "v2/pets/v1/pets.proto",
+            "--output",
+            "json",
+        ],
+    );
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    let report: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+    let mut breaking: Vec<String> = report["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["severity"] == "breaking")
+        .map(|f| {
+            format!(
+                "{} {}",
+                f["rule"].as_str().unwrap(),
+                f["path"].as_str().unwrap()
+            )
+        })
+        .collect();
+    breaking.sort();
+    assert_eq!(
+        breaking,
+        [
+            "FL1029 op[pets.v1.PetService/GetPet]/response[default]/body[application/grpc].species",
+            "FL1031 op[pets.v1.PetService/ListPets]/request[application/grpc].page_size",
+            "FL2001 op[pets.v1.PetService/DeletePet]",
+            "FL3001 op[pets.v1.PetService/ListPets]",
+        ]
+    );
+    // Imports resolve from the entry's ancestors; the well-known types are
+    // built in.
+    let text = stdout(&faultline(
+        &dir,
+        &["diff", "v1/pets/v1/pets.proto", "v2/pets/v1/pets.proto"],
+    ));
+    assert!(text.contains("--> v2/pets/v1/species.proto:"), "{text}");
+    assert!(text.contains("pets: 4 breaking"), "{text}");
+}

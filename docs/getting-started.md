@@ -89,6 +89,29 @@ faultline diff old/config.json new/config.json --role input  # others write thes
 With `--role both` (the default) any change to the accepted values is
 breaking.
 
+## Protobuf and gRPC
+
+`.proto` files are recognized by their extension:
+
+```sh
+faultline diff v1/pets/v1/pets.proto v2/pets/v1/pets.proto
+```
+
+Imports are resolved the way `protoc -I` would resolve them from the entry
+file's directory or any directory above it within the workspace, and the
+well-known types (`google/protobuf/timestamp.proto` and friends) are built
+in. A file with services is compared as RPC operations
+(`op[pets.v1.PetService/GetPet]`). A file without services is compared as
+data, with each top-level message a schema root; set `role` in the `[[api]]`
+entry when messages only flow one way.
+
+Protobuf's binary format identifies fields and enum values by number, so
+Faultline does too. Renumbering a field or an enum value, or changing its
+wire encoding (`int32` to `sint32`), is breaking. Renaming one is risky: it
+only breaks JSON encodings and generated code. See
+[examples/grpc](../examples/grpc) and the
+[Protobuf internals](internals/protobuf.md).
+
 ## Checking pull requests
 
 List the APIs in `faultline.toml` at the root of the repository:
