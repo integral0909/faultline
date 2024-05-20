@@ -70,7 +70,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - IR support for RPC formats: RPC operations with streaming, exclusive field
   groups (`oneof`) understood by validation, sampling and inclusion checking,
   fields matched by wire tag, aliases, numbered enum values and wire
-  encodings, with rules FL1025–FL1031 and FL3001.
+  encodings, with rules FL1025–FL1031 and FL3001; reserved numbers and names,
+  with rules for unreserved removals, reuse and dropped reservations
+  (FL1032–FL1034).
 - `faultline-protobuf`: proto2, proto3 and editions — lexer, parser with
   error recovery, import loading with built-in well-known types, `protoc`
   name resolution and validation (FLE3xxx), and lowering of the binary wire

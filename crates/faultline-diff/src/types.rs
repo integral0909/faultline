@@ -7,7 +7,7 @@
 
 use faultline_ir::{
     Access, ArrayType, Bound, EnumType, Field, IrPath, Meta, NumericType, ObjectType, Polarity,
-    Segment, StringType, TypeId, TypeKind, TypeNode, UnionType,
+    Retired, Segment, StringType, TypeId, TypeKind, TypeNode, UnionType,
 };
 
 use crate::align::align_variants;
@@ -61,6 +61,7 @@ impl Differ<'_> {
             (TypeKind::Enum(a), TypeKind::Enum(b)) => enums(a, b, &mut local, &mut shape),
             (TypeKind::Object(a), TypeKind::Object(b)) => {
                 self.objects(a, b, path, polarity, &mut local);
+                retired_fields(a, b, &mut shape);
             }
             (TypeKind::Array(a), TypeKind::Array(b)) => {
                 self.arrays(a, b, path, polarity, &mut local);
@@ -585,6 +586,59 @@ fn format_change(a: Option<&String>, b: Option<&String>, local: &mut Local) {
     }
 }
 
+/// Numbers of removed fields that were not retired, retired numbers that a
+/// new field reuses, and retirements that were dropped.
+fn retired_fields(a: &ObjectType, b: &ObjectType, shape: &mut Shape) {
+    for pair in field_pairs(a, b) {
+        match pair {
+            Pair::Removed(of) => {
+                if let Some(tag) = of.tag
+                    && !b.retired.contains_number(i64::from(tag))
+                {
+                    shape.push(ChangeKind::NumberNotRetired {
+                        name: of.name.clone(),
+                        number: i64::from(tag),
+                    });
+                }
+            }
+            Pair::Added(nf) => {
+                if let Some(tag) = nf.tag
+                    && (a.retired.contains_number(i64::from(tag))
+                        || a.retired.contains_name(&nf.name))
+                {
+                    shape.push(ChangeKind::RetiredNumberReused {
+                        name: nf.name.clone(),
+                        number: i64::from(tag),
+                    });
+                }
+            }
+            Pair::Both(..) => {}
+        }
+    }
+    retirements(&a.retired, &b.retired, shape);
+}
+
+/// Retired numbers and names that are retired no longer.
+fn retirements(a: &Retired, b: &Retired, shape: &mut Shape) {
+    for &(lo, hi) in &a.ranges {
+        if !b.covers(lo, hi) {
+            let what = match (lo, hi) {
+                (lo, hi) if lo == hi => format!("number {lo}"),
+                (lo, i64::MAX) => format!("numbers {lo} to max"),
+                (lo, hi) => format!("numbers {lo} to {hi}"),
+            };
+            shape.push(ChangeKind::RetirementRemoved { what });
+        }
+    }
+    for name in &a.names {
+        if !b.contains_name(name) {
+            shape.push(ChangeKind::RetirementRemoved {
+                what: format!("name `{name}`"),
+            });
+        }
+    }
+}
+
 /// How a field of the old version corresponds to one of the new.
 enum Pair<'a> {
     Removed(&'a Field),
@@ -731,6 +785,29 @@ fn enums(a: &EnumType, b: &EnumType, local: &mut Local, shape: &mut Shape) {
             }
         }
     }
+    for value in &a.values {
+        if let (Some(name), Some(number)) = (&value.name, value.number)
+            && !b.values.iter().any(|v| v.number == Some(number))
+            && !b.retired.contains_number(number)
+        {
+            shape.push(ChangeKind::NumberNotRetired {
+                name: name.clone(),
+                number,
+            });
+        }
+    }
+    for value in &b.values {
+        if let (Some(name), Some(number)) = (&value.name, value.number)
+            && !a.values.iter().any(|v| v.number == Some(number))
+            && (a.retired.contains_number(number) || a.retired.contains_name(name))
+        {
+            shape.push(ChangeKind::RetiredNumberReused {
+                name: name.clone(),
+                number,
+            });
+        }
+    }
+    retirements(&a.retired, &b.retired, shape);
     for value in &a.values {
         if !b.values.iter().any(|v| v.value == value.value) && !renamed(value, b) {
             local.push((

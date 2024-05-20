@@ -40,6 +40,9 @@ at the change, and on the evidence found (see
 | [FL1029](#fl1029) | `enum-value-renumbered` | wire | An enum value's number changed |
 | [FL1030](#fl1030) | `enum-value-renamed` | source | An enum value was renamed |
 | [FL1031](#fl1031) | `encoding-changed` | wire | A number's wire encoding changed |
+| [FL1032](#fl1032) | `number-not-reserved` | wire | A removed field's number was not reserved |
+| [FL1033](#fl1033) | `reserved-number-reused` | wire | A reserved number was reused |
+| [FL1034](#fl1034) | `reservation-removed` | wire | A reservation was removed |
 | [FL2001](#fl2001) | `operation-removed` | wire | An operation was removed |
 | [FL2002](#fl2002) | `operation-added` | wire | An operation was added |
 | [FL2003](#fl2003) | `operation-id-changed` | source | An operationId changed |
@@ -266,6 +269,28 @@ An enum number is now spelled differently. Binary data is unaffected, but genera
 The encoding of a number changed between incompatible representations, for example Protobuf `int32` to `sint32` (zigzag) or `fixed64` to `uint64` (varint). The binary data of one is misread by the other even when the values would fit.
 
 Keep the encoding; changes between `int32`, `uint32`, `int64`, `uint64` and `bool` are compatible on the wire, as are `sint32`/`sint64`, `fixed32`/`sfixed32` and `fixed64`/`sfixed64`, subject to the value ranges, which Faultline checks separately.
+
+## FL1032
+
+**number-not-reserved** — A removed field's number was not reserved
+
+A field or enum value was removed and its number was not added to `reserved`. Nothing breaks yet, but a later change can reuse the number for something else, and data written by older versions will then be misread as the new field.
+
+Add `reserved <number>;` (and the name) when removing a field or value.
+
+## FL1033
+
+**reserved-number-reused** — A reserved number was reused
+
+A new field or enum value uses a number or name that an older version reserved. Data written with the retired meaning still exists and will be misread.
+
+Pick a number that was never used.
+
+## FL1034
+
+**reservation-removed** — A reservation was removed
+
+Numbers or a name are no longer `reserved`, which allows them to be reused by accident.
 
 ## FL2001
 

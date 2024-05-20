@@ -227,7 +227,9 @@ fn surface_pair(kind: &ChangeKind) -> Option<Surface> {
         K::FieldTagChanged { .. }
         | K::EnumValueRenumbered { .. }
         | K::EncodingChanged { .. }
-        | K::StreamingChanged { .. } => Value(same(Breaking)),
+        | K::StreamingChanged { .. }
+        | K::RetiredNumberReused { .. } => Value(same(Breaking)),
+        K::NumberNotRetired { .. } | K::RetirementRemoved { .. } => Value(same(Risky)),
         K::FieldAliasesChanged { removed, .. } => {
             Value(same(if removed.is_empty() { Info } else { Risky }))
         }
@@ -564,6 +566,21 @@ fn describe(kind: &ChangeKind) -> (&'static Rule, String, String) {
             };
             (&c::FIELD_GROUP_CHANGED, message, name.clone())
         }
+        K::NumberNotRetired { name, number } => (
+            &c::NUMBER_NOT_RESERVED,
+            format!("`{name}` was removed without reserving number {number}"),
+            name.clone(),
+        ),
+        K::RetiredNumberReused { name, number } => (
+            &c::RESERVED_NUMBER_REUSED,
+            format!("`{name}` reuses the reserved number {number}"),
+            name.clone(),
+        ),
+        K::RetirementRemoved { what } => (
+            &c::RESERVATION_REMOVED,
+            format!("{what} no longer reserved"),
+            what.clone(),
+        ),
         K::EncodingChanged { old, new } => (
             &c::ENCODING_CHANGED,
             format!("wire encoding changed from {} to {}", show(old), show(new)),

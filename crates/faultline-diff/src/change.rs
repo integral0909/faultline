@@ -240,6 +240,23 @@ pub enum ChangeKind {
         old: String,
         new: String,
     },
+    /// A field or enum value was removed without retiring its number, so a
+    /// later version may reuse it for something else.
+    NumberNotRetired {
+        name: String,
+        number: i64,
+    },
+    /// A new field or enum value uses a number (or name) an older version
+    /// retired: data written under it before is misread.
+    RetiredNumberReused {
+        name: String,
+        number: i64,
+    },
+    /// Numbers or a name are no longer retired.
+    RetirementRemoved {
+        /// `number 7`, `numbers 8 to 11`, ``name `legacy` ``.
+        what: String,
+    },
     /// The wire encoding of a number changed (Protobuf `int32` to
     /// `sint32`): data written one way is misread the other way.
     EncodingChanged {
@@ -357,6 +374,9 @@ impl ChangeKind {
             ChangeKind::EnumValueRemoved { .. } => "enum-value-removed",
             ChangeKind::EnumValueRenumbered { .. } => "enum-value-renumbered",
             ChangeKind::EnumValueRenamed { .. } => "enum-value-renamed",
+            ChangeKind::NumberNotRetired { .. } => "number-not-retired",
+            ChangeKind::RetiredNumberReused { .. } => "retired-number-reused",
+            ChangeKind::RetirementRemoved { .. } => "retirement-removed",
             ChangeKind::EncodingChanged { .. } => "encoding-changed",
             ChangeKind::StreamingChanged { .. } => "streaming-changed",
             ChangeKind::BoundChanged { .. } => "bound-changed",

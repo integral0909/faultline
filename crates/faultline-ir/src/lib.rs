@@ -40,7 +40,7 @@ pub use surface::{
 };
 pub use types::{
     Access, ArrayType, Bound, Contains, Discriminator, EnumType, EnumValue, ExclusiveGroup, Field,
-    MapType, Meta, NumericType, ObjectType, QualName, StringType, TypeKind, TypeNode, UnionMode,
-    UnionType,
+    MapType, Meta, NumericType, ObjectType, QualName, Retired, StringType, TypeKind, TypeNode,
+    UnionMode, UnionType,
 };
 pub use validate::{IrError, validate};

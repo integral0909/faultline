@@ -489,6 +489,7 @@ impl Lowerer<'_, '_> {
                 parts.push(EnumType {
                     values,
                     open: false,
+                    retired: faultline_ir::Retired::default(),
                 });
             } else {
                 self.invalid_at(node, "enum", "must be an array");
@@ -502,6 +503,7 @@ impl Lowerer<'_, '_> {
             parts.push(EnumType {
                 values: vec![value],
                 open: false,
+                retired: faultline_ir::Retired::default(),
             });
         }
         parts

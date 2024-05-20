@@ -197,6 +197,51 @@ pub struct EnumType {
     /// Whether values outside the list can occur (Protobuf 3 enums): an open
     /// enum's list documents known values rather than restricting them.
     pub open: bool,
+    /// Numbers and names that must not be given to new values.
+    pub retired: Retired,
+}
+
+/// Wire tags and names a declaration has retired (Protobuf `reserved`): no
+/// field or enum value may use them again, because data written under them
+/// by older versions still exists.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Retired {
+    /// Inclusive ranges.
+    pub ranges: Vec<(i64, i64)>,
+    pub names: Vec<String>,
+}
+
+impl Retired {
+    pub fn is_empty(&self) -> bool {
+        self.ranges.is_empty() && self.names.is_empty()
+    }
+
+    pub fn contains_number(&self, n: i64) -> bool {
+        self.ranges.iter().any(|&(lo, hi)| lo <= n && n <= hi)
+    }
+
+    pub fn contains_name(&self, name: &str) -> bool {
+        self.names.iter().any(|n| n == name)
+    }
+
+    /// Whether every number in `lo..=hi` is retired here.
+    pub fn covers(&self, lo: i64, hi: i64) -> bool {
+        let mut ranges = self.ranges.clone();
+        ranges.sort_unstable();
+        let mut next = lo;
+        for (a, b) in ranges {
+            if a > next {
+                break;
+            }
+            if b >= next {
+                if b >= hi {
+                    return true;
+                }
+                next = b + 1;
+            }
+        }
+        false
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -239,6 +284,8 @@ pub struct ObjectType {
     /// Groups of fields of which at most one may be present (Protobuf
     /// `oneof`).
     pub exclusive: Vec<ExclusiveGroup>,
+    /// Tags and names no field may use again.
+    pub retired: Retired,
 }
 
 /// Fields that exclude each other: a value sets at most one of them.
@@ -263,6 +310,7 @@ impl ObjectType {
             max_properties: None,
             dependent_required: Vec::new(),
             exclusive: Vec::new(),
+            retired: Retired::default(),
         }
     }
 
@@ -371,4 +419,26 @@ pub struct Discriminator {
     pub property: String,
     /// Explicit `value → variant` mappings, in document order.
     pub mapping: Vec<(String, TypeId)>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Retired;
+
+    #[test]
+    fn retired_ranges_cover_by_union() {
+        let retired = Retired {
+            ranges: vec![(10, 20), (1, 4), (5, 9), (100, i64::MAX)],
+            names: vec!["old".into()],
+        };
+        assert!(retired.covers(1, 20), "adjacent ranges join");
+        assert!(retired.covers(3, 3));
+        assert!(retired.covers(200, i64::MAX));
+        assert!(!retired.covers(15, 25));
+        assert!(!retired.covers(0, 2));
+        assert!(retired.contains_number(7));
+        assert!(!retired.contains_number(50));
+        assert!(retired.contains_name("old"));
+        assert!(Retired::default().is_empty());
+    }
 }

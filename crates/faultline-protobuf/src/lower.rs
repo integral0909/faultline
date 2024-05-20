@@ -21,7 +21,7 @@ use faultline_doc::{Decimal, Number};
 use faultline_ir::{
     Api, ApiFormat, ArrayType, Bound, Content, EnumType, EnumValue, ExclusiveGroup, Field, Literal,
     MapType, Meta, NumericType, ObjectType, Operation, OperationKey, QualName, RequestBody,
-    Response, Role, SchemaRoot, StatusKey, Streaming, TypeId, TypeKind, TypeNode,
+    Response, Retired, Role, SchemaRoot, StatusKey, Streaming, TypeId, TypeKind, TypeNode,
 };
 use faultline_source::Span;
 
@@ -127,6 +127,7 @@ impl<'a> Lowerer<'a> {
         for field in &m.fields {
             object.fields.push(self.field(field));
         }
+        object.retired = retired(&m.reserved);
         object.exclusive = m
             .oneofs
             .iter()
@@ -297,10 +298,24 @@ fn enumeration(decl: &EnumDecl) -> TypeNode {
     let mut node = TypeNode::new(TypeKind::Enum(EnumType {
         values,
         open: !decl.closed,
+        retired: retired(&decl.ast.reserved),
     }))
     .with_origin(decl.ast.name.span);
     node.meta = meta(decl.ast.doc.as_ref(), &decl.ast.options);
     node
+}
+
+fn retired(reserved: &[ast::Reserved]) -> Retired {
+    Retired {
+        ranges: reserved
+            .iter()
+            .flat_map(|r| r.ranges.iter().copied())
+            .collect(),
+        names: reserved
+            .iter()
+            .flat_map(|r| r.names.iter().cloned())
+            .collect(),
+    }
 }
 
 fn meta(doc: Option<&String>, options: &[OptionDecl]) -> Meta {

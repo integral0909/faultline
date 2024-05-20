@@ -293,3 +293,51 @@ fn json_names_are_aliases() {
         "{found:?}"
     );
 }
+
+#[test]
+fn removed_numbers_should_be_reserved() {
+    let old = service("string name = 1;\nstring nickname = 2;");
+    let careless = summary(&old, &service("string name = 1;"));
+    assert!(
+        careless
+            .iter()
+            .any(|s| s.starts_with("FL1032 risky") && s.contains(REQUEST)),
+        "{careless:?}"
+    );
+    let careful = summary(
+        &old,
+        &service("string name = 1;\nreserved 2;\nreserved \"nickname\";"),
+    );
+    assert!(
+        !careful.iter().any(|s| s.starts_with("FL1032")),
+        "{careful:?}"
+    );
+
+    // Reusing the reserved number later misreads old data.
+    let reserved = service("string name = 1;\nreserved 2;\nreserved \"nickname\";");
+    let reused = summary(&reserved, &service("string name = 1;\nint64 score = 2;"));
+    assert!(
+        reused.iter().any(|s| s.starts_with("FL1033 breaking")),
+        "{reused:?}"
+    );
+    assert!(
+        reused.iter().any(|s| s.starts_with("FL1034 risky")),
+        "{reused:?}"
+    );
+
+    // Enum values too.
+    let values = enums("SPECIES_UNSPECIFIED = 0;\nSPECIES_CAT = 1;\nSPECIES_DOG = 2;");
+    let dropped = summary(
+        &values,
+        &enums("SPECIES_UNSPECIFIED = 0;\nSPECIES_CAT = 1;"),
+    );
+    assert!(
+        dropped.iter().any(|s| s.starts_with("FL1032 risky")),
+        "{dropped:?}"
+    );
+    let kept = summary(
+        &values,
+        &enums("SPECIES_UNSPECIFIED = 0;\nSPECIES_CAT = 1;\nreserved 2;"),
+    );
+    assert!(!kept.iter().any(|s| s.starts_with("FL1032")), "{kept:?}");
+}

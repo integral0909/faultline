@@ -6,8 +6,8 @@ use crate::arena::TypeId;
 use crate::graph::edges;
 use crate::polarity::Polarities;
 use crate::types::{
-    Access, ArrayType, Bound, EnumType, Meta, NumericType, ObjectType, StringType, TypeKind,
-    UnionMode, UnionType,
+    Access, ArrayType, Bound, EnumType, Meta, NumericType, ObjectType, Retired, StringType,
+    TypeKind, UnionMode, UnionType,
 };
 
 /// Renders `api` deterministically for humans and snapshot tests.
@@ -213,6 +213,24 @@ fn write_enum(e: &EnumType, out: &mut String, members: &mut Vec<String>) {
         write_meta(&value.meta, &mut line);
         members.push(line);
     }
+    write_retired(&e.retired, members);
+}
+
+fn write_retired(retired: &Retired, members: &mut Vec<String>) {
+    if retired.is_empty() {
+        return;
+    }
+    let parts: Vec<String> = retired
+        .ranges
+        .iter()
+        .map(|&(lo, hi)| match hi {
+            _ if lo == hi => lo.to_string(),
+            i64::MAX => format!("{lo} to max"),
+            _ => format!("{lo} to {hi}"),
+        })
+        .chain(retired.names.iter().map(|n| format!("{n:?}")))
+        .collect();
+    members.push(format!("reserved {}", parts.join(", ")));
 }
 
 fn write_object(obj: &ObjectType, labels: &Labels, out: &mut String, members: &mut Vec<String>) {
@@ -250,6 +268,7 @@ fn write_object(obj: &ObjectType, labels: &Labels, out: &mut String, members: &m
             required.join(", ")
         ));
     }
+    write_retired(&obj.retired, members);
     for group in &obj.exclusive {
         members.push(format!(
             "at most one of {} ({})",

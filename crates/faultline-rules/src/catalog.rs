@@ -127,6 +127,12 @@ rules! {
         "An enum number is now spelled differently. Binary data is unaffected, but generated code and JSON encodings that use value names break.";
     ENCODING_CHANGED = "FL1031", "encoding-changed", Wire, "A number's wire encoding changed",
         "The encoding of a number changed between incompatible representations, for example Protobuf `int32` to `sint32` (zigzag) or `fixed64` to `uint64` (varint). The binary data of one is misread by the other even when the values would fit.\n\nKeep the encoding; changes between `int32`, `uint32`, `int64`, `uint64` and `bool` are compatible on the wire, as are `sint32`/`sint64`, `fixed32`/`sfixed32` and `fixed64`/`sfixed64`, subject to the value ranges, which Faultline checks separately.";
+    NUMBER_NOT_RESERVED = "FL1032", "number-not-reserved", Wire, "A removed field's number was not reserved",
+        "A field or enum value was removed and its number was not added to `reserved`. Nothing breaks yet, but a later change can reuse the number for something else, and data written by older versions will then be misread as the new field.\n\nAdd `reserved <number>;` (and the name) when removing a field or value.";
+    RESERVED_NUMBER_REUSED = "FL1033", "reserved-number-reused", Wire, "A reserved number was reused",
+        "A new field or enum value uses a number or name that an older version reserved. Data written with the retired meaning still exists and will be misread.\n\nPick a number that was never used.";
+    RESERVATION_REMOVED = "FL1034", "reservation-removed", Wire, "A reservation was removed",
+        "Numbers or a name are no longer `reserved`, which allows them to be reused by accident.";
 
     OPERATION_REMOVED = "FL2001", "operation-removed", Wire, "An operation was removed",
         "An operation (an HTTP method and path, or an RPC method) no longer exists. Clients calling it receive errors.\n\nDeprecate the operation first and remove it in a major version.";

@@ -240,9 +240,11 @@ fn enum_api(values: &[(&str, i64)]) -> Api {
             v
         })
         .collect();
-    let ty = api
-        .types
-        .alloc_kind(TypeKind::Enum(EnumType { values, open: true }));
+    let ty = api.types.alloc_kind(TypeKind::Enum(EnumType {
+        values,
+        open: true,
+        retired: faultline_ir::Retired::default(),
+    }));
     api.schemas.push(SchemaRoot {
         name: "e".into(),
         ty,
@@ -269,7 +271,14 @@ fn enum_values_are_identified_by_number_and_name() {
 
     let renumbered = enum_api(&[("UNKNOWN", 0), ("CAT", 3), ("DOG", 2)]);
     let changes = diff(&old, &renumbered).changes;
-    assert_eq!(kinds(&changes), ["enum-value-renumbered schema[e]"]);
+    // Number 1 is now free, and not reserved.
+    assert_eq!(
+        kinds(&changes),
+        [
+            "enum-value-renumbered schema[e]",
+            "number-not-retired schema[e]"
+        ]
+    );
 
     let added = enum_api(&[("UNKNOWN", 0), ("CAT", 1), ("DOG", 2), ("FISH", 3)]);
     assert_eq!(

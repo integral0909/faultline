@@ -30,6 +30,7 @@ fn petstore(reverse: bool) -> faultline_ir::Api {
                 .map(|s| EnumValue::new(Literal::string(s)))
                 .collect(),
             open: false,
+            retired: faultline_ir::Retired::default(),
         }))
     };
     let (limit, status) = if reverse {

@@ -74,6 +74,7 @@ It also checks what `protoc` rejects:
 | integer types | integer with the type's range, its name as the format, and its wire encoding (`varint`, `zigzag`, `fixed32`, `fixed64`) |
 | `float`, `double` | number with encoding `float` or `double` |
 | enum | enum of value names with their numbers; open unless proto2 or `features.enum_type = CLOSED` |
+| `reserved` numbers and names | retired tags and names of the object or enum |
 | `[deprecated = true]`, `[default = …]`, leading comments | field or type metadata |
 | service method | RPC operation `package.Service/Method`; request and response bodies of media type `application/grpc`; streaming per direction |
 
@@ -92,7 +93,10 @@ renumbering (FL1029) from renaming (FL1030). Other checks:
 * changes in wire encoding (FL1031), for example `int32` to `sint32`;
 * changes in value range, with witnesses, for example `int32` to `int64`;
 * moves into and out of `oneof`s (FL1028);
-* RPCs that become or stop being streams (FL3001).
+* RPCs that become or stop being streams (FL3001);
+* reservations: a removed field or enum value whose number is not reserved
+  (FL1032), a new one that reuses a reserved number or name (FL1033), and a
+  dropped reservation (FL1034).
 
 ## Limitations
 
@@ -100,7 +104,5 @@ renumbering (FL1029) from renaming (FL1030). Other checks:
   the comparison.
 * `map<K, V>` and the equivalent `repeated` entry message are not treated as
   the same type.
-* Changes to `reserved` ranges, and removed fields whose numbers are not
-  reserved, are not reported yet.
 * Of the editions features, only `field_presence = LEGACY_REQUIRED` and
   `enum_type` are interpreted.

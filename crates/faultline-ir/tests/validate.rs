@@ -96,6 +96,7 @@ fn duplicate_fields_and_semantically_equal_enum_values() {
             EnumValue::new(Literal::string("1")),
         ],
         open: false,
+        retired: faultline_ir::Retired::default(),
     }));
     assert_eq!(
         validate(&b.api),
