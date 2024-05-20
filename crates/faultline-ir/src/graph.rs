@@ -12,6 +12,8 @@ use crate::types::{TypeKind, TypeNode};
 pub enum Edge<'a> {
     /// A declared object member.
     Field(&'a str),
+    /// The arguments of a declared member (GraphQL field arguments).
+    Arguments(&'a str),
     /// Members not matched by fields or pattern properties.
     Additional,
     /// Members whose names match the pattern at this index.
@@ -49,9 +51,10 @@ impl Edge<'_> {
     ///
     /// `not` inverts set inclusion: widening `T` narrows `not T`. Polarity is
     /// flipped across such edges so that the direction of the required
-    /// inclusion is right for the operand.
+    /// inclusion is right for the operand. Field arguments flow from the
+    /// reader of a value to its producer, the opposite way from the value.
     pub fn inverts(self) -> bool {
-        matches!(self, Edge::Not)
+        matches!(self, Edge::Not | Edge::Arguments(_))
     }
 }
 
@@ -70,6 +73,9 @@ pub fn for_each_edge<'a>(node: &'a TypeNode, mut visit: impl FnMut(Edge<'a>, Typ
         TypeKind::Object(obj) => {
             for field in &obj.fields {
                 visit(Edge::Field(&field.name), field.ty);
+                if let Some(arguments) = field.arguments {
+                    visit(Edge::Arguments(&field.name), arguments);
+                }
             }
             for (i, (pattern, ty)) in obj.pattern_properties.iter().enumerate() {
                 visit(Edge::PatternProperty(i, pattern), *ty);

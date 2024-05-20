@@ -237,8 +237,15 @@ fn explains(kind: &ChangeKind, reason: &Reason, witness: &Literal) -> bool {
             ChangeKind::EnumValueRemoved { value } | ChangeKind::EnumValueAdded { value },
             Reason::NotInEnum,
         ) => value == witness,
+        // A member the new version requires, or one the old version required
+        // and the new one no longer declares (a value without it is new).
         (
-            ChangeKind::FieldAdded { name, .. } | ChangeKind::FieldRequiredChanged { name, .. },
+            ChangeKind::FieldAdded { name, .. }
+            | ChangeKind::FieldRequiredChanged { name, .. }
+            | ChangeKind::FieldRemoved {
+                name,
+                required: true,
+            },
             Reason::MissingRequired(missing),
         ) => name == missing,
         (

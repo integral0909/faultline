@@ -337,6 +337,9 @@ pub struct Field {
     pub tag: Option<u32>,
     /// Alternative names the field is also known by (Avro aliases).
     pub aliases: Vec<String>,
+    /// Arguments the reader passes to obtain the field (GraphQL): an object
+    /// whose values flow the opposite way from the field's own value.
+    pub arguments: Option<TypeId>,
     pub meta: Meta,
     pub origin: Option<Span>,
 }
@@ -349,6 +352,7 @@ impl Field {
             required,
             tag: None,
             aliases: Vec::new(),
+            arguments: None,
             meta: Meta::default(),
             origin: None,
         }

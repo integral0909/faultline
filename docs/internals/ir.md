@@ -34,12 +34,17 @@ Each `TypeKind` denotes a set of JSON-like values:
 | `Integer`, `Number` | numbers with inclusive/exclusive bounds, `multipleOf`, declared format and, for binary formats, wire encoding |
 | `String` | length bounds (code points), ECMA-262 pattern, format |
 | `Enum` | an explicit list of literals, with names and numbers where the format has them; *open* enums (Protobuf 3) document rather than restrict |
-| `Object` | declared fields (with wire tags and aliases where the format has them), pattern properties, additional properties, property-name constraint, size bounds, dependent requirements, exclusive groups (Protobuf `oneof`: at most one member present) |
+| `Object` | declared fields (with wire tags, aliases and GraphQL-style arguments where the format has them), pattern properties, additional properties, property-name constraint, size bounds, dependent requirements, exclusive groups (Protobuf `oneof`: at most one member present) |
 | `Array` | prefix items, item type, size bounds, uniqueness, `contains` |
 | `Map` | typed keys and values (Protobuf, Avro) |
 | `Union` | `Any` (anyOf), `Exclusive` (oneOf) or `Tagged` (discriminated by the data) |
 | `AllOf`, `Not` | intersection and complement |
 | `Ref` | transparent indirection |
+
+A field may take arguments: an object reached through its own edge, across
+which polarity inverts, since the reader of a value sends them. Their path
+segment is `.field()`, so `type[Pet].nicknames().limit` is the `limit`
+argument of `Pet.nicknames`.
 
 Operations are keyed by method and path template for HTTP, and by
 fully-qualified service and method for RPC (`pets.v1.PetService/GetPet`, the

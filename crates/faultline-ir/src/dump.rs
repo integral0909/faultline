@@ -255,6 +255,9 @@ fn write_object(obj: &ObjectType, labels: &Labels, out: &mut String, members: &m
         if !field.aliases.is_empty() {
             let _ = write!(line, " aliases={}", field.aliases.join(","));
         }
+        if let Some(arguments) = field.arguments {
+            let _ = write!(line, " args={}", labels.of(arguments));
+        }
         write_meta(&field.meta, &mut line);
         let _ = write!(line, ": {}", labels.of(field.ty));
         members.push(line);

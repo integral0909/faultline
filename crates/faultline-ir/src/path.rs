@@ -19,6 +19,7 @@
 //! | parameter | `param[query:limit]` |
 //! | request body, response, response header, response body | `request[..]`, `response[..]`, `header[..]`, `body[..]` |
 //! | field | `.name`, or `."any name"` when it contains other characters |
+//! | field arguments | `.name()` |
 //! | array items, prefix item, contains | `[]`, `[0]`, `[contains]` |
 //! | additional, pattern, property names | `{*}`, `{~"pattern"}`, `{names}` |
 //! | map key, map value | `{key}`, `{value}` |
@@ -45,6 +46,8 @@ pub enum Segment {
     Header(String),
     Body(String),
     Field(String),
+    /// The arguments of a field: `.name()`.
+    Arguments(String),
     Items,
     PrefixItem(usize),
     Contains,
@@ -80,6 +83,7 @@ impl Segment {
     pub fn from_edge(edge: Edge<'_>) -> Option<Segment> {
         Some(match edge {
             Edge::Field(name) => Segment::Field(name.to_owned()),
+            Edge::Arguments(name) => Segment::Arguments(name.to_owned()),
             Edge::Additional => Segment::Additional,
             Edge::PatternProperty(_, pattern) => Segment::PatternProperty(pattern.to_owned()),
             Edge::PropertyNames => Segment::PropertyNames,
@@ -197,12 +201,15 @@ fn write_segment(segment: &Segment, out: &mut String) {
         Segment::Response(s) => keyword(out, "response", s),
         Segment::Header(s) => keyword(out, "header", s),
         Segment::Body(s) => keyword(out, "body", s),
-        Segment::Field(name) => {
+        Segment::Field(name) | Segment::Arguments(name) => {
             out.push('.');
             if is_bare_field(name) {
                 out.push_str(name);
             } else {
                 write_quoted(name, out);
+            }
+            if matches!(segment, Segment::Arguments(_)) {
+                out.push_str("()");
             }
         }
         Segment::Items => out.push_str("[]"),
@@ -302,20 +309,26 @@ impl PathParser<'_> {
         match c {
             '.' => {
                 self.pos += 1;
-                if self.peek() == Some('"') {
-                    return self.quoted().map(Segment::Field);
+                let name = if self.peek() == Some('"') {
+                    self.quoted()?
+                } else {
+                    let start = self.pos;
+                    while self.peek().is_some_and(|c| {
+                        c.is_ascii_alphanumeric() || matches!(c, '_' | '$' | '@' | '-')
+                    }) {
+                        self.pos += 1;
+                    }
+                    let name = &self.text[start..self.pos];
+                    if !is_bare_field(name) {
+                        return self.error("expected a field name");
+                    }
+                    name.to_owned()
+                };
+                if self.eat("()") {
+                    Ok(Segment::Arguments(name))
+                } else {
+                    Ok(Segment::Field(name))
                 }
-                let start = self.pos;
-                while self.peek().is_some_and(|c| {
-                    c.is_ascii_alphanumeric() || matches!(c, '_' | '$' | '@' | '-')
-                }) {
-                    self.pos += 1;
-                }
-                let name = &self.text[start..self.pos];
-                if !is_bare_field(name) {
-                    return self.error("expected a field name");
-                }
-                Ok(Segment::Field(name.to_owned()))
             }
             '[' => {
                 for (literal, segment) in
@@ -537,6 +550,9 @@ mod tests {
             Segment::RequestBody("*/*".into()),
             Segment::Field("with space".into()),
             Segment::Field("quote\"d".into()),
+            Segment::Arguments("pets".into()),
+            Segment::Field("first".into()),
+            Segment::Arguments("odd name".into()),
             Segment::PrefixItem(3),
             Segment::Contains,
             Segment::Additional,
@@ -555,6 +571,20 @@ mod tests {
         .collect();
         let text = path.to_string();
         assert_eq!(p(&text), path, "{text}");
+    }
+
+    #[test]
+    fn arguments_are_written_as_calls() {
+        let path = p("type[User].pets().first");
+        assert_eq!(
+            path.segments(),
+            [
+                Segment::Type("User".into()),
+                Segment::Arguments("pets".into()),
+                Segment::Field("first".into())
+            ]
+        );
+        assert_eq!(path.to_string(), "type[User].pets().first");
     }
 
     #[test]

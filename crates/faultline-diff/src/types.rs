@@ -154,6 +154,7 @@ impl Differ<'_> {
         polarity: Polarity,
         local: &mut Local,
     ) {
+        let (old_members, new_members) = (openness(self.old, a), openness(self.new, b));
         for pair in field_pairs(a, b) {
             match pair {
                 Pair::Removed(of) => {
@@ -161,14 +162,26 @@ impl Differ<'_> {
                         name: of.name.clone(),
                         required: of.required,
                     };
-                    local.push((kind, Direction::Either));
+                    // Undeclared members that may be anything absorb the
+                    // removed field; a closed object now rejects it.
+                    let direction = match new_members {
+                        Openness::Open => Direction::Widening,
+                        Openness::Closed if !of.required => Direction::Narrowing,
+                        _ => Direction::Either,
+                    };
+                    local.push((kind, direction));
                 }
                 Pair::Added(nf) => {
                     let kind = ChangeKind::FieldAdded {
                         name: nf.name.clone(),
                         required: nf.required,
                     };
-                    local.push((kind, Direction::Either));
+                    let direction = match old_members {
+                        Openness::Open => Direction::Narrowing,
+                        Openness::Closed if !nf.required => Direction::Widening,
+                        _ => Direction::Either,
+                    };
+                    local.push((kind, direction));
                 }
                 Pair::Both(of, nf) => self.field_pair(a, b, of, nf, path, polarity, local),
             }
@@ -311,6 +324,13 @@ impl Differ<'_> {
         // compared.
         if !child.is_none() || polarity.is_none() {
             self.compare(ot, nt, &at, child);
+        }
+        // Arguments flow from the reader to the producer of the value.
+        let args_at = path.join(Segment::Arguments(name));
+        match (of.arguments, nf.arguments) {
+            (Some(oa), Some(na)) => self.compare(oa, na, &args_at, polarity.flip()),
+            (None, None) => {}
+            _ => self.constraint(args_at, polarity.flip()),
         }
     }
 
@@ -636,6 +656,29 @@ fn retirements(a: &Retired, b: &Retired, shape: &mut Shape) {
                 what: format!("name `{name}`"),
             });
         }
+    }
+}
+
+/// What an object says about members it does not declare.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Openness {
+    /// Any member with any value.
+    Open,
+    /// No other members.
+    Closed,
+    /// Something in between (typed or patterned members, size limits).
+    Constrained,
+}
+
+fn openness(api: &faultline_ir::Api, o: &ObjectType) -> Openness {
+    if !o.pattern_properties.is_empty() || o.property_names.is_some() || o.max_properties.is_some()
+    {
+        return Openness::Constrained;
+    }
+    match api.types.get(api.types.resolve(o.additional)).kind {
+        TypeKind::Any => Openness::Open,
+        TypeKind::Never => Openness::Closed,
+        _ => Openness::Constrained,
     }
 }
 

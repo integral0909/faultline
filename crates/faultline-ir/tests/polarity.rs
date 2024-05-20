@@ -192,3 +192,27 @@ fn unreachable_types_have_no_polarity() {
     let orphan = b.named("Orphan", TypeKind::Boolean);
     assert_eq!(Polarities::compute(&b.api).get(orphan), Polarity::NONE);
 }
+
+#[test]
+fn field_arguments_flow_against_the_field() {
+    let mut b = Builder::new();
+    let first = b.string();
+    let arguments = b.object(&[("first", first, false)]);
+    let item = b.string();
+    let list = b.array(item);
+    let user = b.object(&[("pets", list, true)]);
+    let TypeKind::Object(obj) = &mut b.api.types.get_mut(user).kind else {
+        unreachable!()
+    };
+    obj.fields[0].arguments = Some(arguments);
+
+    let mut op = http("get", "/me");
+    op.responses.push(response("200", user));
+    b.api.operations.push(op);
+
+    let p = Polarities::compute(&b.api);
+    assert_eq!(p.get(user), Polarity::OUT);
+    assert_eq!(p.get(item), Polarity::OUT);
+    assert_eq!(p.get(arguments), Polarity::IN, "the reader sends arguments");
+    assert_eq!(p.get(first), Polarity::IN);
+}
