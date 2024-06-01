@@ -16,6 +16,7 @@ faultline-ir = { path = "../crates/faultline-ir" }
 faultline-jsonschema = { path = "../crates/faultline-jsonschema" }
 faultline-openapi = { path = "../crates/faultline-openapi" }
 faultline-protobuf = { path = "../crates/faultline-protobuf" }
+faultline-graphql = { path = "../crates/faultline-graphql" }
 faultline-diff = { path = "../crates/faultline-diff" }
 
 # Kept out of the main workspace: fuzz targets need a nightly toolchain and
@@ -61,6 +62,13 @@ bench = false
 [[bin]]
 name = "lower_protobuf"
 path = "fuzz_targets/lower_protobuf.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "lower_graphql"
+path = "fuzz_targets/lower_graphql.rs"
 test = false
 doc = false
 bench = false

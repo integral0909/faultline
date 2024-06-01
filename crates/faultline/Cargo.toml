@@ -15,6 +15,7 @@ readme = "../../README.md"
 [dependencies]
 faultline-diff.workspace = true
 faultline-doc.workspace = true
+faultline-graphql.workspace = true
 faultline-ir.workspace = true
 faultline-jsonschema.workspace = true
 faultline-net.workspace = true

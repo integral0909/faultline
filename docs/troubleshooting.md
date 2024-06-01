@@ -98,6 +98,17 @@ directly or re-exported with `import public`.
 **`FLE3001` syntax errors in valid files.** Faultline reads proto2, proto3
 and editions. Please report files `protoc` accepts and Faultline does not.
 
+## GraphQL
+
+**`FLE4006` the schema has no query root type.** Define `type Query`, or
+name the root types in a `schema { query: … }` definition.
+
+**`FLE4007` operations in a schema document.** The entry must be a schema
+(type definitions), not a document of queries.
+
+**Types defined in several files.** One file per API is read. Combine split
+schemas into one file first.
+
 ## Findings
 
 **A change is reported at a different path than expected.** A type shared by

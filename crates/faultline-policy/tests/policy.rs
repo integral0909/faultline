@@ -81,7 +81,7 @@ fn problems_are_reported_together() {
 [[api]]
 name = "a"
 entry = "x"
-format = "graphql"
+format = "wsdl"
 
 [[api]]
 name = "a"

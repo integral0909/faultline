@@ -112,6 +112,22 @@ only breaks JSON encodings and generated code. See
 [examples/grpc](../examples/grpc) and the
 [Protobuf internals](internals/protobuf.md).
 
+## GraphQL
+
+Schema files ending in `.graphql`, `.graphqls` or `.gql` are read as GraphQL
+SDL:
+
+```sh
+faultline diff v1/schema.graphql v2/schema.graphql
+```
+
+Each root field is an operation (`op[query/pets]`). Removing an output field,
+making an output nullable, adding a required argument or input field, and
+adding a union member break clients. Adding fields and optional arguments
+does not. Arguments of nested fields appear in paths as
+`….nicknames().locale`. See [examples/graphql](../examples/graphql) and the
+[GraphQL internals](internals/graphql.md).
+
 ## Checking pull requests
 
 List the APIs in `faultline.toml` at the root of the repository:

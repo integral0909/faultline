@@ -63,12 +63,22 @@ version = "0.0.0"
 dependencies = [
  "faultline-diff",
  "faultline-doc",
+ "faultline-graphql",
  "faultline-ir",
  "faultline-jsonschema",
  "faultline-openapi",
  "faultline-protobuf",
  "faultline-source",
  "libfuzzer-sys",
+]
+
+[[package]]
+name = "faultline-graphql"
+version = "0.1.0"
+dependencies = [
+ "faultline-doc",
+ "faultline-ir",
+ "faultline-source",
 ]
 
 [[package]]

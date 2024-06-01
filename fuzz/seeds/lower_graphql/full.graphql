@@ -1,0 +1,60 @@
+
+"""
+The pet store.
+"""
+schema {
+  query: Query
+  mutation: Mutation
+  subscription: Subscription
+}
+
+type Query {
+  "A pet by id."
+  pet(id: ID!): Pet
+  pets(first: Int = 10, after: String, species: [Species!]): [Pet!]!
+  search(text: String!): [SearchResult!]!
+}
+
+type Mutation {
+  addPet(input: NewPet!): Pet!
+}
+
+type Subscription {
+  petAdded: Pet!
+}
+
+interface Node {
+  id: ID!
+}
+
+type Pet implements Node @key(fields: "id") {
+  id: ID!
+  name: String!
+  species: Species!
+  tags(first: Int): [String!]
+  owner: Person @deprecated(reason: "Use `owners`.")
+  born: DateTime
+}
+
+type Person implements Node {
+  id: ID!
+  name: String
+}
+
+union SearchResult = Pet | Person
+
+enum Species {
+  CAT
+  DOG
+  BIRD @deprecated
+}
+
+input NewPet {
+  name: String!
+  species: Species! = CAT
+  tags: [String!] = []
+}
+
+scalar DateTime
+
+directive @key(fields: String!) repeatable on OBJECT | INTERFACE

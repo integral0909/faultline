@@ -1,0 +1,49 @@
+"""
+A pet store.
+"""
+type Query {
+  "A pet by id."
+  pet(id: ID!): Pet
+  "Pets, a page at a time."
+  pets(first: Int = 20, after: String): PetConnection!
+  search(text: String!): [SearchResult!]!
+}
+
+type Mutation {
+  addPet(input: NewPet!): Pet!
+  removePet(id: ID!): Boolean!
+}
+
+type Pet {
+  id: ID!
+  name: String!
+  species: Species!
+  "Nicknames, most used first."
+  nicknames(limit: Int): [String!]!
+  owner: Person
+  listedAt: DateTime!
+}
+
+type Person {
+  id: ID!
+  name: String!
+}
+
+type PetConnection {
+  nodes: [Pet!]!
+  endCursor: String
+}
+
+union SearchResult = Pet | Person
+
+enum Species {
+  CAT
+  DOG
+}
+
+input NewPet {
+  name: String!
+  species: Species!
+}
+
+scalar DateTime

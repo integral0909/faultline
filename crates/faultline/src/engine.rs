@@ -224,9 +224,18 @@ impl Engine {
             workspace: loader.as_ref(),
             remote: self.remote.as_deref(),
         };
-        // `.proto` files are not JSON or YAML documents: they are read by
-        // their own front end, which follows imports rather than references.
-        if format == Some(ApiFormat::Protobuf) || (format.is_none() && is_proto(&entry)) {
+        // Protobuf and GraphQL files are not JSON or YAML documents: they
+        // are read by their own front ends.
+        let format = format.or_else(|| format_by_extension(&entry));
+        if format == Some(ApiFormat::GraphQl) {
+            let lowered = faultline_graphql::lower_graphql(&entry, loader.as_ref(), sources, name);
+            return Lowered {
+                api: lowered.api,
+                diagnostics: lowered.diagnostics,
+                missing_entry: false,
+            };
+        }
+        if format == Some(ApiFormat::Protobuf) {
             let lowered = faultline_protobuf::lower_protobuf(
                 &entry,
                 loader.as_ref(),
@@ -258,7 +267,7 @@ impl Engine {
                 Options::default(),
                 ir_role(role),
             ),
-            ApiFormat::Protobuf => unreachable!("handled above"),
+            ApiFormat::Protobuf | ApiFormat::GraphQl => unreachable!("handled above"),
         };
         let mut api = lowered.api;
         if let Some(api) = &mut api {
@@ -427,11 +436,19 @@ fn describe(source: &Source) -> String {
     }
 }
 
-/// Whether the entry is a Protobuf file, by its extension.
-fn is_proto(entry: &UriRef) -> bool {
-    std::path::Path::new(entry.path())
-        .extension()
-        .is_some_and(|e| e.eq_ignore_ascii_case("proto"))
+/// Formats recognized by the entry's file extension: `.proto` files and
+/// GraphQL schemas are not JSON or YAML documents, and are read by their own
+/// front ends.
+fn format_by_extension(entry: &UriRef) -> Option<ApiFormat> {
+    let extension = std::path::Path::new(entry.path())
+        .extension()?
+        .to_str()?
+        .to_ascii_lowercase();
+    match extension.as_str() {
+        "proto" => Some(ApiFormat::Protobuf),
+        "graphql" | "graphqls" | "gql" => Some(ApiFormat::GraphQl),
+        _ => None,
+    }
 }
 
 /// Recognizes OpenAPI (and Swagger, so the OpenAPI front end can say it is

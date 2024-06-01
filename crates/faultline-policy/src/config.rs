@@ -90,6 +90,7 @@ pub enum ApiFormat {
     OpenApi,
     JsonSchema,
     Protobuf,
+    GraphQl,
 }
 
 impl ApiFormat {
@@ -98,6 +99,7 @@ impl ApiFormat {
             "openapi" => Some(ApiFormat::OpenApi),
             "jsonschema" | "json-schema" => Some(ApiFormat::JsonSchema),
             "protobuf" | "proto" => Some(ApiFormat::Protobuf),
+            "graphql" => Some(ApiFormat::GraphQl),
             _ => None,
         }
     }
@@ -315,7 +317,7 @@ fn apis(raw: Vec<RawApi>, problems: &mut Vec<String>) -> Vec<ApiConfig> {
         let format = api.format.as_deref().and_then(|text| {
             ApiFormat::parse(text).or_else(|| {
                 problems.push(format!(
-                    "{at}: format must be \"openapi\", \"jsonschema\" or \"protobuf\", not \"{text}\""
+                    "{at}: format must be \"openapi\", \"jsonschema\", \"protobuf\" or \"graphql\", not \"{text}\""
                 ));
                 None
             })

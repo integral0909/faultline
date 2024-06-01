@@ -422,6 +422,7 @@ version = "0.1.0"
 dependencies = [
  "faultline-diff",
  "faultline-doc",
+ "faultline-graphql",
  "faultline-ir",
  "faultline-jsonschema",
  "faultline-net",
@@ -473,6 +474,18 @@ dependencies = [
  "proptest",
  "saphyr-parser",
  "tempfile",
+]
+
+[[package]]
+name = "faultline-graphql"
+version = "0.1.0"
+dependencies = [
+ "faultline-diff",
+ "faultline-doc",
+ "faultline-ir",
+ "faultline-rules",
+ "faultline-source",
+ "proptest",
 ]
 
 [[package]]

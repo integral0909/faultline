@@ -381,3 +381,33 @@ fn protobuf_descriptions_are_detected_and_compared() {
     assert!(text.contains("--> v2/pets/v1/species.proto:"), "{text}");
     assert!(text.contains("pets: 4 breaking"), "{text}");
 }
+
+#[test]
+fn graphql_schemas_are_detected_and_compared() {
+    let dir = repo().join("examples/graphql");
+    let output = faultline(
+        &dir,
+        &[
+            "diff",
+            "v1/schema.graphql",
+            "v2/schema.graphql",
+            "--output",
+            "json",
+        ],
+    );
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    let report: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+    assert_eq!(report["summary"]["breaking"], 5, "{report:#}");
+    let union = report["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| {
+            f["path"]
+                .as_str()
+                .unwrap()
+                .starts_with("op[query/search]/response")
+        })
+        .unwrap();
+    assert_eq!(union["witness"]["__typename"], "Shelter");
+}

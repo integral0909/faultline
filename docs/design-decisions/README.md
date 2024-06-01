@@ -17,3 +17,4 @@ New records start from [template.md](template.md) and take the next number.
 | [0006](0006-stable-finding-ids-and-expiring-waivers.md) | Stable finding ids and expiring waivers | Accepted |
 | [0007](0007-reading-revisions-from-the-object-database.md) | Reading revisions from the object database | Accepted |
 | [0008](0008-protobuf-compared-as-its-wire-format.md) | Protobuf compared as its wire format | Accepted |
+| [0009](0009-graphql-as-selections-with-field-arguments.md) | GraphQL as selections, with field arguments in the IR | Accepted |

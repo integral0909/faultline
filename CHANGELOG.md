@@ -78,6 +78,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   name resolution and validation (FLE3xxx), and lowering of the binary wire
   format. `.proto` entries are detected by extension.
 - A fuzz target for the Protobuf front end, and a gRPC example.
+- Field arguments in the IR (`Field.arguments`, the `.field()` path
+  segment), flowing opposite to their field.
+- `faultline-graphql`: GraphQL SDL — lexer, parser with recovery, extension
+  merging, type-system validation (FLE4xxx), and lowering with root fields
+  as operations, `__typename` on every object and nullability as unions with
+  `null`. `.graphql`, `.graphqls` and `.gql` entries are detected. A fuzz
+  target and a GraphQL example.
+- Added and removed fields carry a direction derived from whether the object
+  allows undeclared members, which makes more findings provably compatible;
+  removing a required member is attributed its witness.
 - `faultline-net` and `[network]`: opt-in `https` references restricted to
   allowlisted hosts, with redirects checked hop by hop, connections refused
   to non-public addresses after resolution, no proxies, and size, time and

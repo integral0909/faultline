@@ -13,7 +13,7 @@ root = "."
 [[api]]
 name = "public"                 # used in reports and finding ids
 entry = "api/openapi.yaml"
-# format = "openapi"            # or "jsonschema", "protobuf"; detected when omitted
+# format = "openapi"            # or "jsonschema", "protobuf", "graphql"; detected when omitted
 # role = "input"                # JSON Schema only: input | output | both
 
 [policy]

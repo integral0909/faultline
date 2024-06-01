@@ -15,6 +15,7 @@ pub(crate) enum Format {
     Openapi,
     Jsonschema,
     Protobuf,
+    Graphql,
 }
 
 impl From<Format> for ApiFormat {
@@ -23,6 +24,7 @@ impl From<Format> for ApiFormat {
             Format::Openapi => ApiFormat::OpenApi,
             Format::Jsonschema => ApiFormat::JsonSchema,
             Format::Protobuf => ApiFormat::Protobuf,
+            Format::Graphql => ApiFormat::GraphQl,
         }
     }
 }
