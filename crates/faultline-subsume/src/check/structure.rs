@@ -75,15 +75,33 @@ impl Checker<'_> {
             )
             .collect();
 
+        // Left values are as written: an exact writer produces every declared
+        // member and no other.
+        let exact = a.writer_exact;
         for name in names {
-            let (lf, rf) = (a.field(name), b.field(name));
-            let left_required = lf.is_some_and(|f| f.required);
+            let (mut lf, rf) = (a.field(name), b.field(name));
+            // A right field reads a left one written under one of its
+            // aliases; the pair is compared under the right field's name.
+            if rf.is_none() && b.fields.iter().any(|f| f.aliases.iter().any(|x| x == name)) {
+                continue;
+            }
+            if lf.is_none()
+                && let Some(rf) = rf
+            {
+                lf = a.fields.iter().find(|f| rf.aliases.contains(&f.name));
+            }
+            let left_name = lf.map_or(name, |f| f.name.as_str());
+            let left_required = lf.is_some_and(|f| f.required || exact);
             let right_required = rf.is_some_and(|f| f.required);
             if right_required && !left_required {
                 if let Some(w) = self.embed_without(l, r, name) {
                     return Verdict::No(w);
                 }
                 proven = false;
+            }
+            if exact && lf.is_none() {
+                // Never written, so nothing to compare.
+                continue;
             }
             let left_ty = lf
                 .map(|f| f.ty)
@@ -98,7 +116,7 @@ impl Checker<'_> {
             match self.subsumes(left_ty, right_ty) {
                 Verdict::Yes => {}
                 Verdict::No(w) => {
-                    if let Some(witness) = self.embed_member(l, r, name, &w) {
+                    if let Some(witness) = self.embed_member(l, r, left_name, &w) {
                         return Verdict::No(witness);
                     }
                     proven = false;
@@ -107,31 +125,18 @@ impl Checker<'_> {
             }
         }
 
-        // Members declared by neither side.
-        let same_patterns = a.pattern_properties.len() == b.pattern_properties.len()
-            && a.pattern_properties
-                .iter()
-                .zip(&b.pattern_properties)
-                .all(|((pa, _), (pb, _))| pa == pb);
-        if same_patterns {
-            for ((_, ta), (_, tb)) in a.pattern_properties.iter().zip(&b.pattern_properties) {
-                if !self.subsumes(*ta, *tb).is_yes() {
-                    proven = false;
-                }
-            }
-            match self.subsumes(a.additional, b.additional) {
-                Verdict::Yes => {}
-                Verdict::No(w) if a.pattern_properties.is_empty() => {
-                    let key = unused_name(a, b);
-                    if let Some(witness) = self.embed_member(l, r, &key, &w) {
-                        return Verdict::No(witness);
-                    }
-                    proven = false;
-                }
-                _ => proven = false,
-            }
-        } else {
-            proven = false;
+        // Members declared by neither side: an exact writer produces none.
+        if exact {
+            return if proven && self.implies_member_constraints(a, b) {
+                Verdict::Yes
+            } else {
+                self.search(l, r, "object constraints could not be compared exactly")
+            };
+        }
+        match self.undeclared(l, a, r, b) {
+            Verdict::Yes => {}
+            Verdict::No(witness) => return Verdict::No(witness),
+            Verdict::Unknown(_) => proven = false,
         }
 
         if let Some(right_names) = b.property_names {
@@ -156,6 +161,41 @@ impl Checker<'_> {
             Verdict::Yes
         } else {
             self.search(l, r, "object constraints could not be compared exactly")
+        }
+    }
+
+    /// Members neither object declares: pattern properties and additional
+    /// members.
+    fn undeclared(&mut self, l: TypeId, a: &ObjectType, r: TypeId, b: &ObjectType) -> Verdict {
+        let same_patterns = a.pattern_properties.len() == b.pattern_properties.len()
+            && a.pattern_properties
+                .iter()
+                .zip(&b.pattern_properties)
+                .all(|((pa, _), (pb, _))| pa == pb);
+        if !same_patterns {
+            return Verdict::Unknown("the pattern properties differ".into());
+        }
+        let mut proven = true;
+        for ((_, ta), (_, tb)) in a.pattern_properties.iter().zip(&b.pattern_properties) {
+            if !self.subsumes(*ta, *tb).is_yes() {
+                proven = false;
+            }
+        }
+        match self.subsumes(a.additional, b.additional) {
+            Verdict::Yes => {}
+            Verdict::No(w) if a.pattern_properties.is_empty() => {
+                let key = unused_name(a, b);
+                if let Some(witness) = self.embed_member(l, r, &key, &w) {
+                    return Verdict::No(witness);
+                }
+                proven = false;
+            }
+            _ => proven = false,
+        }
+        if proven {
+            Verdict::Yes
+        } else {
+            Verdict::Unknown("undeclared members could not be compared exactly".into())
         }
     }
 

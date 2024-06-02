@@ -98,7 +98,7 @@ fn fields_are_matched_by_tag() {
         ChangeKind::FieldRenamed {
             old: "name".into(),
             new: "title".into(),
-            tag: 1
+            tag: Some(1)
         }
     );
 }
@@ -244,6 +244,7 @@ fn enum_api(values: &[(&str, i64)]) -> Api {
         values,
         open: true,
         retired: faultline_ir::Retired::default(),
+        writer_exact: false,
     }));
     api.schemas.push(SchemaRoot {
         name: "e".into(),

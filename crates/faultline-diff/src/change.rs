@@ -197,11 +197,14 @@ pub enum ChangeKind {
         name: String,
         required: bool,
     },
-    /// A field keeps its wire tag under a new name.
+    /// A field keeps its identity (its wire tag, or its old name as an
+    /// alias) under a new name.
     FieldRenamed {
         old: String,
         new: String,
-        tag: u32,
+        /// The wire tag both names share, or `None` when the fields were
+        /// matched through an alias.
+        tag: Option<u32>,
     },
     /// A field keeps its name under a new wire tag.
     FieldTagChanged {

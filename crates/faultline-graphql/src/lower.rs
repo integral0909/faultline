@@ -220,6 +220,7 @@ impl<'a> Lowerer<'a> {
                             .collect(),
                         open: false,
                         retired: Retired::default(),
+                        writer_exact: false,
                     }))
                     .with_origin(def.name.span),
                 );
@@ -257,6 +258,7 @@ impl<'a> Lowerer<'a> {
                     .collect(),
                 open: false,
                 retired: Retired::default(),
+                writer_exact: false,
             }),
             TypeDefKind::Scalar => unreachable!("scalars are lowered where they are used"),
         };

@@ -32,8 +32,12 @@ pub(crate) struct Differ<'a> {
     pub(crate) new: &'a Api,
     lose: Checker<'a>,
     gain: Checker<'a>,
+    /// Values as read by each version.
     old_values: Validator<'a>,
     new_values: Validator<'a>,
+    /// Values as written by each version, where witnesses come from.
+    old_written: Validator<'a>,
+    new_written: Validator<'a>,
     old_samples: Sampler<'a>,
     new_samples: Sampler<'a>,
     visited: HashSet<(TypeId, TypeId, Polarity)>,
@@ -50,8 +54,10 @@ impl<'a> Differ<'a> {
             gain: Checker::new(new, old),
             old_values: Validator::new(old),
             new_values: Validator::new(new),
-            old_samples: Sampler::new(old),
-            new_samples: Sampler::new(new),
+            old_written: Validator::writer(old),
+            new_written: Validator::writer(new),
+            old_samples: Sampler::writer(old),
+            new_samples: Sampler::writer(new),
             visited: HashSet::new(),
             visited_old: HashSet::new(),
             changes: Vec::new(),
@@ -194,7 +200,7 @@ impl<'a> Differ<'a> {
     ) -> Option<Literal> {
         let (from_values, to_values, from_samples, to_samples, from, to) = if lost {
             (
-                self.old_values,
+                self.old_written,
                 self.new_values,
                 self.old_samples,
                 self.new_samples,
@@ -203,7 +209,7 @@ impl<'a> Differ<'a> {
             )
         } else {
             (
-                self.new_values,
+                self.new_written,
                 self.old_values,
                 self.new_samples,
                 self.old_samples,
@@ -247,7 +253,7 @@ fn explains(kind: &ChangeKind, reason: &Reason, witness: &Literal) -> bool {
                 required: true,
             },
             Reason::MissingRequired(missing),
-        ) => name == missing,
+        ) => missing.contains(name),
         (
             ChangeKind::FieldRemoved { name, .. } | ChangeKind::FieldAdded { name, .. },
             Reason::UnexpectedProperty(unexpected),

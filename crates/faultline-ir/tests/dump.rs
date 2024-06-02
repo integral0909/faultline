@@ -31,6 +31,7 @@ fn petstore(reverse: bool) -> faultline_ir::Api {
                 .collect(),
             open: false,
             retired: faultline_ir::Retired::default(),
+            writer_exact: false,
         }))
     };
     let (limit, status) = if reverse {

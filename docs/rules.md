@@ -222,7 +222,7 @@ A standalone schema was removed; everything that used it loses its contract.
 
 **field-renamed** — A field was renamed
 
-A field kept its number (Protobuf tag) but changed its name. The binary encoding identifies fields by number, so binary data still round-trips; but generated code no longer compiles against the old name, and JSON encodings that use field names stop recognising it.
+A field kept its identity but changed its name: its number (Protobuf tag) stayed, or the new name lists the old one as an alias (Avro). Binary data still resolves, but generated code no longer compiles against the old name, and encodings that use field names without alias support stop recognising it.
 
 Keep the old name, or add the new field alongside the old one and deprecate the old one.
 

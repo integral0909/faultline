@@ -490,6 +490,7 @@ impl Lowerer<'_, '_> {
                     values,
                     open: false,
                     retired: faultline_ir::Retired::default(),
+                    writer_exact: false,
                 });
             } else {
                 self.invalid_at(node, "enum", "must be an array");
@@ -504,6 +505,7 @@ impl Lowerer<'_, '_> {
                 values: vec![value],
                 open: false,
                 retired: faultline_ir::Retired::default(),
+                writer_exact: false,
             });
         }
         parts

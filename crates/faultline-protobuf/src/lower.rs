@@ -299,6 +299,7 @@ fn enumeration(decl: &EnumDecl) -> TypeNode {
         values,
         open: !decl.closed,
         retired: retired(&decl.ast.reserved),
+        writer_exact: false,
     }))
     .with_origin(decl.ast.name.span);
     node.meta = meta(decl.ast.doc.as_ref(), &decl.ast.options);

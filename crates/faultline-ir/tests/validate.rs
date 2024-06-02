@@ -97,6 +97,7 @@ fn duplicate_fields_and_semantically_equal_enum_values() {
         ],
         open: false,
         retired: faultline_ir::Retired::default(),
+        writer_exact: false,
     }));
     assert_eq!(
         validate(&b.api),

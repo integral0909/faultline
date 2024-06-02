@@ -80,9 +80,10 @@ impl<'a> Checker<'a> {
         Self {
             left,
             right,
-            left_values: Validator::new(left),
+            // The left side produces values and the right side accepts them.
+            left_values: Validator::writer(left),
             right_values: Validator::new(right),
-            left_samples: Sampler::new(left),
+            left_samples: Sampler::writer(left),
             right_samples: Sampler::new(right),
             memo: HashMap::new(),
             stack: Vec::new(),
@@ -139,7 +140,7 @@ impl<'a> Checker<'a> {
             | (TypeKind::Null, TypeKind::Null)
             | (TypeKind::Boolean, TypeKind::Boolean)
             | (TypeKind::Bytes, TypeKind::Bytes) => Verdict::Yes,
-            (TypeKind::Enum(e), _) if !e.open => self.left_enum(e, r),
+            (TypeKind::Enum(e), _) if !e.open || e.writer_exact => self.left_enum(e, r),
             (TypeKind::Union(u), _) => self.left_union(l, u, r),
             (_, TypeKind::AllOf(members)) => self.right_all_of(l, members, r),
             (TypeKind::AllOf(members), _) => self.left_all_of(l, members, r),
@@ -196,7 +197,7 @@ impl<'a> Checker<'a> {
             TypeKind::String(s) => scalar::string_empty(s),
             TypeKind::Array(a) => a.max_items.is_some_and(|max| max < a.min_items),
             TypeKind::Object(o) => o.max_properties.is_some_and(|max| max < o.min_properties),
-            TypeKind::Enum(e) => !e.open && e.values.is_empty(),
+            TypeKind::Enum(e) => (!e.open || e.writer_exact) && e.values.is_empty(),
             _ => false,
         }
     }

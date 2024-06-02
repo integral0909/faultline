@@ -16,6 +16,7 @@ pub enum ApiFormat {
     JsonSchema,
     Protobuf,
     GraphQl,
+    Avro,
 }
 
 impl ApiFormat {
@@ -26,6 +27,7 @@ impl ApiFormat {
             ApiFormat::JsonSchema => "jsonschema",
             ApiFormat::Protobuf => "protobuf",
             ApiFormat::GraphQl => "graphql",
+            ApiFormat::Avro => "avro",
         }
     }
 }

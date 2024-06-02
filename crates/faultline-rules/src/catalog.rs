@@ -114,7 +114,7 @@ rules! {
     SCHEMA_REMOVED = "FL1024", "schema-removed", Wire, "A schema was removed",
         "A standalone schema was removed; everything that used it loses its contract.";
     FIELD_RENAMED = "FL1025", "field-renamed", Source, "A field was renamed",
-        "A field kept its number (Protobuf tag) but changed its name. The binary encoding identifies fields by number, so binary data still round-trips; but generated code no longer compiles against the old name, and JSON encodings that use field names stop recognising it.\n\nKeep the old name, or add the new field alongside the old one and deprecate the old one.";
+        "A field kept its identity but changed its name: its number (Protobuf tag) stayed, or the new name lists the old one as an alias (Avro). Binary data still resolves, but generated code no longer compiles against the old name, and encodings that use field names without alias support stop recognising it.\n\nKeep the old name, or add the new field alongside the old one and deprecate the old one.";
     FIELD_NUMBER_CHANGED = "FL1026", "field-number-changed", Wire, "A field's number changed",
         "A field kept its name but moved to another number (Protobuf tag). Binary data written with the old number is read as an unknown field or, worse, as whatever field now has that number.\n\nField numbers are permanent: add a new field instead, and reserve the old number when the old field is removed.";
     FIELD_ALIASES_CHANGED = "FL1027", "field-aliases-changed", Wire, "Alternative names of a field changed",

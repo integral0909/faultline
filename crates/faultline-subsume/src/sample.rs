@@ -28,10 +28,19 @@ pub struct Sampler<'a> {
 }
 
 impl<'a> Sampler<'a> {
+    /// A sampler of values as read.
     pub fn new(api: &'a Api) -> Self {
         Self {
             api,
             validator: Validator::new(api),
+        }
+    }
+
+    /// A sampler of values as written (see [`Validator::writer`]).
+    pub fn writer(api: &'a Api) -> Self {
+        Self {
+            api,
+            validator: Validator::writer(api),
         }
     }
 

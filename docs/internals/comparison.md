@@ -101,6 +101,16 @@ evidence: moving two fields into a group loses every value that sets both.
 
 Named types that no root reaches are compared on their own with no polarity.
 
+## Written and read values
+
+Every inclusion question has a producing side and an accepting side: for
+lost values, old values must be accepted by the new version, and for gained
+ones, new values by the old version. The producing side is validated and
+sampled as *written*, the accepting side as *read*. The two differ only
+for types marked `writer_exact` (Avro records and enums), whose writers emit
+exactly what they declare while readers ignore extra fields, fill defaults
+and accept aliases. See ADR 0010.
+
 ## Evidence and attribution
 
 Each local change carries a direction: *narrowing* changes (a raised minimum,

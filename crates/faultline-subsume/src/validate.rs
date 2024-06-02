@@ -13,7 +13,8 @@ use std::collections::BTreeMap;
 
 use faultline_doc::Number;
 use faultline_ir::{
-    Api, ArrayType, Literal, NumericType, ObjectType, StringType, TypeId, TypeKind, UnionMode,
+    Api, ArrayType, Field, Literal, NumericType, ObjectType, StringType, TypeId, TypeKind,
+    UnionMode,
 };
 
 use crate::rational::Q;
@@ -36,7 +37,8 @@ pub enum Reason {
     ContainsCount,
     TooFewProperties,
     TooManyProperties,
-    MissingRequired(String),
+    /// Every required member the value lacks.
+    MissingRequired(Vec<String>),
     UnexpectedProperty(String),
     InvalidPropertyName(String),
     DependentRequired {
@@ -104,14 +106,28 @@ impl All {
 const MAX_DEPTH: usize = 256;
 
 /// Validates values against the types of one [`Api`].
+///
+/// Types describe what readers accept. Some formats write less than they
+/// read (see [`ObjectType::writer_exact`]); a validator for *written* values
+/// holds those types to what writers produce.
 #[derive(Clone, Copy, Debug)]
 pub struct Validator<'a> {
     api: &'a Api,
+    written: bool,
 }
 
 impl<'a> Validator<'a> {
+    /// A validator for values as read.
     pub fn new(api: &'a Api) -> Self {
-        Self { api }
+        Self {
+            api,
+            written: false,
+        }
+    }
+
+    /// A validator for values as written.
+    pub fn writer(api: &'a Api) -> Self {
+        Self { api, written: true }
     }
 
     pub fn api(self) -> &'a Api {
@@ -137,9 +153,10 @@ impl<'a> Validator<'a> {
             TypeKind::Number(n) => check_number(n, value, false),
             TypeKind::String(s) => check_string(s, value),
             TypeKind::Enum(e) => {
+                let open = e.open && !(self.written && e.writer_exact);
                 if e.values.iter().any(|v| v.value == *value) {
                     Membership::Valid
-                } else if e.open && e.values.iter().any(|v| same_json_type(&v.value, value)) {
+                } else if open && e.values.iter().any(|v| same_json_type(&v.value, value)) {
                     // Open enums document known values; others of the same
                     // type are allowed.
                     Membership::Valid
@@ -223,12 +240,25 @@ impl<'a> Validator<'a> {
         let Literal::Object(members) = value else {
             return Membership::Invalid(Reason::WrongType { expected: "object" });
         };
-        if let Some(field) = o
+        let exact = self.written && o.writer_exact;
+        // Readers also accept a field under its aliases; writers use its
+        // name.
+        let read = !self.written;
+        let present = |f: &Field| {
+            members.contains_key(&f.name)
+                || (read && f.aliases.iter().any(|a| members.contains_key(a)))
+        };
+        let missing: Vec<String> = o
             .fields
             .iter()
-            .find(|f| f.required && !members.contains_key(&f.name))
-        {
-            return Membership::Invalid(Reason::MissingRequired(field.name.clone()));
+            .filter(|f| (f.required || exact) && !present(f))
+            .map(|f| f.name.clone())
+            .collect();
+        if !missing.is_empty() {
+            return Membership::Invalid(Reason::MissingRequired(missing));
+        }
+        if exact && let Some(extra) = members.keys().find(|k| o.field(k).is_none()) {
+            return Membership::Invalid(Reason::UnexpectedProperty(extra.clone()));
         }
         let count = members.len() as u64;
         if count < o.min_properties {
@@ -269,7 +299,11 @@ impl<'a> Validator<'a> {
                     }
                 }
             }
-            let result = if let Some(field) = o.field(key) {
+            let field = o.field(key).or_else(|| {
+                read.then(|| o.fields.iter().find(|f| f.aliases.iter().any(|a| a == key)))
+                    .flatten()
+            });
+            let result = if let Some(field) = field {
                 self.check(field.ty, member, depth + 1)
             } else if !o.pattern_properties.is_empty() {
                 Membership::Unknown("patternProperties need regular expression matching")

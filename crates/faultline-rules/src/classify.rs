@@ -521,7 +521,10 @@ fn describe(kind: &ChangeKind) -> (&'static Rule, String, String) {
         ),
         K::FieldRenamed { old, new, tag } => (
             &c::FIELD_RENAMED,
-            format!("field {tag} renamed from `{old}` to `{new}`"),
+            match tag {
+                Some(tag) => format!("field {tag} renamed from `{old}` to `{new}`"),
+                None => format!("field `{old}` renamed to `{new}`, matched through an alias"),
+            },
             none(),
         ),
         K::FieldTagChanged { name, old, new } => (
@@ -765,7 +768,7 @@ mod tests {
                 ChangeKind::FieldRenamed {
                     old: "f".into(),
                     new: "g".into(),
-                    tag: 1,
+                    tag: Some(1),
                 },
                 "FL1025",
                 Risky,

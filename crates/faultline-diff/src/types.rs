@@ -249,11 +249,10 @@ impl Differ<'_> {
         let at = path.join(Segment::Field(name.clone()));
         let spans = (of.origin, nf.origin);
         if of.name != nf.name {
-            let tag = nf.tag.unwrap_or_default();
             let kind = ChangeKind::FieldRenamed {
                 old: of.name.clone(),
                 new: name.clone(),
-                tag,
+                tag: nf.tag,
             };
             self.surface(kind, at.clone(), polarity, spans);
         }
@@ -729,17 +728,27 @@ fn field_pairs<'a>(a: &'a ObjectType, b: &'a ObjectType) -> Vec<Pair<'a>> {
             }
         }
     } else {
+        let mut added: Vec<&Field> = b
+            .fields
+            .iter()
+            .filter(|nf| a.field(&nf.name).is_none())
+            .collect();
         for of in &a.fields {
-            match b.field(&of.name) {
-                Some(nf) => pairs.push(Pair::Both(of, nf)),
+            if let Some(nf) = b.field(&of.name) {
+                pairs.push(Pair::Both(of, nf));
+                continue;
+            }
+            // A field renamed with its old name kept as an alias (Avro
+            // readers match writer fields through aliases).
+            let renamed = added
+                .iter()
+                .position(|nf| nf.aliases.contains(&of.name) || of.aliases.contains(&nf.name));
+            match renamed {
+                Some(i) => pairs.push(Pair::Both(of, added.remove(i))),
                 None => pairs.push(Pair::Removed(of)),
             }
         }
-        for nf in &b.fields {
-            if a.field(&nf.name).is_none() {
-                pairs.push(Pair::Added(nf));
-            }
-        }
+        pairs.extend(added.into_iter().map(Pair::Added));
     }
     pairs
 }

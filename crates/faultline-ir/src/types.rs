@@ -199,6 +199,9 @@ pub struct EnumType {
     pub open: bool,
     /// Numbers and names that must not be given to new values.
     pub retired: Retired,
+    /// Writers only produce the listed values, even when readers accept
+    /// others (an Avro enum with a default symbol).
+    pub writer_exact: bool,
 }
 
 /// Wire tags and names a declaration has retired (Protobuf `reserved`): no
@@ -286,6 +289,11 @@ pub struct ObjectType {
     pub exclusive: Vec<ExclusiveGroup>,
     /// Tags and names no field may use again.
     pub retired: Retired,
+    /// Writers always produce every declared field and nothing else, while
+    /// readers ignore undeclared members and fill in defaulted fields (Avro
+    /// records). Inclusion checks read the left side as written and the
+    /// right side as read.
+    pub writer_exact: bool,
 }
 
 /// Fields that exclude each other: a value sets at most one of them.
@@ -311,6 +319,7 @@ impl ObjectType {
             dependent_required: Vec::new(),
             exclusive: Vec::new(),
             retired: Retired::default(),
+            writer_exact: false,
         }
     }
 
