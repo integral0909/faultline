@@ -420,6 +420,7 @@ checksum = "da7c62ceae207dd37ea5b845da6a0696c799f85e97da1ab5b7910be3c1c80223"
 name = "faultline"
 version = "0.1.0"
 dependencies = [
+ "faultline-avro",
  "faultline-diff",
  "faultline-doc",
  "faultline-graphql",
@@ -434,6 +435,18 @@ dependencies = [
  "faultline-source",
  "faultline-vcs",
  "tempfile",
+]
+
+[[package]]
+name = "faultline-avro"
+version = "0.1.0"
+dependencies = [
+ "faultline-diff",
+ "faultline-doc",
+ "faultline-ir",
+ "faultline-rules",
+ "faultline-source",
+ "proptest",
 ]
 
 [[package]]

@@ -13,6 +13,7 @@ categories.workspace = true
 readme = "../../README.md"
 
 [dependencies]
+faultline-avro.workspace = true
 faultline-diff.workspace = true
 faultline-doc.workspace = true
 faultline-graphql.workspace = true

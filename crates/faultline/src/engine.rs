@@ -259,23 +259,32 @@ impl Engine {
                 None => ApiFormat::JsonSchema,
             },
         };
-        let lowered = match format {
-            ApiFormat::OpenApi => faultline_openapi::lower_openapi(&entry, &mut store, name),
-            ApiFormat::JsonSchema => faultline_jsonschema::lower_document(
-                &entry,
-                &mut store,
-                Options::default(),
-                ir_role(role),
-            ),
+        let (mut api, diagnostics) = match format {
+            ApiFormat::OpenApi => {
+                let lowered = faultline_openapi::lower_openapi(&entry, &mut store, name);
+                (lowered.api, lowered.diagnostics)
+            }
+            ApiFormat::JsonSchema => {
+                let lowered = faultline_jsonschema::lower_document(
+                    &entry,
+                    &mut store,
+                    Options::default(),
+                    ir_role(role),
+                );
+                (lowered.api, lowered.diagnostics)
+            }
+            ApiFormat::Avro => {
+                let lowered = faultline_avro::lower_avro(&entry, &mut store, name, ir_role(role));
+                (lowered.api, lowered.diagnostics)
+            }
             ApiFormat::Protobuf | ApiFormat::GraphQl => unreachable!("handled above"),
         };
-        let mut api = lowered.api;
         if let Some(api) = &mut api {
             name.clone_into(&mut api.name);
         }
         Lowered {
             api,
-            diagnostics: lowered.diagnostics,
+            diagnostics,
             missing_entry: false,
         }
     }
@@ -438,7 +447,8 @@ fn describe(source: &Source) -> String {
 
 /// Formats recognized by the entry's file extension: `.proto` files and
 /// GraphQL schemas are not JSON or YAML documents, and are read by their own
-/// front ends.
+/// front ends; Avro schemas are JSON but cannot be told from JSON Schema by
+/// their content alone.
 fn format_by_extension(entry: &UriRef) -> Option<ApiFormat> {
     let extension = std::path::Path::new(entry.path())
         .extension()?
@@ -447,6 +457,7 @@ fn format_by_extension(entry: &UriRef) -> Option<ApiFormat> {
     match extension.as_str() {
         "proto" => Some(ApiFormat::Protobuf),
         "graphql" | "graphqls" | "gql" => Some(ApiFormat::GraphQl),
+        "avsc" => Some(ApiFormat::Avro),
         _ => None,
     }
 }

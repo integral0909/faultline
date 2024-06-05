@@ -1,0 +1,21 @@
+{
+  "type": "record",
+  "name": "PetListed",
+  "namespace": "com.example.pets",
+  "doc": "Published when a pet is put up for adoption.",
+  "fields": [
+    {"name": "id", "type": "string"},
+    {"name": "name", "type": "string"},
+    {"name": "ageMonths", "type": "int"},
+    {
+      "name": "species",
+      "type": {"type": "enum", "name": "Species", "symbols": ["CAT", "DOG"]}
+    },
+    {"name": "nickname", "type": ["null", "string"], "default": null},
+    {"name": "shelter", "type": "string"},
+    {
+      "name": "listedAt",
+      "type": {"type": "long", "logicalType": "timestamp-millis"}
+    }
+  ]
+}

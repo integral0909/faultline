@@ -411,3 +411,32 @@ fn graphql_schemas_are_detected_and_compared() {
         .unwrap();
     assert_eq!(union["witness"]["__typename"], "Shelter");
 }
+
+#[test]
+fn avro_schemas_are_compared_in_each_compatibility_mode() {
+    let dir = repo().join("examples/avro");
+    let breaking = |role: &str| -> Vec<String> {
+        let output = faultline(
+            &dir,
+            &[
+                "diff",
+                "v1/pet.avsc",
+                "v2/pet.avsc",
+                "--role",
+                role,
+                "--output",
+                "json",
+            ],
+        );
+        let report: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+        report["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|f| f["severity"] == "breaking")
+            .map(|f| f["message"].as_str().unwrap().to_owned())
+            .collect()
+    };
+    assert_eq!(breaking("input"), ["required property `weightGrams` added"]);
+    assert_eq!(breaking("output"), ["property `shelter` removed"]);
+}

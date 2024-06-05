@@ -85,6 +85,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   as operations, `__typename` on every object and nullability as unions with
   `null`. `.graphql`, `.graphqls` and `.gql` entries are detected. A fuzz
   target and a GraphQL example.
+- `faultline-avro`: Avro schemas — named types and namespaces, the checks
+  Avro parsers apply (FLE5xxx, including union defaults), and lowering as
+  readers see data, with BACKWARD, FORWARD and FULL compatibility as the
+  `input`, `output` and `both` roles. `.avsc` entries are detected. A fuzz
+  target and an Avro example.
+- Writer and reader views: types marked `writer_exact` are validated and
+  sampled as written on the producing side of every inclusion check and as
+  read on the accepting side. Readers honour field aliases, renamed fields
+  are paired through aliases, and rejections list every missing field.
 - Added and removed fields carry a direction derived from whether the object
   allows undeclared members, which makes more findings provably compatible;
   removing a required member is attributed its witness.

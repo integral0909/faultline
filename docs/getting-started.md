@@ -128,6 +128,22 @@ does not. Arguments of nested fields appear in paths as
 `….nicknames().locale`. See [examples/graphql](../examples/graphql) and the
 [GraphQL internals](internals/graphql.md).
 
+## Avro
+
+Schemas ending in `.avsc` are read as Avro. Choose the compatibility mode
+with `--role` (or `role` in an `[[api]]` entry):
+
+```sh
+faultline diff v1/pet.avsc v2/pet.avsc --role input    # BACKWARD
+faultline diff v1/pet.avsc v2/pet.avsc --role output   # FORWARD
+faultline diff v1/pet.avsc v2/pet.avsc                 # FULL
+```
+
+Faultline follows Avro's schema resolution. Readers ignore unknown fields,
+fill in defaults and match renamed fields through aliases, and the numeric
+promotions Avro allows are compatible. See [examples/avro](../examples/avro)
+and the [Avro internals](internals/avro.md).
+
 ## Checking pull requests
 
 List the APIs in `faultline.toml` at the root of the repository:

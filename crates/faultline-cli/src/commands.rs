@@ -16,6 +16,7 @@ pub(crate) enum Format {
     Jsonschema,
     Protobuf,
     Graphql,
+    Avro,
 }
 
 impl From<Format> for ApiFormat {
@@ -25,6 +26,7 @@ impl From<Format> for ApiFormat {
             Format::Jsonschema => ApiFormat::JsonSchema,
             Format::Protobuf => ApiFormat::Protobuf,
             Format::Graphql => ApiFormat::GraphQl,
+            Format::Avro => ApiFormat::Avro,
         }
     }
 }
@@ -99,7 +101,9 @@ pub(crate) struct CompareArgs {
     /// Description format (default: detected).
     #[arg(long, value_enum)]
     format: Option<Format>,
-    /// For JSON Schemas: which direction documents flow.
+    /// For schemas without operations (JSON Schema, Protobuf messages,
+    /// Avro): which direction documents flow. For Avro, `input` is BACKWARD
+    /// compatibility, `output` FORWARD and `both` FULL.
     #[arg(long, value_enum, default_value = "both")]
     role: Role,
     #[command(flatten)]

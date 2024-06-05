@@ -109,6 +109,19 @@ name the root types in a `schema { query: … }` definition.
 **Types defined in several files.** One file per API is read. Combine split
 schemas into one file first.
 
+## Avro
+
+**`FLE5007` the default does not match its type.** A union's default must
+match its *first* branch: write `["null", "string"]` with `"default": null`,
+not `["string", "null"]`.
+
+**`FLE5002` unknown type.** Named types must be defined before they are
+used, and each schema file must be self-contained.
+
+**Which `--role`?** `input` for consumers that upgrade first (BACKWARD),
+`output` for producers that upgrade first (FORWARD), `both` when either may
+(FULL).
+
 ## Findings
 
 **A change is reported at a different path than expected.** A type shared by
