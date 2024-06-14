@@ -17,6 +17,7 @@
 //! reported as unknown rather than guessed.
 
 mod check;
+mod pattern;
 pub mod rational;
 mod sample;
 mod validate;

@@ -126,7 +126,7 @@ Changing `integer` to `number` lets responses carry fractional values that clien
 
 **pattern-changed** — A string pattern changed
 
-The regular expression constraining a string changed. Faultline shows a counterexample when it can decide the change; otherwise the finding is reported as risky.
+The regular expression constraining a string changed. Faultline compares patterns as regular languages and shows the shortest string one version accepts and the other rejects; patterns it cannot analyse (backreferences, lookaround) are reported as risky.
 
 ## FL1010
 

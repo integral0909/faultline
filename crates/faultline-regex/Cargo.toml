@@ -1,0 +1,17 @@
+[package]
+name = "faultline-regex"
+description = "ECMA-262 regular expressions as automata: matching, sampling and language inclusion"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+regex.workspace = true
+
+[lints]
+workspace = true

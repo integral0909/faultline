@@ -51,6 +51,8 @@ pub enum Reason {
         first: String,
         second: String,
     },
+    /// A string does not contain a match of the pattern.
+    PatternMismatch,
     NotInEnum,
     NoVariantMatches,
     SeveralVariantsMatch,
@@ -434,8 +436,12 @@ fn check_string(s: &StringType, value: &Literal) -> Membership {
     if s.max_length.is_some_and(|max| length > max) {
         return Membership::Invalid(Reason::TooLong);
     }
-    if s.pattern.is_some() {
-        return Membership::Unknown("pattern needs regular expression matching");
+    if let Some(pattern) = &s.pattern {
+        return match crate::pattern::compiled(pattern) {
+            Some(regex) if regex.is_match(text) => Membership::Valid,
+            Some(_) => Membership::Invalid(Reason::PatternMismatch),
+            None => Membership::Unknown("the pattern uses constructs that cannot be analysed"),
+        };
     }
     Membership::Valid
 }

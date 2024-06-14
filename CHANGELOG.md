@@ -94,6 +94,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sampled as written on the producing side of every inclusion check and as
   read on the accepting side. Readers honour field aliases, renamed fields
   are paired through aliases, and rejections list every missing field.
+- `faultline-regex`: ECMA-262 patterns as automata — a parser with the
+  Annex B leniencies, anchors anywhere, subset construction over a
+  partitioned alphabet with size and work limits, exact matching, samples,
+  and shortest-difference search with length bounds. `pattern` is now
+  validated exactly, sampled, and compared as a regular language, with
+  witnesses. Property-tested against the `regex` crate and fuzzed.
 - Added and removed fields carry a direction derived from whether the object
   allows undeclared members, which makes more findings provably compatible;
   removing a required member is attributed its witness.

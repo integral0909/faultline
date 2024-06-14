@@ -125,11 +125,42 @@ fn strings() {
             r#"{"type":"string"}"#,
             Yes,
         ),
-        // Regular expressions are decided by a later layer; until then this
-        // must not be guessed.
+        // Patterns are compared as regular languages.
         (
             r#"{"type":"string"}"#,
             r#"{"type":"string","pattern":"^a"}"#,
+            No,
+        ),
+        (
+            r#"{"type":"string","pattern":"^[a-z]{2,5}$"}"#,
+            r#"{"type":"string","pattern":"^[a-z]+$"}"#,
+            Yes,
+        ),
+        (
+            r#"{"type":"string","pattern":"^[a-z]+$"}"#,
+            r#"{"type":"string","pattern":"^[a-z]{2,5}$"}"#,
+            No,
+        ),
+        (
+            r#"{"type":"string","pattern":"^[A-Z]{3}-\\d+$"}"#,
+            r#"{"type":"string","pattern":"-\\d"}"#,
+            Yes,
+        ),
+        // A difference outside the left lengths is not a witness.
+        (
+            r#"{"type":"string","pattern":"^a*$","maxLength":3}"#,
+            r#"{"type":"string","pattern":"^a{0,3}$"}"#,
+            Yes,
+        ),
+        (
+            r#"{"type":"string","pattern":"^a*$","minLength":2}"#,
+            r#"{"type":"string","pattern":"^a{2,}$"}"#,
+            Yes,
+        ),
+        // Constructs outside regular languages stay undecided.
+        (
+            r#"{"type":"string"}"#,
+            r#"{"type":"string","pattern":"^(a)\\1$"}"#,
             Unknown,
         ),
     ]);

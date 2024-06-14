@@ -21,6 +21,16 @@ fn schema() -> impl Strategy<Value = Value> {
         (0u32..3, 0u32..4).prop_map(
             |(lo, span)| json!({"type": "string", "minLength": lo, "maxLength": lo + span})
         ),
+        prop_oneof![
+            Just("^a"),
+            Just("b$"),
+            Just("^[ab]{2}$"),
+            Just("ab"),
+            Just("^a*b*$"),
+            Just("^(a|bb)+$"),
+            Just("[^a]"),
+        ]
+        .prop_map(|p| json!({"type": "string", "pattern": p})),
         prop::collection::vec(
             prop_oneof![
                 Just(json!("a")),

@@ -21,6 +21,8 @@ use std::collections::HashMap;
 
 use faultline_ir::{Api, EnumType, Literal, TypeId, TypeKind, UnionMode, UnionType};
 
+use crate::pattern;
+
 use crate::sample::Sampler;
 use crate::validate::{Membership, Validator};
 
@@ -164,13 +166,7 @@ impl<'a> Checker<'a> {
                     self.search(l, r, "numeric constraints could not be compared exactly")
                 }
             }
-            (TypeKind::String(a), TypeKind::String(b)) => {
-                if scalar::string_proven(a, b) {
-                    Verdict::Yes
-                } else {
-                    self.search(l, r, "string constraints could not be compared exactly")
-                }
-            }
+            (TypeKind::String(a), TypeKind::String(b)) => self.strings(l, a, r, b),
             (TypeKind::Array(a), TypeKind::Array(b)) => self.arrays(l, a, r, b),
             (TypeKind::Object(a), TypeKind::Object(b)) => self.objects(l, a, r, b),
             (TypeKind::Map(a), TypeKind::Map(b)) => {
@@ -230,6 +226,50 @@ impl<'a> Checker<'a> {
             }
         }
         self.search(l, r, "an allOf could not be matched member by member")
+    }
+
+    /// Lengths are compared as bounds and patterns as regular languages: a
+    /// left string within its lengths that the right pattern rejects is a
+    /// witness once the whole types confirm it.
+    fn strings(
+        &self,
+        l: TypeId,
+        a: &faultline_ir::StringType,
+        r: TypeId,
+        b: &faultline_ir::StringType,
+    ) -> Verdict {
+        if scalar::string_empty(a) {
+            return Verdict::Yes;
+        }
+        let lengths = scalar::lengths_proven(a, b);
+        let patterns = match (&a.pattern, &b.pattern) {
+            (_, None) => Some(None),
+            (Some(x), Some(y)) if x == y => Some(None),
+            (_, Some(_)) => {
+                match (
+                    pattern::language(a.pattern.as_ref()),
+                    pattern::language(b.pattern.as_ref()),
+                ) {
+                    (Some(left), Some(right)) => {
+                        let (min, max) = scalar::length_window(a);
+                        Some(faultline_regex::difference(&left, &right, min, max))
+                    }
+                    _ => None,
+                }
+            }
+        };
+        match patterns {
+            Some(None) if lengths => Verdict::Yes,
+            Some(Some(witness)) => {
+                let witness = Literal::string(witness);
+                if self.confirmed(l, r, &witness) {
+                    Verdict::No(witness)
+                } else {
+                    self.search(l, r, "string constraints could not be compared exactly")
+                }
+            }
+            _ => self.search(l, r, "string constraints could not be compared exactly"),
+        }
     }
 
     /// Every member of a closed enum must be a value of the right type.

@@ -567,6 +567,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "faultline-regex"
+version = "0.1.0"
+dependencies = [
+ "proptest",
+ "regex",
+]
+
+[[package]]
 name = "faultline-report"
 version = "0.1.0"
 dependencies = [
@@ -603,6 +611,7 @@ dependencies = [
  "faultline-doc",
  "faultline-ir",
  "faultline-jsonschema",
+ "faultline-regex",
  "faultline-source",
  "jsonschema",
  "proptest",

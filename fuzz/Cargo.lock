@@ -78,6 +78,7 @@ dependencies = [
  "faultline-jsonschema",
  "faultline-openapi",
  "faultline-protobuf",
+ "faultline-regex",
  "faultline-source",
  "libfuzzer-sys",
 ]
@@ -130,6 +131,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "faultline-regex"
+version = "0.1.0"
+
+[[package]]
 name = "faultline-source"
 version = "0.1.0"
 
@@ -139,6 +144,7 @@ version = "0.1.0"
 dependencies = [
  "faultline-doc",
  "faultline-ir",
+ "faultline-regex",
 ]
 
 [[package]]

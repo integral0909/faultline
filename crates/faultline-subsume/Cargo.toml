@@ -12,6 +12,7 @@ homepage.workspace = true
 [dependencies]
 faultline-doc.workspace = true
 faultline-ir.workspace = true
+faultline-regex.workspace = true
 
 [dev-dependencies]
 faultline-doc.workspace = true

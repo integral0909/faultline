@@ -321,8 +321,27 @@ fn strings(s: &StringType) -> Vec<Literal> {
     lengths.push(s.min_length.saturating_sub(1));
     lengths.retain(|&l| l <= 4096);
     lengths.dedup();
-    lengths
-        .into_iter()
-        .map(|l| Literal::string("a".repeat(usize::try_from(l).unwrap_or(0))))
-        .collect()
+    let mut out: Vec<Literal> = Vec::new();
+    let (min, max) = (
+        usize::try_from(s.min_length).unwrap_or(usize::MAX),
+        s.max_length.and_then(|m| usize::try_from(m).ok()),
+    );
+    if let Some(pattern) = &s.pattern
+        && let Some(regex) = crate::pattern::compiled(pattern)
+    {
+        // Members of the pattern first, then a string it rejects: a probe
+        // for a version with a looser pattern or none.
+        out.extend(regex.samples(4, min, max).into_iter().map(Literal::string));
+        if let Some(any) = crate::pattern::compiled("")
+            && let Some(outside) = faultline_regex::difference(&any, &regex, min, max)
+        {
+            out.push(Literal::string(outside));
+        }
+    }
+    out.extend(
+        lengths
+            .into_iter()
+            .map(|l| Literal::string("a".repeat(usize::try_from(l).unwrap_or(0)))),
+    );
+    out
 }

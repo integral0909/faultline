@@ -15,6 +15,7 @@ on:
       - "crates/faultline-protobuf/**"
       - "crates/faultline-graphql/**"
       - "crates/faultline-avro/**"
+      - "crates/faultline-regex/**"
       - "crates/faultline-diff/**"
       - "crates/faultline-subsume/**"
 
@@ -31,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [parse_json, parse_yaml, uri_pointer, lower_jsonschema, lower_openapi, lower_protobuf, lower_graphql, lower_avro]
+        target: [parse_json, parse_yaml, uri_pointer, lower_jsonschema, lower_openapi, lower_protobuf, lower_graphql, lower_avro, regex]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly

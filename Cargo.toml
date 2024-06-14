@@ -26,6 +26,7 @@ faultline-net = { path = "crates/faultline-net", version = "0.1.0" }
 faultline-openapi = { path = "crates/faultline-openapi", version = "0.1.0" }
 faultline-policy = { path = "crates/faultline-policy", version = "0.1.0" }
 faultline-protobuf = { path = "crates/faultline-protobuf", version = "0.1.0" }
+faultline-regex = { path = "crates/faultline-regex", version = "0.1.0" }
 faultline-report = { path = "crates/faultline-report", version = "0.1.0" }
 faultline-rules = { path = "crates/faultline-rules", version = "0.1.0" }
 faultline-subsume = { path = "crates/faultline-subsume", version = "0.1.0" }
@@ -36,6 +37,7 @@ gix = { version = "0.88", default-features = false, features = ["parallel", "rev
 indexmap = "2.7"
 jsonschema = { version = "0.58", default-features = false, features = ["arbitrary-precision"] }
 proptest = "1"
+regex = { version = "1", default-features = false, features = ["std", "unicode-perl"] }
 tempfile = "3"
 toml = "1"
 ureq = { version = "3.4", default-features = false, features = ["rustls"] }

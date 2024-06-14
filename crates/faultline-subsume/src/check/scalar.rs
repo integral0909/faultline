@@ -167,15 +167,19 @@ fn multiple_within(a: &NumericType, a_int: bool, b: &NumericType) -> bool {
 
 /// Whether every string allowed by `a` is allowed by `b`. Patterns are only
 /// compared textually here.
-pub(super) fn string_proven(a: &StringType, b: &StringType) -> bool {
-    if string_empty(a) {
-        return true;
-    }
-    let lengths = a.min_length >= b.min_length
+/// Whether every length `a` allows, `b` allows.
+pub(super) fn lengths_proven(a: &StringType, b: &StringType) -> bool {
+    a.min_length >= b.min_length
         && b.max_length
-            .is_none_or(|b_max| a.max_length.is_some_and(|a_max| a_max <= b_max));
-    let pattern = b.pattern.is_none() || b.pattern == a.pattern;
-    lengths && pattern
+            .is_none_or(|b_max| a.max_length.is_some_and(|a_max| a_max <= b_max))
+}
+
+/// `a`'s length bounds for searching its pattern language.
+pub(super) fn length_window(a: &StringType) -> (usize, Option<usize>) {
+    (
+        usize::try_from(a.min_length).unwrap_or(usize::MAX),
+        a.max_length.and_then(|m| usize::try_from(m).ok()),
+    )
 }
 
 #[cfg(test)]
@@ -261,23 +265,16 @@ mod tests {
     }
 
     #[test]
-    fn string_lengths_and_patterns() {
-        let s = |min: u64, max: Option<u64>, pattern: Option<&str>| StringType {
+    fn string_lengths() {
+        let s = |min: u64, max: Option<u64>| StringType {
             min_length: min,
             max_length: max,
-            pattern: pattern.map(str::to_owned),
+            pattern: None,
             format: None,
         };
-        assert!(string_proven(&s(2, Some(5), None), &s(1, Some(8), None)));
-        assert!(!string_proven(&s(0, None, None), &s(0, Some(8), None)));
-        assert!(string_proven(
-            &s(0, None, Some("^a")),
-            &s(0, None, Some("^a"))
-        ));
-        assert!(!string_proven(&s(0, None, None), &s(0, None, Some("^a"))));
-        assert!(string_proven(
-            &s(5, Some(2), None),
-            &s(9, Some(9), Some("x"))
-        ));
+        assert!(lengths_proven(&s(2, Some(5)), &s(1, Some(8))));
+        assert!(!lengths_proven(&s(0, None), &s(0, Some(8))));
+        assert!(string_empty(&s(5, Some(2))));
+        assert_eq!(length_window(&s(3, Some(7))), (3, Some(7)));
     }
 }

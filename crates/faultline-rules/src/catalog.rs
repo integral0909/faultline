@@ -82,7 +82,7 @@ rules! {
     NUMERIC_KIND_CHANGED = "FL1008", "numeric-kind-changed", Wire, "An integer became a number or vice versa",
         "Changing `integer` to `number` lets responses carry fractional values that clients parsing integers reject; changing `number` to `integer` rejects fractional request values.";
     PATTERN_CHANGED = "FL1009", "pattern-changed", Wire, "A string pattern changed",
-        "The regular expression constraining a string changed. Faultline shows a counterexample when it can decide the change; otherwise the finding is reported as risky.";
+        "The regular expression constraining a string changed. Faultline compares patterns as regular languages and shows the shortest string one version accepts and the other rejects; patterns it cannot analyse (backreferences, lookaround) are reported as risky.";
     FORMAT_CHANGED = "FL1010", "format-changed", Semantic, "A format annotation changed",
         "The `format` of a value changed, for example `int32` to `int64` or `date` to `date-time`. Formats are annotations in JSON Schema, but generated code and validators often enforce them.";
     UNIQUENESS_CHANGED = "FL1011", "uniqueness-changed", Wire, "Array uniqueness changed",

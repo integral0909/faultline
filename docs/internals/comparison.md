@@ -16,15 +16,44 @@ The design rationale is in
 `Validator::validate(type, value)` returns `Valid`, `Invalid(reason)` or
 `Unknown`. It is exact for every construct except:
 
-* regular expressions (`pattern`, member names matched against
-  `patternProperties`), which are `Unknown` until the regex layer is added;
+* patterns that are not regular (backreferences, lookaround, word
+  boundaries, Unicode property escapes) or whose automata exceed the size
+  limits, and member names matched against `patternProperties`;
 * `multipleOf` beyond exact `i128` rational range.
+
+`pattern` is decided by `faultline-regex` (see below).
 
 `format` is an annotation and never invalidates a value. Open enums (Protobuf
 3) accept any value of the same JSON type as their members.
 
 The validator is property-tested against an independent JSON Schema
 implementation on random schemas and values.
+
+## Regular expressions
+
+`faultline-regex` compiles an ECMA-262 pattern with JSON Schema's search
+semantics (a string must *contain* a match) into a DFA over code points:
+
+1. The parser accepts the specification's syntax with the Annex B
+   leniencies validators accept. It rejects backreferences, lookaround,
+   word boundaries and property escapes as unsupported, and quantifier
+   bounds above 1000.
+2. A Thompson NFA reads character-set edges. `^` and `$` become assertion
+   edges that subset construction honours by tracking whether input has
+   been read yet and whether a `$` has passed, so anchors work anywhere
+   in a pattern.
+3. Subset construction runs over the coarsest partition of the code points
+   the pattern distinguishes. It is capped at 5,000 DFA states and a
+   budget on the total size of their NFA state sets.
+
+`difference(a, b, min, max)` runs a breadth-first search over pairs of
+states, with the length so far when bounds apply. It returns the shortest
+string in `a` and not in `b`, or proves that there is none. The checker
+compares strings with it: patterns are included or refuted exactly, with
+witnesses of the right length, and each witness is confirmed against both
+whole types. Samples of a pattern, and a string outside it, feed the
+sampler. The engine is property-tested against the `regex` crate on
+generated patterns, and fuzzed.
 
 ## Sampler
 
