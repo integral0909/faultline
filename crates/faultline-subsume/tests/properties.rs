@@ -62,6 +62,13 @@ fn schema() -> impl Strategy<Value = Value> {
                 }
                 s
             }),
+            (inner.clone(), inner.clone(), any::<bool>()).prop_map(|(a, b, closed)| {
+                let mut s = json!({"type": "object", "patternProperties": {"^a": a, "b$": b}});
+                if closed {
+                    s["additionalProperties"] = json!(false);
+                }
+                s
+            }),
             (inner.clone(), 0u32..2, any::<bool>()).prop_map(|(items, min, unique)| {
                 json!({"type": "array", "items": items, "minItems": min, "maxItems": min + 2, "uniqueItems": unique})
             }),
@@ -89,7 +96,9 @@ fn value() -> impl Strategy<Value = Value> {
                 prop_oneof![
                     Just("a".to_owned()),
                     Just("b".to_owned()),
-                    Just("c".to_owned())
+                    Just("c".to_owned()),
+                    Just("ab".to_owned()),
+                    Just("cb".to_owned())
                 ],
                 inner,
                 0..3

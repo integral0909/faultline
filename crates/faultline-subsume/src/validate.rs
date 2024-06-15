@@ -307,21 +307,47 @@ impl<'a> Validator<'a> {
             });
             let result = if let Some(field) = field {
                 self.check(field.ty, member, depth + 1)
-            } else if !o.pattern_properties.is_empty() {
-                Membership::Unknown("patternProperties need regular expression matching")
             } else {
-                match self.check(o.additional, member, depth + 1) {
-                    Membership::Invalid(Reason::Never) => {
-                        Membership::Invalid(Reason::UnexpectedProperty(key.clone()))
-                    }
-                    other => other,
-                }
+                self.check_undeclared(o, key, member, depth)
             };
             if let Some(bad) = all.add(result) {
                 return bad;
             }
         }
         all.finish()
+    }
+
+    /// A member no field declares: it must satisfy every pattern property
+    /// whose pattern its name matches, and `additional` if none does.
+    fn check_undeclared(
+        self,
+        o: &ObjectType,
+        key: &str,
+        member: &Literal,
+        depth: usize,
+    ) -> Membership {
+        let mut all = All::default();
+        let mut matched = false;
+        for (pattern, ty) in &o.pattern_properties {
+            let Some(regex) = crate::pattern::compiled(pattern) else {
+                return Membership::Unknown("a patternProperties pattern cannot be analysed");
+            };
+            if regex.is_match(key) {
+                matched = true;
+                if let Some(bad) = all.add(self.check(*ty, member, depth + 1)) {
+                    return bad;
+                }
+            }
+        }
+        if matched {
+            return all.finish();
+        }
+        match self.check(o.additional, member, depth + 1) {
+            Membership::Invalid(Reason::Never) => {
+                Membership::Invalid(Reason::UnexpectedProperty(key.to_owned()))
+            }
+            other => other,
+        }
     }
 
     fn check_array(self, a: &ArrayType, value: &Literal, depth: usize) -> Membership {

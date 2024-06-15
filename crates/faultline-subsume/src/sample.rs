@@ -154,6 +154,23 @@ impl<'a> Sampler<'a> {
             members.push(alternative);
             out.push(object(members));
         }
+        // A member named by each pattern property.
+        for (pattern, ty) in &o.pattern_properties {
+            let Some(regex) = crate::pattern::compiled(pattern) else {
+                continue;
+            };
+            let key = regex
+                .samples(4, 1, Some(16))
+                .into_iter()
+                .find(|k| o.field(k).is_none());
+            if let (Some(key), Some(value)) = (key, self.first(*ty, depth + 1)) {
+                for base in [&minimal, &full] {
+                    let mut members = base.clone();
+                    members.push((key.clone(), value.clone()));
+                    out.push(object(members));
+                }
+            }
+        }
         if let Some(extra) = self.first(o.additional, depth + 1) {
             // Enough undeclared members to reach `minProperties`, and a couple
             // more to probe `maxProperties`.

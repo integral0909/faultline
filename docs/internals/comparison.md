@@ -18,10 +18,11 @@ The design rationale is in
 
 * patterns that are not regular (backreferences, lookaround, word
   boundaries, Unicode property escapes) or whose automata exceed the size
-  limits, and member names matched against `patternProperties`;
+  limits, wherever they appear (`pattern`, `patternProperties`);
 * `multipleOf` beyond exact `i128` rational range.
 
-`pattern` is decided by `faultline-regex` (see below).
+`pattern` and the member names of `patternProperties` are decided by
+`faultline-regex` (see below).
 
 `format` is an annotation and never invalidates a value. Open enums (Protobuf
 3) accept any value of the same JSON type as their members.

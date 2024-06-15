@@ -328,3 +328,25 @@ fn composition_with_all_of() {
         (composed, narrowed, No),
     ]);
 }
+
+#[test]
+fn pattern_properties() {
+    use Expect::*;
+    expect(&[
+        (
+            r#"{"type":"object","patternProperties":{"^x-":{"type":"string"}}}"#,
+            r#"{"type":"object","patternProperties":{"^x-":{"type":"string"}}}"#,
+            Yes,
+        ),
+        (
+            r#"{"type":"object","patternProperties":{"^x-":{"type":"string"}}}"#,
+            r#"{"type":"object","patternProperties":{"^x-":{"type":"integer"}}}"#,
+            No,
+        ),
+        (
+            r#"{"type":"object","patternProperties":{"^x-":{"type":"string"}},"additionalProperties":false}"#,
+            r#"{"type":"object","patternProperties":{"^x-":{}},"additionalProperties":false}"#,
+            Yes,
+        ),
+    ]);
+}
