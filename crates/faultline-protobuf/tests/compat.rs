@@ -229,14 +229,13 @@ fn streaming_and_operations() {
 
     // A new package moves every method to a new gRPC path.
     let moved = unary.replace("package pets.v1;", "package pets.v2;");
-    let found = summary(&unary, &moved);
-    assert!(
-        has(&found, "FL2001 breaking op[pets.v1.PetService/UpdatePet]"),
-        "{found:?}"
-    );
-    assert!(
-        has(&found, "FL2002 info op[pets.v2.PetService/UpdatePet]"),
-        "{found:?}"
+    let found = findings(&unary, &moved);
+    assert_eq!(found.len(), 1, "{:?}", summary(&unary, &moved));
+    assert_eq!(found[0].rule.code, "FL2004");
+    assert_eq!(found[0].severity, Severity::Breaking);
+    assert_eq!(
+        found[0].message,
+        "operation moved to `pets.v2.PetService/UpdatePet`"
     );
 }
 

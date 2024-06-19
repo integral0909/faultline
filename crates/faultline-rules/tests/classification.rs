@@ -204,3 +204,24 @@ fn witnesses_explain_breaking_findings() {
     assert_eq!(finding.message, "minimum changed from 0 to 1");
     assert_eq!(finding.witness().unwrap().to_string(), "0");
 }
+
+#[test]
+fn operations_with_an_unchanged_shape_are_moves() {
+    let op = |path: &str, param: &str| {
+        format!(
+            "{HEAD}paths:\n  {path}:\n    get:\n      parameters:\n        - {{name: {param}, in: query, schema: {{type: integer}}}}\n      responses:\n        '200': {{description: ok, content: {{application/json: {{schema: {{type: string}}}}}}}}\n"
+        )
+    };
+    let (moved, _) = findings(&op("/pets", "limit"), &op("/animals", "limit"));
+    assert_eq!(moved, ["FL2004 breaking op[GET /pets]"]);
+    // A different shape is a removal and an addition.
+    let (changed, _) = findings(&op("/pets", "limit"), &op("/animals", "max"));
+    assert!(
+        changed.contains(&"FL2001 breaking op[GET /pets]".to_owned()),
+        "{changed:?}"
+    );
+    assert!(
+        changed.contains(&"FL2002 info op[GET /animals]".to_owned()),
+        "{changed:?}"
+    );
+}

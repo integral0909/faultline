@@ -440,3 +440,51 @@ fn avro_schemas_are_compared_in_each_compatibility_mode() {
     assert_eq!(breaking("input"), ["required property `weightGrams` added"]);
     assert_eq!(breaking("output"), ["property `shelter` removed"]);
 }
+
+#[test]
+fn declared_versions_are_checked_with_semver_versioning() {
+    let dir = workspace();
+    // Version 2 claims to be a minor release despite its breaking changes.
+    let v2 = dir.path().join("v2/openapi.yaml");
+    let text = std::fs::read_to_string(&v2)
+        .unwrap()
+        .replace("version: 2.0.0", "version: 1.1.0");
+    std::fs::write(&v2, text).unwrap();
+    std::fs::write(
+        dir.path().join("faultline.toml"),
+        "[policy]\nversioning = \"semver\"\nfail_on = \"never\"\n",
+    )
+    .unwrap();
+    let output = faultline(dir.path(), &DIFF);
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    let text = stdout(&output);
+    assert!(
+        text.contains(
+            "error: openapi declares 1.0.0 -> 1.1.0, a minor release, but its changes need a major release"
+        ),
+        "{text}"
+    );
+    assert!(
+        text.contains("result: failed (the declared version does not match the changes)"),
+        "{text}"
+    );
+
+    let json = faultline(dir.path(), &[&DIFF[..], &["--output", "json"]].concat());
+    let report: serde_json::Value = serde_json::from_str(&stdout(&json)).unwrap();
+    assert_eq!(report["version_violations"][0]["required_bump"], "major");
+    assert_eq!(report["passed"], false);
+
+    let notes = faultline(
+        dir.path(),
+        &[&DIFF[..], &["--output", "changelog"]].concat(),
+    );
+    let notes = stdout(&notes);
+    assert!(
+        notes.starts_with("# Changelog\n\n## openapi 1.1.0 (from 1.0.0)"),
+        "{notes}"
+    );
+    assert!(
+        notes.contains("### Breaking changes\n\n- `op[DELETE /pets/{}]`: operation removed"),
+        "{notes}"
+    );
+}

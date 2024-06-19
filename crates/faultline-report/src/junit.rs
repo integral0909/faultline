@@ -72,6 +72,19 @@ pub(crate) fn render(report: &Report<'_>) -> String {
                 out.push_str("/>\n");
             }
         }
+        for violation in evaluation
+            .version_violations
+            .iter()
+            .filter(|v| v.api == api)
+        {
+            let message = crate::version_message(violation);
+            let _ = writeln!(
+                out,
+                "    <testcase classname=\"{0}.version\" name=\"declared version\">\n      <failure message=\"{1}\" type=\"version\">{1}</failure>\n    </testcase>",
+                xml(api),
+                xml(&message)
+            );
+        }
         out.push_str("  </testsuite>\n");
     }
     out.push_str("</testsuites>\n");

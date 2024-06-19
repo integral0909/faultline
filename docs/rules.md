@@ -46,6 +46,7 @@ at the change, and on the evidence found (see
 | [FL2001](#fl2001) | `operation-removed` | wire | An operation was removed |
 | [FL2002](#fl2002) | `operation-added` | wire | An operation was added |
 | [FL2003](#fl2003) | `operation-id-changed` | source | An operationId changed |
+| [FL2004](#fl2004) | `operation-moved` | wire | An operation moved |
 | [FL2010](#fl2010) | `parameter-added` | wire | A parameter was added |
 | [FL2011](#fl2011) | `parameter-removed` | wire | A parameter was removed |
 | [FL2012](#fl2012) | `parameter-requirement-changed` | wire | A parameter became required or optional |
@@ -311,6 +312,14 @@ A new operation (an HTTP endpoint or an RPC method) was added.
 **operation-id-changed** — An operationId changed
 
 The `operationId` changed. The wire contract is unaffected, but generated SDKs usually derive method names from it, so client code stops compiling.
+
+## FL2004
+
+**operation-moved** — An operation moved
+
+An operation is served under a new path or name, with everything else unchanged. Clients calling the old path or name receive errors, but only the address changed: updating it is the whole migration.
+
+Keep the old path or name working, for example as a deprecated alias, until clients have moved.
 
 ## FL2010
 

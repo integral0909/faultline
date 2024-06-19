@@ -100,6 +100,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and shortest-difference search with length bounds. `pattern` is now
   validated exactly, sampled, and compared as a regular language, with
   witnesses. Property-tested against the `regex` crate and fuzzed.
+- Releases: `[policy] versioning = "semver"` checks declared versions
+  against the bump the changes need (with SemVer's rules below 1.0.0) and
+  fails on too small an increase; `--output changelog` writes release notes;
+  operations that changed only their path or name are reported as moved
+  (FL2004).
 - Added and removed fields carry a direction derived from whether the object
   allows undeclared members, which makes more findings provably compatible;
   removing a required member is attributed its witness.

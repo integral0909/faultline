@@ -23,11 +23,29 @@ impl<'a> Differ<'a> {
         } else {
             (Polarity::IN, Polarity::OUT)
         };
+        let added: Vec<&'a Operation> = new
+            .iter()
+            .filter(|op| !old.iter().any(|o| o.key.identity() == op.key.identity()))
+            .collect();
+        let mut moved_to: Vec<bool> = vec![false; added.len()];
         for op in old {
             let path = prefix.join(Segment::Operation(op.key.identity()));
-            match new.iter().find(|n| n.key.identity() == op.key.identity()) {
-                Some(counterpart) => {
-                    self.operation(op, counterpart, &path, request, response, callback);
+            if let Some(counterpart) = new.iter().find(|n| n.key.identity() == op.key.identity()) {
+                self.operation(op, counterpart, &path, request, response, callback);
+                continue;
+            }
+            // An operation removed and one added with the same shape is one
+            // operation that moved.
+            let destination = added.iter().enumerate().position(|(i, candidate)| {
+                !moved_to[i] && self.same_shape(op, candidate, request, response, callback)
+            });
+            match destination {
+                Some(i) => {
+                    moved_to[i] = true;
+                    let kind = ChangeKind::OperationMoved {
+                        to: added[i].key.identity(),
+                    };
+                    self.surface(kind, path, request, (op.origin, added[i].origin));
                 }
                 None => self.surface(
                     ChangeKind::OperationRemoved,
@@ -37,12 +55,51 @@ impl<'a> Differ<'a> {
                 ),
             }
         }
-        for op in new {
-            if !old.iter().any(|o| o.key.identity() == op.key.identity()) {
+        for (op, moved) in added.iter().zip(moved_to) {
+            if !moved {
                 let path = prefix.join(Segment::Operation(op.key.identity()));
                 self.surface(ChangeKind::OperationAdded, path, request, (None, op.origin));
             }
         }
+    }
+
+    /// Whether two operations with different keys differ in nothing but
+    /// their key (and operation id): the same method, parameters, bodies
+    /// and responses.
+    fn same_shape(
+        &self,
+        old: &'a Operation,
+        new: &'a Operation,
+        request: Polarity,
+        response: Polarity,
+        callback: bool,
+    ) -> bool {
+        use faultline_ir::OperationKey;
+        let same_kind = match (&old.key, &new.key) {
+            (OperationKey::Http { method: a, .. }, OperationKey::Http { method: b, .. }) => a == b,
+            (OperationKey::Rpc { .. }, OperationKey::Rpc { .. }) => true,
+            _ => false,
+        };
+        let signature = |op: &Operation| {
+            (
+                op.parameters.len(),
+                op.request_body.as_ref().map(|b| b.content.len()),
+                op.responses
+                    .iter()
+                    .map(|r| r.status.to_string())
+                    .collect::<Vec<_>>(),
+                op.callbacks.len(),
+            )
+        };
+        if !same_kind || signature(old) != signature(new) {
+            return false;
+        }
+        let mut probe = Differ::new(self.old, self.new);
+        probe.operation(old, new, &IrPath::new(), request, response, callback);
+        probe
+            .changes
+            .iter()
+            .all(|c| matches!(c.kind, ChangeKind::OperationIdChanged { .. }))
     }
 
     fn operation(

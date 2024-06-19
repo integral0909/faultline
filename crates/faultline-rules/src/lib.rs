@@ -11,4 +11,4 @@ mod semver;
 
 pub use catalog::{Dimension, RULES, Rule};
 pub use classify::{Finding, Severity, classify, finding_id};
-pub use semver::{Bump, suggest_bump};
+pub use semver::{Bump, Version, declared_bump, is_addition, suggest_bump};

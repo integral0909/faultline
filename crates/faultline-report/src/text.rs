@@ -77,6 +77,9 @@ fn findings(report: &Report<'_>, out: &mut String) {
 }
 
 fn waivers(report: &Report<'_>, out: &mut String) {
+    for violation in &report.evaluation.version_violations {
+        let _ = writeln!(out, "error: {}", crate::version_message(violation));
+    }
     for waiver in &report.evaluation.expired_waivers {
         let _ = writeln!(
             out,
@@ -135,6 +138,8 @@ fn summary(report: &Report<'_>, out: &mut String) {
     } else if failing > 0 {
         let noun = if failing == 1 { "finding" } else { "findings" };
         format!("failed ({failing} {noun} at or above {threshold})")
+    } else if !evaluation.version_violations.is_empty() {
+        "failed (the declared version does not match the changes)".to_owned()
     } else if !evaluation.expired_waivers.is_empty() {
         "failed (expired waivers)".to_owned()
     } else {

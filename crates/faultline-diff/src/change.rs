@@ -95,6 +95,11 @@ impl Facet {
 pub enum ChangeKind {
     OperationAdded,
     OperationRemoved,
+    /// An operation is served under another key with an unchanged shape
+    /// (a new path, a renamed RPC method).
+    OperationMoved {
+        to: String,
+    },
     OperationIdChanged {
         old: Option<String>,
         new: Option<String>,
@@ -342,6 +347,7 @@ impl ChangeKind {
         match self {
             ChangeKind::OperationAdded => "operation-added",
             ChangeKind::OperationRemoved => "operation-removed",
+            ChangeKind::OperationMoved { .. } => "operation-moved",
             ChangeKind::OperationIdChanged { .. } => "operation-id-changed",
             ChangeKind::ParameterAdded { .. } => "parameter-added",
             ChangeKind::ParameterRemoved { .. } => "parameter-removed",

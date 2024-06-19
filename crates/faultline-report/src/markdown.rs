@@ -10,18 +10,15 @@ use crate::{Report, short_witness};
 pub(crate) fn render(report: &Report<'_>) -> String {
     let evaluation = report.evaluation;
     let mut out = String::new();
-    let failing = evaluation.failing();
-    let headline = if report.diagnostics.has_errors() {
-        "Faultline could not check the API: the inputs have errors".to_owned()
-    } else if failing > 0 {
-        format!(
-            "Faultline found {failing} failing {}",
-            if failing == 1 { "change" } else { "changes" }
-        )
-    } else {
-        "Faultline found no breaking changes".to_owned()
-    };
+    let headline = headline(report);
     let _ = writeln!(out, "### {headline}\n");
+    for violation in &evaluation.version_violations {
+        let _ = writeln!(
+            out,
+            "> **Version:** {}\n",
+            escape(&crate::version_message(violation))
+        );
+    }
 
     if !report.apis.is_empty() {
         out.push_str(
@@ -122,4 +119,22 @@ fn escape(text: &str) -> String {
         }
     }
     out
+}
+
+/// The one-line verdict at the top of the comment.
+fn headline(report: &Report<'_>) -> String {
+    let evaluation = report.evaluation;
+    let failing = evaluation.failing();
+    if report.diagnostics.has_errors() {
+        "Faultline could not check the API: the inputs have errors".to_owned()
+    } else if failing > 0 {
+        format!(
+            "Faultline found {failing} failing {}",
+            if failing == 1 { "change" } else { "changes" }
+        )
+    } else if !evaluation.version_violations.is_empty() {
+        "Faultline found a version that does not match its changes".to_owned()
+    } else {
+        "Faultline found no breaking changes".to_owned()
+    }
 }

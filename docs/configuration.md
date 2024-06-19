@@ -18,6 +18,7 @@ entry = "api/openapi.yaml"
 
 [policy]
 fail_on = "breaking"            # breaking | risky | never
+versioning = "off"              # off | semver: check declared versions
 baseline = ".faultline/baseline.json"
 
 [[policy.override]]
@@ -42,6 +43,25 @@ allowed_hosts = []              # e.g. ["schemas.example.com", "*.example.net"]
 
 Command-line flags take precedence over the file: `--fail-on`, `--baseline`,
 `--root`.
+
+## Versioning
+
+With `versioning = "semver"`, each API's declared version (OpenAPI
+`info.version`) must increase by at least the bump its changes need:
+* major for breaking changes;
+* minor for risky changes and additions;
+* patch for anything else.
+
+Below `1.0.0`, a minor increase may break and a patch increase may add, as
+Semantic Versioning allows. A version that increases too little fails the
+check (exit code 1), even if no finding does:
+
+```text
+error: petstore declares 1.0.0 -> 1.1.0, a minor release, but its changes need a major release
+```
+
+APIs whose versions are not both semantic versions (`2024-06`, a format
+without a version) are not checked.
 
 ## Overrides
 
@@ -128,6 +148,7 @@ added within a version; incompatible changes increment it.
 | `passed`, `exit_code`, `fail_on` | the verdict |
 | `summary` | counts of active `breaking`, `risky` and `info` findings, `waived`, `baselined`, `failing` |
 | `apis[]` | `name`, `old_version`, `new_version`, `suggested_bump` |
+| `version_violations[]` | `api`, `old_version`, `new_version`, `declared_bump`, `required_bump` |
 | `findings[]` | `id`, `api`, `rule`, `rule_name`, `dimension`, `severity`, `original_severity`, `failing`, `status`, `message`, `path`, `polarity`, `old_location`, `new_location`, `witness` |
 | `expired_waivers[]`, `unused_waivers[]` | waivers needing attention |
 | `diagnostics[]` | input problems: `severity`, `code`, `message`, `location` |

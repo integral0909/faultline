@@ -3,7 +3,9 @@ use std::path::{Path, PathBuf};
 
 use clap::{Args, ValueEnum};
 use faultline::{Engine, Revision, Source, Target, default_api_name};
-use faultline_policy::{ApiFormat, Baseline, Config, Date, FailOn, SchemaRole, evaluate, exit};
+use faultline_policy::{
+    ApiFormat, Baseline, Config, Date, FailOn, Release, SchemaRole, evaluate, exit,
+};
 use faultline_report::{Report, render};
 use faultline_source::SourceMap;
 
@@ -348,7 +350,18 @@ fn gate(
     };
 
     let comparison = engine(&config)?.compare(targets);
-    let evaluation = evaluate(&config, baseline.as_ref(), comparison.findings, today());
+    let mut evaluation = evaluate(&config, baseline.as_ref(), comparison.findings, today());
+    let releases: Vec<Release> = comparison
+        .apis
+        .iter()
+        .map(|api| Release {
+            api: api.name.clone(),
+            old_version: api.old_version.clone(),
+            new_version: api.new_version.clone(),
+            required: api.bump,
+        })
+        .collect();
+    evaluation.check_releases(config.versioning, &releases);
     let report = Report {
         sources: &comparison.sources,
         diagnostics: &comparison.diagnostics,

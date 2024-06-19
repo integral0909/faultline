@@ -5,6 +5,7 @@
 //! resolves their spans. [`render`] turns it into text for people or into one
 //! of the machine formats CI systems consume.
 
+mod changelog;
 mod github;
 mod json;
 mod junit;
@@ -58,16 +59,19 @@ pub enum OutputFormat {
     Markdown,
     Github,
     Junit,
+    /// Release notes in Markdown.
+    Changelog,
 }
 
 impl OutputFormat {
-    pub const ALL: [OutputFormat; 6] = [
+    pub const ALL: [OutputFormat; 7] = [
         OutputFormat::Text,
         OutputFormat::Json,
         OutputFormat::Sarif,
         OutputFormat::Markdown,
         OutputFormat::Github,
         OutputFormat::Junit,
+        OutputFormat::Changelog,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -78,6 +82,7 @@ impl OutputFormat {
             OutputFormat::Markdown => "markdown",
             OutputFormat::Github => "github",
             OutputFormat::Junit => "junit",
+            OutputFormat::Changelog => "changelog",
         }
     }
 
@@ -101,6 +106,7 @@ pub fn render(report: &Report<'_>, format: OutputFormat) -> String {
         OutputFormat::Markdown => markdown::render(report),
         OutputFormat::Github => github::render(report),
         OutputFormat::Junit => junit::render(report),
+        OutputFormat::Changelog => changelog::render(report),
     }
 }
 
@@ -113,4 +119,16 @@ pub(crate) fn short_witness(value: &faultline_ir::Literal) -> String {
     }
     let truncated: String = text.chars().take(MAX).collect();
     format!("{truncated}…")
+}
+
+/// What is wrong with a release's declared versions, in one sentence.
+pub(crate) fn version_message(v: &faultline_policy::VersionViolation) -> String {
+    let declared = match v.declared {
+        faultline_rules::Bump::None => "no version increase".to_owned(),
+        bump => format!("a {bump} release"),
+    };
+    format!(
+        "{} declares {} -> {}, {declared}, but its changes need a {} release",
+        v.api, v.old_version, v.new_version, v.required
+    )
 }

@@ -72,7 +72,9 @@ reports.
 ## Output formats
 
 `--output` selects `text` (default), `json`, `sarif`, `markdown` (for pull
-request comments), `github` (workflow annotations) or `junit`.
+request comments), `github` (workflow annotations), `junit`, or
+`changelog`. The last is release notes in Markdown, grouped into breaking
+changes, deprecations, additions and other changes.
 
 The JSON format is versioned by its `schema_version` field; see
 [configuration.md](configuration.md#json-report) for its fields.
@@ -185,6 +187,17 @@ faultline diff --old-rev v1.4.0 --new-rev v2.0.0 api/openapi.yaml
 Files are read from the revision's tree under the same rules as the working
 tree: references cannot leave the workspace root. Symbolic links and
 submodules inside a revision are not followed.
+
+## Releases
+
+Every summary suggests the version bump the changes need. To enforce it,
+set `versioning = "semver"` in `[policy]`: a declared version that
+increases too little then fails the check (see
+[configuration.md](configuration.md#versioning)).
+
+An operation whose path or name changed while everything else stayed the
+same is reported as moved (FL2004), not as a removal and an unrelated
+addition.
 
 ## Adopting on an existing API
 

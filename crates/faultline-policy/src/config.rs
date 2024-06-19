@@ -60,6 +60,7 @@ struct RawApi {
 #[serde(deny_unknown_fields)]
 struct RawPolicy {
     fail_on: Option<String>,
+    versioning: Option<String>,
     baseline: Option<PathBuf>,
     #[serde(default, rename = "override")]
     overrides: Vec<RawOverride>,
@@ -137,6 +138,17 @@ pub struct ApiConfig {
     pub role: SchemaRole,
 }
 
+/// How declared API versions are checked against the changes.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Versioning {
+    /// Declared versions are reported, not checked.
+    #[default]
+    Off,
+    /// A declared version must increase by at least the bump the changes
+    /// need, by Semantic Versioning (`MAJOR.MINOR.PATCH`).
+    Semver,
+}
+
 /// When a check fails.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FailOn {
@@ -208,6 +220,7 @@ pub struct Config {
     pub root: Option<PathBuf>,
     pub apis: Vec<ApiConfig>,
     pub fail_on: FailOn,
+    pub versioning: Versioning,
     pub baseline: Option<PathBuf>,
     pub overrides: Vec<Override>,
     pub waivers: Vec<Waiver>,
@@ -220,6 +233,7 @@ impl Default for Config {
             root: None,
             apis: Vec::new(),
             fail_on: FailOn::Breaking,
+            versioning: Versioning::Off,
             baseline: None,
             overrides: Vec::new(),
             waivers: Vec::new(),
@@ -259,6 +273,16 @@ impl Config {
                 FailOn::Breaking
             }),
         };
+        let versioning = match raw.policy.versioning.as_deref() {
+            None | Some("off") => Versioning::Off,
+            Some("semver") => Versioning::Semver,
+            Some(text) => {
+                problems.push(format!(
+                    "[policy] versioning must be \"off\" or \"semver\", not \"{text}\""
+                ));
+                Versioning::Off
+            }
+        };
         let overrides = overrides(raw.policy.overrides, &apis, &mut problems);
         let waivers = waivers(raw.waiver, &mut problems);
         let network = network(raw.network, &mut problems);
@@ -269,6 +293,7 @@ impl Config {
             root: raw.workspace.root,
             apis,
             fail_on,
+            versioning,
             baseline: raw.policy.baseline,
             overrides,
             waivers,

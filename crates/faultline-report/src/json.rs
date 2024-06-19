@@ -52,6 +52,10 @@ pub(crate) fn document(report: &Report<'_>) -> Value {
         "expired_waivers": evaluation.expired_waivers.iter().map(|w| json!({
             "finding": w.finding, "reason": w.reason, "owner": w.owner, "expires": w.expires.to_string(),
         })).collect::<Vec<_>>(),
+        "version_violations": evaluation.version_violations.iter().map(|v| json!({
+            "api": v.api, "old_version": v.old_version, "new_version": v.new_version,
+            "declared_bump": v.declared.as_str(), "required_bump": v.required.as_str(),
+        })).collect::<Vec<_>>(),
         "unused_waivers": evaluation.unused_waivers.iter().map(|w| json!({
             "finding": w.finding, "reason": w.reason, "owner": w.owner, "expires": w.expires.to_string(),
         })).collect::<Vec<_>>(),

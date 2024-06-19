@@ -175,7 +175,7 @@ fn surface_pair(kind: &ChangeKind) -> Option<Surface> {
     use ChangeKind as K;
     use Surface::{Request, Response, Value};
     Some(match kind {
-        K::OperationRemoved => Request(pair(Breaking, Risky)),
+        K::OperationRemoved | K::OperationMoved { .. } => Request(pair(Breaking, Risky)),
         K::OperationAdded => Request(pair(Info, Risky)),
         K::OperationIdChanged { .. } => Request(same(Risky)),
         K::ParameterAdded { required: true, .. } | K::RequestBodyAdded { required: true } => {
@@ -328,6 +328,11 @@ fn describe(kind: &ChangeKind) -> (&'static Rule, String, String) {
     match kind {
         K::OperationAdded => (&c::OPERATION_ADDED, "operation added".into(), none()),
         K::OperationRemoved => (&c::OPERATION_REMOVED, "operation removed".into(), none()),
+        K::OperationMoved { to } => (
+            &c::OPERATION_MOVED,
+            format!("operation moved to `{to}`"),
+            to.clone(),
+        ),
         K::OperationIdChanged { old, new } => (
             &c::OPERATION_ID_CHANGED,
             format!("operationId changed from {} to {}", show(old), show(new)),

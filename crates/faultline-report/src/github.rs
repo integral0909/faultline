@@ -23,6 +23,15 @@ pub(crate) fn render(report: &Report<'_>) -> String {
             &diagnostic.message,
         );
     }
+    for violation in &report.evaluation.version_violations {
+        annotation(
+            &mut out,
+            "error",
+            None,
+            "version bump",
+            &crate::version_message(violation),
+        );
+    }
     for e in &report.evaluation.findings {
         if e.status != Status::Active {
             continue;

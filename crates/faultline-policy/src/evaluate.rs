@@ -1,9 +1,9 @@
 //! Applying a policy to findings: overrides, waivers, baseline, verdict.
 
-use faultline_rules::{Finding, Severity};
+use faultline_rules::{Bump, Finding, Severity, declared_bump};
 
 use crate::baseline::Baseline;
-use crate::config::{Config, FailOn, Override, Waiver};
+use crate::config::{Config, FailOn, Override, Versioning, Waiver};
 use crate::date::Date;
 
 /// Why a finding does not count against the check.
@@ -37,6 +37,27 @@ pub mod exit {
     pub const EXPIRED_WAIVER: i32 = 4;
 }
 
+/// One API's release: its declared versions and the bump its changes need.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Release {
+    pub api: String,
+    pub old_version: Option<String>,
+    pub new_version: Option<String>,
+    /// The smallest honest bump for the changes found.
+    pub required: Bump,
+}
+
+/// A declared version that does not increase enough for its changes.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VersionViolation {
+    pub api: String,
+    pub old_version: String,
+    pub new_version: String,
+    /// The bump the declared versions amount to.
+    pub declared: Bump,
+    pub required: Bump,
+}
+
 /// The result of applying a policy.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Evaluation {
@@ -47,6 +68,9 @@ pub struct Evaluation {
     /// Waivers that matched no finding: the problem is gone and the waiver
     /// can be deleted.
     pub unused_waivers: Vec<Waiver>,
+    /// Releases whose declared version bump is smaller than their changes
+    /// need (with `versioning = "semver"`). They fail the check.
+    pub version_violations: Vec<VersionViolation>,
     pub fail_on: FailOn,
 }
 
@@ -55,9 +79,40 @@ impl Evaluation {
         self.findings.iter().filter(|e| e.failing).count()
     }
 
-    /// `0` when passing, `1` for failing findings, `4` for expired waivers.
+    /// Checks each release's declared versions against `versioning`.
+    /// Releases without two semantic versions are not checked.
+    pub fn check_releases<'r>(
+        &mut self,
+        versioning: Versioning,
+        releases: impl IntoIterator<Item = &'r Release>,
+    ) {
+        if versioning == Versioning::Off {
+            return;
+        }
+        for release in releases {
+            let (Some(old), Some(new)) = (&release.old_version, &release.new_version) else {
+                continue;
+            };
+            let Some(declared) = declared_bump(old, new) else {
+                continue;
+            };
+            // An unchanged version is fine when nothing changed.
+            if declared < release.required {
+                self.version_violations.push(VersionViolation {
+                    api: release.api.clone(),
+                    old_version: old.clone(),
+                    new_version: new.clone(),
+                    declared,
+                    required: release.required,
+                });
+            }
+        }
+    }
+
+    /// `0` when passing, `1` for failing findings or insufficient version
+    /// bumps, `4` for expired waivers.
     pub fn exit_code(&self) -> i32 {
-        if self.failing() > 0 {
+        if self.failing() > 0 || !self.version_violations.is_empty() {
             exit::FINDINGS
         } else if !self.expired_waivers.is_empty() {
             exit::EXPIRED_WAIVER
@@ -113,6 +168,7 @@ pub fn evaluate(
     Evaluation {
         findings,
         expired_waivers: expired.into_iter().cloned().collect(),
+        version_violations: Vec::new(),
         unused_waivers: live
             .iter()
             .zip(&used)

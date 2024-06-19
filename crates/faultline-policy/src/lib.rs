@@ -20,8 +20,8 @@ mod glob;
 pub use baseline::{Baseline, BaselineEntry, BaselineError};
 pub use config::{
     ApiConfig, ApiFormat, Config, ConfigError, FailOn, MAX_REDIRECTS, MAX_TIMEOUT_SECONDS,
-    NetworkConfig, Override, SchemaRole, Waiver,
+    NetworkConfig, Override, SchemaRole, Versioning, Waiver,
 };
 pub use date::Date;
-pub use evaluate::{Evaluated, Evaluation, Status, evaluate, exit};
+pub use evaluate::{Evaluated, Evaluation, Release, Status, VersionViolation, evaluate, exit};
 pub use glob::Glob;

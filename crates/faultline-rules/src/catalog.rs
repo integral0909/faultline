@@ -140,6 +140,8 @@ rules! {
         "A new operation (an HTTP endpoint or an RPC method) was added.";
     OPERATION_ID_CHANGED = "FL2003", "operation-id-changed", Source, "An operationId changed",
         "The `operationId` changed. The wire contract is unaffected, but generated SDKs usually derive method names from it, so client code stops compiling.";
+    OPERATION_MOVED = "FL2004", "operation-moved", Wire, "An operation moved",
+        "An operation is served under a new path or name, with everything else unchanged. Clients calling the old path or name receive errors, but only the address changed: updating it is the whole migration.\n\nKeep the old path or name working, for example as a deprecated alias, until clients have moved.";
     PARAMETER_ADDED = "FL2010", "parameter-added", Wire, "A parameter was added",
         "An operation gained a parameter. A new *required* parameter breaks every existing client.";
     PARAMETER_REMOVED = "FL2011", "parameter-removed", Wire, "A parameter was removed",

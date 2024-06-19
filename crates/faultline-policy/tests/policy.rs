@@ -269,3 +269,59 @@ fn baselines_accept_existing_findings_only() {
     assert!(Baseline::parse("{\"version\": 9, \"findings\": []}").is_err());
     assert!(Baseline::parse("{\"version\": 1, \"findings\": [], \"extra\": 1}").is_err());
 }
+
+#[test]
+fn declared_versions_must_cover_the_changes() {
+    use faultline_policy::{Release, Versioning};
+    use faultline_rules::Bump;
+    let release = |old: &str, new: &str, required: Bump| Release {
+        api: "public".into(),
+        old_version: Some(old.into()),
+        new_version: Some(new.into()),
+        required,
+    };
+    let config = Config::parse("[policy]\nversioning = \"semver\"\n").unwrap();
+    assert_eq!(config.versioning, Versioning::Semver);
+    let mut evaluation = evaluate(
+        &config,
+        None,
+        Vec::new(),
+        Date::parse("2026-01-01").unwrap(),
+    );
+    evaluation.check_releases(
+        config.versioning,
+        &[
+            release("1.0.0", "1.1.0", Bump::Major),
+            release("1.0.0", "2.0.0", Bump::Major),
+            release("1.0.0", "1.0.1", Bump::Patch),
+            release("0.4.0", "0.5.0", Bump::Major),
+            release("1.0.0", "1.0.0", Bump::None),
+            release("2024-01", "2024-02", Bump::Major),
+        ],
+    );
+    assert_eq!(
+        evaluation.version_violations.len(),
+        1,
+        "{:?}",
+        evaluation.version_violations
+    );
+    let violation = &evaluation.version_violations[0];
+    assert_eq!(
+        (violation.declared, violation.required),
+        (Bump::Minor, Bump::Major)
+    );
+    assert_eq!(evaluation.exit_code(), exit::FINDINGS);
+
+    // Off by default.
+    let mut unchecked = evaluate(
+        &Config::default(),
+        None,
+        Vec::new(),
+        Date::parse("2026-01-01").unwrap(),
+    );
+    unchecked.check_releases(Versioning::Off, &[release("1.0.0", "1.0.1", Bump::Major)]);
+    assert!(unchecked.version_violations.is_empty());
+
+    let error = Config::parse("[policy]\nversioning = \"calver\"\n").unwrap_err();
+    assert!(error.to_string().contains("versioning"), "{error}");
+}
