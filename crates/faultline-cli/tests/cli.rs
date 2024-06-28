@@ -488,3 +488,153 @@ fn declared_versions_are_checked_with_semver_versioning() {
         "{notes}"
     );
 }
+
+#[test]
+fn usage_indexes_soften_changes_nobody_uses() {
+    let dir = workspace();
+    std::fs::write(
+        dir.path().join("access.log"),
+        concat!(
+            "10.0.0.1 - - [01/Sep/2026:10:00:00 +0000] \"GET /v1/pets?limit=4711&species=zebracat HTTP/1.1\" 200 512\n",
+            "10.0.0.2 - - [01/Sep/2026:10:00:01 +0000] \"POST /v1/pets HTTP/1.1\" 201 64\n",
+            "{\"method\": \"GET\", \"path\": \"/v1/pets/42\"}\n",
+            "10.0.0.3 - - [01/Sep/2026:10:00:02 +0000] \"GET /v1/unknown HTTP/1.1\" 404 0\n",
+        ),
+    )
+    .unwrap();
+    let import = faultline(
+        dir.path(),
+        &[
+            "usage",
+            "import",
+            "v1/openapi.yaml",
+            "--access-log",
+            "access.log",
+            "--base-path",
+            "/v1",
+            "--window",
+            "September 2026",
+        ],
+    );
+    assert_eq!(import.status.code(), Some(0), "{}", stderr(&import));
+    assert!(
+        stderr(&import).contains("1 unmatched"),
+        "{}",
+        stderr(&import)
+    );
+    let index: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(dir.path().join(".faultline/usage.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(index["operations"]["GET /pets"]["calls"], 1);
+    assert_eq!(
+        index["operations"]["GET /pets"]["parameters"]["query:limit"],
+        1
+    );
+    assert_eq!(index["operations"]["DELETE /pets/{}"]["calls"], 0);
+    assert_eq!(index["window"], "September 2026");
+    assert!(
+        !index.to_string().contains("4711") && !index.to_string().contains("zebracat"),
+        "query values are not stored: {index}"
+    );
+
+    std::fs::write(
+        dir.path().join("faultline.toml"),
+        "[usage]\nindex = \".faultline/usage.json\"\n",
+    )
+    .unwrap();
+    let output = faultline(dir.path(), &[&DIFF[..], &["--output", "json"]].concat());
+    let report: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+    let removed = report["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["rule"] == "FL2001")
+        .unwrap();
+    assert_eq!(
+        removed["severity"], "risky",
+        "nobody calls DELETE /pets/{{id}}"
+    );
+    assert_eq!(removed["original_severity"], "breaking");
+    assert_eq!(removed["unused"], true);
+    let limit = report["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["rule"] == "FL1007" && f["path"] == "op[GET /pets]/param[query:limit]")
+        .unwrap();
+    assert_eq!(limit["severity"], "breaking", "clients do send `limit`");
+}
+
+#[test]
+fn graphql_client_documents_are_usage() {
+    let dir = tempfile::tempdir().unwrap();
+    for version in ["v1", "v2"] {
+        std::fs::create_dir(dir.path().join(version)).unwrap();
+        std::fs::copy(
+            repo().join(format!("examples/graphql/{version}/schema.graphql")),
+            dir.path().join(format!("{version}/schema.graphql")),
+        )
+        .unwrap();
+    }
+    std::fs::write(
+        dir.path().join("client.graphql"),
+        "query Pet($id: ID!) { pet(id: $id) { name species ...Owner } }\nfragment Owner on Pet { owner { name } }\nmutation { addPet(input: {name: \"x\", species: CAT}) { id } }\n",
+    )
+    .unwrap();
+    let import = faultline(
+        dir.path(),
+        &[
+            "usage",
+            "import",
+            "v1/schema.graphql",
+            "--graphql",
+            "client.graphql",
+        ],
+    );
+    assert_eq!(import.status.code(), Some(0), "{}", stderr(&import));
+    std::fs::write(
+        dir.path().join("faultline.toml"),
+        "[usage]\nindex = \".faultline/usage.json\"\nunused_severity = \"info\"\n",
+    )
+    .unwrap();
+    let output = faultline(
+        dir.path(),
+        &[
+            "diff",
+            "v1/schema.graphql",
+            "v2/schema.graphql",
+            "--output",
+            "json",
+        ],
+    );
+    let report: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+    let severity = |path_start: &str| {
+        report["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|f| f["path"].as_str().unwrap().starts_with(path_start))
+            .map(|f| f["severity"].as_str().unwrap().to_owned())
+            .collect::<Vec<_>>()
+    };
+    // No client queries `search` or calls `removePet`.
+    assert!(
+        severity("op[query/search]").iter().all(|s| s == "info"),
+        "{report:#}"
+    );
+    assert_eq!(severity("op[mutation/removePet]"), ["info"]);
+    // Clients send `NewPet`, which gained a required field.
+    assert!(
+        severity("op[mutation/addPet]/request").contains(&"breaking".to_owned()),
+        "{report:#}"
+    );
+    // `listedAt` became nullable but no client selects it.
+    let listed = report["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["path"].as_str().unwrap().ends_with(".listedAt"))
+        .unwrap();
+    assert_eq!(listed["unused"], true);
+}

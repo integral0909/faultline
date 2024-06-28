@@ -56,7 +56,8 @@ are no templates, scripts or plugins. Custom rules are declarative data.
 
 **Secret handling.** Configuration refers to secrets indirectly (`env:VAR`) and
 they are redacted from logs. Usage importers persist only templated paths,
-field paths, counts and timestamps — never query values, headers or bodies.
+field paths and counts — never query values, headers or bodies, which the
+importers read past without storing.
 
 **Registry.** Bearer tokens are random, high-entropy and stored as SHA-256
 hashes. Access is authorized per subject, request bodies are size-limited and

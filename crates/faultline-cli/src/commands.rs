@@ -9,7 +9,7 @@ use faultline_policy::{
 use faultline_report::{Report, render};
 use faultline_source::SourceMap;
 
-use crate::{Command, IrCommand, Output};
+use crate::{Command, IrCommand, Output, UsageCommand};
 
 /// `--format` values.
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -167,6 +167,35 @@ pub(crate) struct BaselineArgs {
 }
 
 #[derive(Debug, Args)]
+pub(crate) struct UsageImportArgs {
+    /// The API description the usage refers to (its current version).
+    api: PathBuf,
+    /// Server access logs (Common or Combined Log Format, or JSON lines).
+    #[arg(long = "access-log", value_name = "FILE", num_args = 1.., required_unless_present = "graphql", conflicts_with = "graphql")]
+    access_logs: Vec<PathBuf>,
+    /// GraphQL documents clients send.
+    #[arg(long = "graphql", value_name = "FILE", num_args = 1..)]
+    graphql: Vec<PathBuf>,
+    /// A path prefix the API is served under (`/v1`), removed before
+    /// matching access log requests.
+    #[arg(long)]
+    base_path: Option<String>,
+    /// A description of the period or corpus covered, stored in the index.
+    #[arg(long)]
+    window: Option<String>,
+    /// Add to an existing index instead of replacing it.
+    #[arg(long)]
+    merge: bool,
+    /// Where to write the index.
+    #[arg(long, default_value = ".faultline/usage.json")]
+    out: PathBuf,
+    #[arg(long, value_enum)]
+    format: Option<Format>,
+    #[command(flatten)]
+    workspace: WorkspaceArgs,
+}
+
+#[derive(Debug, Args)]
 pub(crate) struct DumpArgs {
     /// Entry document.
     file: PathBuf,
@@ -199,6 +228,9 @@ pub(crate) fn run(command: Command) -> i32 {
         Command::Ir {
             command: IrCommand::Dump(args),
         } => dump(&args),
+        Command::Usage {
+            command: UsageCommand::Import(args),
+        } => usage_import(&args),
     };
     result.unwrap_or_else(|message| {
         eprintln!("error: {message}");
@@ -362,6 +394,14 @@ fn gate(
         })
         .collect();
     evaluation.check_releases(config.versioning, &releases);
+    if let Some(path) = &config.usage.index {
+        let path = root.join(path);
+        let text = std::fs::read_to_string(&path)
+            .map_err(|e| format!("cannot read {}: {e}", path.display()))?;
+        let index = faultline_usage::UsageIndex::parse(&text)
+            .map_err(|e| format!("{}: {e}", path.display()))?;
+        faultline_usage::apply(&mut evaluation, &index, config.usage.unused_severity);
+    }
     let report = Report {
         sources: &comparison.sources,
         diagnostics: &comparison.diagnostics,
@@ -455,6 +495,95 @@ pub(crate) fn rules_markdown() -> String {
         );
     }
     out
+}
+
+/// Builds a usage index from access logs or GraphQL documents.
+fn usage_import(args: &UsageImportArgs) -> Result<i32, String> {
+    use faultline_usage::{UsageIndex, access_log, graphql};
+    use std::io::BufRead as _;
+
+    let (config, root) = setup(&args.workspace)?;
+    let sources = SourceMap::new();
+    let lowered = engine(&config)?.lower(
+        &Source::new(&root, &args.api),
+        &default_api_name(&args.api),
+        args.format.map(Into::into),
+        SchemaRole::Both,
+        &sources,
+    );
+    for d in &lowered.diagnostics {
+        eprint!("{}", faultline_source::render::render(d, &sources));
+    }
+    let Some(api) = lowered.api.filter(|_| !lowered.diagnostics.has_errors()) else {
+        return Ok(exit::INVALID_INPUT);
+    };
+    let open = |path: &PathBuf| {
+        std::fs::File::open(path).map_err(|e| format!("cannot read {}: {e}", path.display()))
+    };
+    let mut index = if args.graphql.is_empty() {
+        let options = access_log::AccessLogOptions {
+            base_path: args.base_path.clone(),
+        };
+        let mut lines = Vec::new();
+        let mut index = UsageIndex::new(faultline_usage::Source::AccessLog);
+        for path in &args.access_logs {
+            // Stream the log in chunks so large logs are not held in memory.
+            for line in std::io::BufReader::new(open(path)?).lines() {
+                lines.push(line.map_err(|e| format!("cannot read {}: {e}", path.display()))?);
+                if lines.len() == 100_000 {
+                    index.merge(&access_log::import(&api, lines.drain(..), &options));
+                }
+            }
+        }
+        index.merge(&access_log::import(&api, lines, &options));
+        index
+    } else {
+        let mut documents = Vec::new();
+        for path in &args.graphql {
+            documents.push(
+                std::fs::read_to_string(path)
+                    .map_err(|e| format!("cannot read {}: {e}", path.display()))?,
+            );
+        }
+        graphql::import(&api, &documents)
+    };
+    index.window.clone_from(&args.window);
+    let out = if args.out.is_absolute() {
+        args.out.clone()
+    } else {
+        root.join(&args.out)
+    };
+    if args.merge && out.is_file() {
+        let text = std::fs::read_to_string(&out)
+            .map_err(|e| format!("cannot read {}: {e}", out.display()))?;
+        let mut existing =
+            UsageIndex::parse(&text).map_err(|e| format!("{}: {e}", out.display()))?;
+        if existing.source != index.source {
+            return Err(format!(
+                "{} holds {:?} usage and cannot be merged with {:?} usage",
+                out.display(),
+                existing.source,
+                index.source
+            ));
+        }
+        existing.merge(&index);
+        index = existing;
+    }
+    if let Some(parent) = out.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("cannot create {}: {e}", parent.display()))?;
+    }
+    std::fs::write(&out, index.to_json())
+        .map_err(|e| format!("cannot write {}: {e}", out.display()))?;
+    let calls: u64 = index.operations.values().map(|o| o.calls).sum();
+    let unused = index.operations.values().filter(|o| o.calls == 0).count();
+    eprintln!(
+        "wrote usage of {} operations ({calls} calls, {unused} unused, {} unmatched) to {}",
+        index.operations.len(),
+        index.unmatched,
+        out.display()
+    );
+    Ok(exit::PASSED)
 }
 
 fn dump(args: &DumpArgs) -> Result<i32, String> {

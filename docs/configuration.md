@@ -33,6 +33,10 @@ reason = "Limit lowered deliberately; all known clients page at 50"
 owner = "api-platform"
 expires = "2026-12-31"
 
+[usage]
+# index = ".faultline/usage.json" # from `faultline usage import`
+# unused_severity = "risky"     # cap for changes nobody uses
+
 [network]
 allow_remote = false            # fetch https references at all
 allowed_hosts = []              # e.g. ["schemas.example.com", "*.example.net"]
@@ -110,6 +114,32 @@ checks. The file is JSON, sorted for reviewable diffs:
 ```
 
 Only `id` is matched; the other fields are for readers.
+
+## Usage
+
+A usage index records which operations, query parameters and (from GraphQL
+client documents) fields and arguments clients use. With `[usage] index`
+set, a finding about a part of the API the index shows unused is capped
+at `unused_severity` (default `risky`) and marked as unused. For example,
+an operation removed while nobody calls it. Parts the index does not
+cover are unaffected.
+
+Build an index from server access logs (Common or Combined Log Format, or
+JSON lines with `method` and `path`), matched to the API's path templates:
+
+```sh
+faultline usage import api/openapi.yaml --access-log logs/*.log --base-path /v1 --window "last 30 days"
+```
+
+or from the GraphQL documents clients send:
+
+```sh
+faultline usage import schema.graphql --graphql clients/**/*.graphql
+```
+
+`--merge` adds to an existing index. Indexes hold operation identities,
+parameter names, field paths and counts, never request values, headers,
+bodies or client identities, so they can be committed.
 
 ## Remote references
 

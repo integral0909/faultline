@@ -26,6 +26,8 @@ pub struct Evaluated {
     pub status: Status,
     /// Whether this finding fails the check.
     pub failing: bool,
+    /// A usage index shows the changed part of the API unused.
+    pub unused: bool,
 }
 
 /// Process exit codes, stable across releases.
@@ -161,6 +163,7 @@ pub fn evaluate(
                 finding,
                 status,
                 failing,
+                unused: false,
             }
         })
         .collect();

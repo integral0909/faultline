@@ -199,6 +199,16 @@ An operation whose path or name changed while everything else stayed the
 same is reported as moved (FL2004), not as a removal and an unrelated
 addition.
 
+## Taking usage into account
+
+A usage index built from access logs or client queries softens findings
+about parts of the API nobody uses (see
+[configuration.md](configuration.md#usage)):
+
+```sh
+faultline usage import api/openapi.yaml --access-log access.log
+```
+
 ## Adopting on an existing API
 
 Record the current findings as accepted, commit the baseline, and only new

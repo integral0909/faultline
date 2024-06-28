@@ -27,6 +27,15 @@ struct RawConfig {
     waiver: Vec<RawWaiver>,
     #[serde(default)]
     network: RawNetwork,
+    #[serde(default)]
+    usage: RawUsage,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawUsage {
+    index: Option<PathBuf>,
+    unused_severity: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -209,6 +218,25 @@ pub struct NetworkConfig {
     pub max_redirects: Option<u32>,
 }
 
+/// `[usage]`: an index of what clients use, and how changes to unused
+/// parts are treated.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UsageConfig {
+    /// The usage index file, relative to the workspace root.
+    pub index: Option<PathBuf>,
+    /// The most severe a finding about an unused part of the API can be.
+    pub unused_severity: Severity,
+}
+
+impl Default for UsageConfig {
+    fn default() -> Self {
+        Self {
+            index: None,
+            unused_severity: Severity::Risky,
+        }
+    }
+}
+
 /// Longest request timeout accepted in `[network]`.
 pub const MAX_TIMEOUT_SECONDS: u64 = 300;
 /// Most redirects accepted in `[network]`.
@@ -225,6 +253,7 @@ pub struct Config {
     pub overrides: Vec<Override>,
     pub waivers: Vec<Waiver>,
     pub network: NetworkConfig,
+    pub usage: UsageConfig,
 }
 
 impl Default for Config {
@@ -238,6 +267,7 @@ impl Default for Config {
             overrides: Vec::new(),
             waivers: Vec::new(),
             network: NetworkConfig::default(),
+            usage: UsageConfig::default(),
         }
     }
 }
@@ -286,6 +316,18 @@ impl Config {
         let overrides = overrides(raw.policy.overrides, &apis, &mut problems);
         let waivers = waivers(raw.waiver, &mut problems);
         let network = network(raw.network, &mut problems);
+        let usage = UsageConfig {
+            index: raw.usage.index,
+            unused_severity: match raw.usage.unused_severity.as_deref() {
+                None => Severity::Risky,
+                Some(text) => Severity::parse(text).unwrap_or_else(|| {
+                    problems.push(format!(
+                        "[usage] unused_severity must be \"breaking\", \"risky\" or \"info\", not \"{text}\""
+                    ));
+                    Severity::Risky
+                }),
+            },
+        };
         if !problems.is_empty() {
             return Err(ConfigError { problems });
         }
@@ -298,6 +340,7 @@ impl Config {
             overrides,
             waivers,
             network,
+            usage,
         })
     }
 }

@@ -38,6 +38,17 @@ enum Command {
         #[command(subcommand)]
         command: IrCommand,
     },
+    /// Build usage indexes from access logs or client documents.
+    Usage {
+        #[command(subcommand)]
+        command: UsageCommand,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum UsageCommand {
+    /// Record which operations, parameters and fields clients use.
+    Import(commands::UsageImportArgs),
 }
 
 #[derive(Debug, Subcommand)]

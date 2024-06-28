@@ -100,6 +100,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and shortest-difference search with length bounds. `pattern` is now
   validated exactly, sampled, and compared as a regular language, with
   witnesses. Property-tested against the `regex` crate and fuzzed.
+- `faultline-usage` and `faultline usage import`: usage indexes from access
+  logs (Common/Combined Log Format or JSON lines, matched to path templates)
+  and from GraphQL client documents (fields and arguments selected, with
+  fragments expanded). With `[usage] index`, findings about unused parts of
+  an API are capped at `unused_severity` and marked in reports. Indexes hold
+  counts of templated operations, parameter names and field paths only.
 - Releases: `[policy] versioning = "semver"` checks declared versions
   against the bump the changes need (with SemVer's rules below 1.0.0) and
   fails on too small an increase; `--output changelog` writes release notes;

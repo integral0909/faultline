@@ -97,6 +97,7 @@ fn finding(report: &Report<'_>, e: &Evaluated) -> Value {
         "original_severity": e.original_severity.map(Severity::as_str),
         "failing": e.failing,
         "status": status,
+        "unused": e.unused,
         "message": f.message,
         "path": f.change.path.to_string(),
         "polarity": f.change.polarity.as_str(),

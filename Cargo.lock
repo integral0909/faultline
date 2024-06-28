@@ -460,6 +460,7 @@ dependencies = [
  "faultline-report",
  "faultline-rules",
  "faultline-source",
+ "faultline-usage",
  "serde_json",
  "tempfile",
 ]
@@ -615,6 +616,19 @@ dependencies = [
  "faultline-source",
  "jsonschema",
  "proptest",
+ "serde_json",
+]
+
+[[package]]
+name = "faultline-usage"
+version = "0.1.0"
+dependencies = [
+ "faultline-graphql",
+ "faultline-ir",
+ "faultline-policy",
+ "faultline-rules",
+ "faultline-source",
+ "serde",
  "serde_json",
 ]
 

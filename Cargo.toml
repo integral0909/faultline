@@ -30,6 +30,7 @@ faultline-regex = { path = "crates/faultline-regex", version = "0.1.0" }
 faultline-report = { path = "crates/faultline-report", version = "0.1.0" }
 faultline-rules = { path = "crates/faultline-rules", version = "0.1.0" }
 faultline-subsume = { path = "crates/faultline-subsume", version = "0.1.0" }
+faultline-usage = { path = "crates/faultline-usage", version = "0.1.0" }
 faultline-vcs = { path = "crates/faultline-vcs", version = "0.1.0" }
 
 clap = { version = "4.5", features = ["derive"] }

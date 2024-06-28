@@ -176,6 +176,9 @@ fn finding(report: &Report<'_>, evaluated: &Evaluated) -> String {
         };
         diagnostic = diagnostic.with_note(format!("example: {} {effect}", short_witness(witness)));
     }
+    if evaluated.unused {
+        diagnostic = diagnostic.with_note("the usage index shows no client using this");
+    }
     if let Some(original) = evaluated.original_severity {
         diagnostic = diagnostic.with_note(format!(
             "severity overridden from {original} by configuration"

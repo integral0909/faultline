@@ -26,6 +26,7 @@ faultline-policy.workspace = true
 faultline-report.workspace = true
 faultline-rules.workspace = true
 faultline-source.workspace = true
+faultline-usage.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true
