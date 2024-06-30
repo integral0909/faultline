@@ -11,10 +11,53 @@
 
 use std::collections::HashSet;
 
-use faultline_ir::{Api, IrPath, Literal, Polarity, TypeId};
+use std::rc::Rc;
+
+use faultline_ir::{Api, IrPath, Literal, Polarity, Segment, TypeId};
 use faultline_subsume::{Checker, Membership, Reason, Sampler, Validator, Verdict};
 
 use crate::change::{Change, ChangeKind, Effect, Evidence, Facet};
+
+/// A position during the walk: segments shared with the parent, so going
+/// one level deeper is constant time however deep the walk is. Converted
+/// to an [`IrPath`] only when a change is recorded there.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct Trail(Option<Rc<Link>>);
+
+#[derive(Debug)]
+struct Link {
+    parent: Trail,
+    segment: Segment,
+    depth: usize,
+}
+
+impl Trail {
+    pub(crate) fn new() -> Self {
+        Self(None)
+    }
+
+    pub(crate) fn join(&self, segment: Segment) -> Trail {
+        Trail(Some(Rc::new(Link {
+            parent: self.clone(),
+            segment,
+            depth: self.depth() + 1,
+        })))
+    }
+
+    pub(crate) fn depth(&self) -> usize {
+        self.0.as_ref().map_or(0, |link| link.depth)
+    }
+
+    pub(crate) fn to_path(&self) -> IrPath {
+        let mut segments = Vec::with_capacity(self.depth());
+        let mut at = self;
+        while let Some(link) = &at.0 {
+            segments.push(link.segment.clone());
+            at = &link.parent;
+        }
+        segments.into_iter().rev().collect()
+    }
+}
 
 /// Which way a local difference can move the value set.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -79,7 +122,7 @@ impl<'a> Differ<'a> {
     pub(crate) fn surface(
         &mut self,
         kind: ChangeKind,
-        path: IrPath,
+        path: &Trail,
         polarity: Polarity,
         spans: (
             Option<faultline_source::Span>,
@@ -88,7 +131,7 @@ impl<'a> Differ<'a> {
     ) {
         self.push(Change {
             kind,
-            path,
+            path: path.to_path(),
             polarity,
             old_span: spans.0,
             new_span: spans.1,
@@ -102,7 +145,7 @@ impl<'a> Differ<'a> {
         &mut self,
         old: TypeId,
         new: TypeId,
-        path: &IrPath,
+        path: &Trail,
         polarity: Polarity,
         local: Vec<(ChangeKind, Direction)>,
     ) {
@@ -126,6 +169,7 @@ impl<'a> Differ<'a> {
             self.new.types.get(new).origin,
         );
 
+        let path = path.to_path();
         for (kind, direction) in local {
             let lost = if direction == Direction::Widening {
                 Evidence::None

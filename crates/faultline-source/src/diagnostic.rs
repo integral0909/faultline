@@ -205,6 +205,21 @@ impl Diagnostics {
         self.items.sort_by(Diagnostic::sort_key_cmp);
     }
 
+    /// Sorts by file name (as registered in `sources`) and position, so the
+    /// order does not depend on the order files were loaded in, which is
+    /// not fixed when versions load in parallel.
+    pub fn sort_in(&mut self, sources: &crate::SourceMap) {
+        let name = |d: &Diagnostic| {
+            d.primary_span().and_then(|s| {
+                sources
+                    .get(s.source())
+                    .map(|f| (f.name().to_string(), s.start(), s.end()))
+            })
+        };
+        self.items
+            .sort_by(|a, b| name(a).cmp(&name(b)).then_with(|| a.sort_key_cmp(b)));
+    }
+
     pub fn into_vec(self) -> Vec<Diagnostic> {
         self.items
     }

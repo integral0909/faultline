@@ -17,7 +17,9 @@ mod differ;
 mod surfaces;
 mod types;
 
-use faultline_ir::{Api, IrPath};
+use faultline_ir::Api;
+
+use crate::differ::Trail;
 
 pub use change::{Change, ChangeKind, Effect, Evidence, Facet};
 
@@ -53,7 +55,7 @@ impl<'a> IntoIterator for &'a ChangeSet {
 /// Compares `old` with `new`.
 pub fn diff(old: &Api, new: &Api) -> ChangeSet {
     let mut differ = differ::Differ::new(old, new);
-    differ.operations(&old.operations, &new.operations, &IrPath::new(), false);
+    differ.operations(&old.operations, &new.operations, &Trail::new(), false);
     differ.webhooks();
     differ.schemas();
     differ.unreachable_definitions();

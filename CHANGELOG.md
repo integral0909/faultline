@@ -100,6 +100,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and shortest-difference search with length bounds. `pattern` is now
   validated exactly, sampled, and compared as a regular language, with
   witnesses. Property-tested against the `regex` crate and fuzzed.
+- Performance: comparisons scale linearly with API size (8,000 operations in
+  about 0.6 s); the two versions of an API, and the APIs of `faultline check`,
+  are processed in parallel with deterministic output; comparison and
+  inclusion recursion are depth-bounded; column lookups in minified
+  documents are constant time. `cargo bench -p faultline` measures the
+  pipeline on generated descriptions.
 - `faultline-usage` and `faultline usage import`: usage indexes from access
   logs (Common/Combined Log Format or JSON lines, matched to path templates)
   and from GraphQL client documents (fields and arguments selected, with

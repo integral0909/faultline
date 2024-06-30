@@ -3,19 +3,19 @@
 //! [`Api::roots`](faultline_ir::Api::roots).
 
 use faultline_ir::{
-    Content, IrPath, Operation, Parameter, Polarity, RequestBody, Response, Role,
-    SecurityRequirement, Segment, Serialization, TypeId,
+    Content, Operation, Parameter, Polarity, RequestBody, Response, Role, SecurityRequirement,
+    Segment, Serialization, TypeId,
 };
 
 use crate::change::ChangeKind;
-use crate::differ::Differ;
+use crate::differ::{Differ, Trail};
 
 impl<'a> Differ<'a> {
     pub(crate) fn operations(
         &mut self,
         old: &'a [Operation],
         new: &'a [Operation],
-        prefix: &IrPath,
+        prefix: &Trail,
         callback: bool,
     ) {
         let (request, response) = if callback {
@@ -23,42 +23,53 @@ impl<'a> Differ<'a> {
         } else {
             (Polarity::IN, Polarity::OUT)
         };
-        let added: Vec<&'a Operation> = new
+        // Identities are formatted once: large APIs have thousands.
+        let old_ids: Vec<String> = old.iter().map(|op| op.key.identity()).collect();
+        let new_by_id: std::collections::HashMap<String, &'a Operation> =
+            new.iter().map(|op| (op.key.identity(), op)).collect();
+        let old_set: std::collections::HashSet<&str> = old_ids.iter().map(String::as_str).collect();
+        let added: Vec<(String, &'a Operation)> = new
             .iter()
-            .filter(|op| !old.iter().any(|o| o.key.identity() == op.key.identity()))
+            .map(|op| (op.key.identity(), op))
+            .filter(|(id, _)| !old_set.contains(id.as_str()))
             .collect();
         let mut moved_to: Vec<bool> = vec![false; added.len()];
-        for op in old {
-            let path = prefix.join(Segment::Operation(op.key.identity()));
-            if let Some(counterpart) = new.iter().find(|n| n.key.identity() == op.key.identity()) {
+        for (op, id) in old.iter().zip(old_ids) {
+            let path = prefix.join(Segment::Operation(id.clone()));
+            if let Some(&counterpart) = new_by_id.get(&id) {
                 self.operation(op, counterpart, &path, request, response, callback);
                 continue;
             }
             // An operation removed and one added with the same shape is one
             // operation that moved.
-            let destination = added.iter().enumerate().position(|(i, candidate)| {
+            let destination = added.iter().enumerate().position(|(i, (_, candidate))| {
                 !moved_to[i] && self.same_shape(op, candidate, request, response, callback)
             });
             match destination {
                 Some(i) => {
                     moved_to[i] = true;
                     let kind = ChangeKind::OperationMoved {
-                        to: added[i].key.identity(),
+                        to: added[i].0.clone(),
                     };
-                    self.surface(kind, path, request, (op.origin, added[i].origin));
+                    self.surface(kind, &path, request, (op.origin, added[i].1.origin));
                 }
                 None => self.surface(
                     ChangeKind::OperationRemoved,
-                    path,
+                    &path,
                     request,
                     (op.origin, None),
                 ),
             }
         }
-        for (op, moved) in added.iter().zip(moved_to) {
+        for ((id, op), moved) in added.into_iter().zip(moved_to) {
             if !moved {
-                let path = prefix.join(Segment::Operation(op.key.identity()));
-                self.surface(ChangeKind::OperationAdded, path, request, (None, op.origin));
+                let path = prefix.join(Segment::Operation(id));
+                self.surface(
+                    ChangeKind::OperationAdded,
+                    &path,
+                    request,
+                    (None, op.origin),
+                );
             }
         }
     }
@@ -95,7 +106,7 @@ impl<'a> Differ<'a> {
             return false;
         }
         let mut probe = Differ::new(self.old, self.new);
-        probe.operation(old, new, &IrPath::new(), request, response, callback);
+        probe.operation(old, new, &Trail::new(), request, response, callback);
         probe
             .changes
             .iter()
@@ -106,7 +117,7 @@ impl<'a> Differ<'a> {
         &mut self,
         old: &'a Operation,
         new: &'a Operation,
-        path: &IrPath,
+        path: &Trail,
         request: Polarity,
         response: Polarity,
         callback: bool,
@@ -117,13 +128,13 @@ impl<'a> Differ<'a> {
                 old: old.operation_id.clone(),
                 new: new.operation_id.clone(),
             };
-            self.surface(kind, path.clone(), request, spans);
+            self.surface(kind, path, request, spans);
         }
         if old.meta.deprecated != new.meta.deprecated {
             let kind = ChangeKind::DeprecatedChanged {
                 deprecated: new.meta.deprecated,
             };
-            self.surface(kind, path.clone(), request, spans);
+            self.surface(kind, path, request, spans);
         }
         self.security(
             old.security.as_deref(),
@@ -144,7 +155,7 @@ impl<'a> Differ<'a> {
                     side: side.to_owned(),
                     streaming: is,
                 };
-                self.surface(kind, path.clone(), polarity, spans);
+                self.surface(kind, path, polarity, spans);
             }
         }
         self.parameters(&old.parameters, &new.parameters, path, request);
@@ -166,7 +177,7 @@ impl<'a> Differ<'a> {
                     ChangeKind::CallbackRemoved {
                         name: cb.name.clone(),
                     },
-                    at,
+                    &at,
                     request,
                     (cb.origin, None),
                 ),
@@ -179,7 +190,7 @@ impl<'a> Differ<'a> {
                     ChangeKind::CallbackAdded {
                         name: cb.name.clone(),
                     },
-                    at,
+                    &at,
                     request,
                     (None, cb.origin),
                 );
@@ -191,7 +202,7 @@ impl<'a> Differ<'a> {
         &mut self,
         old: &'a [Parameter],
         new: &'a [Parameter],
-        path: &IrPath,
+        path: &Trail,
         polarity: Polarity,
     ) {
         let key = |p: &Parameter| (p.location, p.identity_name());
@@ -204,7 +215,7 @@ impl<'a> Differ<'a> {
                         name: p.name.clone(),
                         required: n.required,
                     };
-                    self.surface(kind, at.clone(), polarity, (p.origin, n.origin));
+                    self.surface(kind, &at, polarity, (p.origin, n.origin));
                 }
                 if let (Some(a), Some(b)) = (&p.serialization, &n.serialization)
                     && a != b
@@ -215,7 +226,7 @@ impl<'a> Differ<'a> {
                         old: describe_serialization(a),
                         new: describe_serialization(b),
                     };
-                    self.surface(kind, at.clone(), polarity, (p.origin, n.origin));
+                    self.surface(kind, &at, polarity, (p.origin, n.origin));
                 }
                 self.compare(p.ty, n.ty, &at, polarity);
             } else {
@@ -224,7 +235,7 @@ impl<'a> Differ<'a> {
                     name: p.name.clone(),
                     required: p.required,
                 };
-                self.surface(kind, at, polarity, (p.origin, None));
+                self.surface(kind, &at, polarity, (p.origin, None));
             }
         }
         for n in new {
@@ -235,7 +246,7 @@ impl<'a> Differ<'a> {
                     required: n.required,
                 };
                 let at = path.join(Segment::Parameter(n.location, n.identity_name()));
-                self.surface(kind, at, polarity, (None, n.origin));
+                self.surface(kind, &at, polarity, (None, n.origin));
             }
         }
     }
@@ -247,7 +258,7 @@ impl<'a> Differ<'a> {
         &mut self,
         old: Option<&[SecurityRequirement]>,
         new: Option<&[SecurityRequirement]>,
-        path: &IrPath,
+        path: &Trail,
         polarity: Polarity,
     ) {
         let (Some(old), Some(new)) = (old, new) else {
@@ -265,13 +276,13 @@ impl<'a> Differ<'a> {
             let kind = ChangeKind::SecurityRequirementRemoved {
                 requirement: requirement.clone(),
             };
-            self.surface(kind, path.clone(), polarity, (None, None));
+            self.surface(kind, path, polarity, (None, None));
         }
         for requirement in new.iter().filter(|r| !old.contains(r)) {
             let kind = ChangeKind::SecurityRequirementAdded {
                 requirement: requirement.clone(),
             };
-            self.surface(kind, path.clone(), polarity, (None, None));
+            self.surface(kind, path, polarity, (None, None));
         }
     }
 
@@ -279,14 +290,14 @@ impl<'a> Differ<'a> {
         &mut self,
         old: Option<&'a RequestBody>,
         new: Option<&'a RequestBody>,
-        path: &IrPath,
+        path: &Trail,
         polarity: Polarity,
     ) {
         match (old, new) {
             (None, None) => {}
             (Some(o), None) => self.surface(
                 ChangeKind::RequestBodyRemoved,
-                path.clone(),
+                path,
                 polarity,
                 (o.origin, None),
             ),
@@ -294,7 +305,7 @@ impl<'a> Differ<'a> {
                 ChangeKind::RequestBodyAdded {
                     required: n.required,
                 },
-                path.clone(),
+                &path.clone(),
                 polarity,
                 (None, n.origin),
             ),
@@ -304,7 +315,7 @@ impl<'a> Differ<'a> {
                         ChangeKind::RequestBodyRequiredChanged {
                             required: n.required,
                         },
-                        path.clone(),
+                        &path.clone(),
                         polarity,
                         (o.origin, n.origin),
                     );
@@ -318,7 +329,7 @@ impl<'a> Differ<'a> {
         &mut self,
         old: &'a [Response],
         new: &'a [Response],
-        path: &IrPath,
+        path: &Trail,
         polarity: Polarity,
     ) {
         for r in old {
@@ -326,7 +337,7 @@ impl<'a> Differ<'a> {
             let Some(n) = new.iter().find(|n| n.status == r.status) else {
                 self.surface(
                     ChangeKind::ResponseRemoved { status: r.status },
-                    at,
+                    &at,
                     polarity,
                     (r.origin, None),
                 );
@@ -345,7 +356,7 @@ impl<'a> Differ<'a> {
                             name: h.name.clone(),
                             required: nh.required,
                         };
-                        self.surface(kind, header_path.clone(), polarity, (h.origin, nh.origin));
+                        self.surface(kind, &header_path, polarity, (h.origin, nh.origin));
                     }
                     self.compare(h.ty, nh.ty, &header_path, polarity);
                 } else {
@@ -353,7 +364,7 @@ impl<'a> Differ<'a> {
                         name: h.name.clone(),
                         required: h.required,
                     };
-                    self.surface(kind, header_path, polarity, (h.origin, None));
+                    self.surface(kind, &header_path, polarity, (h.origin, None));
                 }
             }
             for nh in &n.headers {
@@ -367,7 +378,7 @@ impl<'a> Differ<'a> {
                         required: nh.required,
                     };
                     let header_path = at.join(Segment::Header(nh.name.to_ascii_lowercase()));
-                    self.surface(kind, header_path, polarity, (None, nh.origin));
+                    self.surface(kind, &header_path, polarity, (None, nh.origin));
                 }
             }
             self.contents(&r.content, &n.content, &at, polarity, Segment::Body);
@@ -377,7 +388,7 @@ impl<'a> Differ<'a> {
                 let at = path.join(Segment::Response(n.status.to_string()));
                 self.surface(
                     ChangeKind::ResponseAdded { status: n.status },
-                    at,
+                    &at,
                     polarity,
                     (None, n.origin),
                 );
@@ -389,7 +400,7 @@ impl<'a> Differ<'a> {
         &mut self,
         old: &'a [Content],
         new: &'a [Content],
-        path: &IrPath,
+        path: &Trail,
         polarity: Polarity,
         segment: fn(String) -> Segment,
     ) {
@@ -401,7 +412,7 @@ impl<'a> Differ<'a> {
                     ChangeKind::MediaTypeRemoved {
                         media_type: c.media_type.clone(),
                     },
-                    at,
+                    &at,
                     polarity,
                     (c.origin, None),
                 ),
@@ -413,7 +424,7 @@ impl<'a> Differ<'a> {
                 let kind = ChangeKind::MediaTypeAdded {
                     media_type: n.media_type.clone(),
                 };
-                self.surface(kind, at, polarity, (None, n.origin));
+                self.surface(kind, &at, polarity, (None, n.origin));
             }
         }
     }
@@ -421,23 +432,23 @@ impl<'a> Differ<'a> {
     pub(crate) fn webhooks(&mut self) {
         let (old, new) = (self.old, self.new);
         for hook in &old.webhooks {
-            let at = IrPath::new().join(Segment::Webhook(hook.name.clone()));
+            let at = Trail::new().join(Segment::Webhook(hook.name.clone()));
             if let Some(counterpart) = new.webhooks.iter().find(|h| h.name == hook.name) {
                 self.operations(&hook.operations, &counterpart.operations, &at, true);
             } else {
                 let kind = ChangeKind::WebhookRemoved {
                     name: hook.name.clone(),
                 };
-                self.surface(kind, at, Polarity::OUT, (hook.origin, None));
+                self.surface(kind, &at, Polarity::OUT, (hook.origin, None));
             }
         }
         for hook in &new.webhooks {
             if !old.webhooks.iter().any(|h| h.name == hook.name) {
-                let at = IrPath::new().join(Segment::Webhook(hook.name.clone()));
+                let at = Trail::new().join(Segment::Webhook(hook.name.clone()));
                 let kind = ChangeKind::WebhookAdded {
                     name: hook.name.clone(),
                 };
-                self.surface(kind, at, Polarity::OUT, (None, hook.origin));
+                self.surface(kind, &at, Polarity::OUT, (None, hook.origin));
             }
         }
     }
@@ -445,7 +456,7 @@ impl<'a> Differ<'a> {
     pub(crate) fn schemas(&mut self) {
         let (old, new) = (self.old, self.new);
         for s in &old.schemas {
-            let path = IrPath::new().join(Segment::Schema(s.name.clone()));
+            let path = Trail::new().join(Segment::Schema(s.name.clone()));
             let polarity = role_polarity(s.role);
             match new.schemas.iter().find(|n| n.name == s.name) {
                 Some(n) => self.compare(s.ty, n.ty, &path, polarity.union(role_polarity(n.role))),
@@ -453,7 +464,7 @@ impl<'a> Differ<'a> {
                     ChangeKind::SchemaRemoved {
                         name: s.name.clone(),
                     },
-                    path,
+                    &path,
                     polarity,
                     (s.origin, None),
                 ),
@@ -461,11 +472,11 @@ impl<'a> Differ<'a> {
         }
         for n in &new.schemas {
             if !old.schemas.iter().any(|s| s.name == n.name) {
-                let path = IrPath::new().join(Segment::Schema(n.name.clone()));
+                let path = Trail::new().join(Segment::Schema(n.name.clone()));
                 let kind = ChangeKind::SchemaAdded {
                     name: n.name.clone(),
                 };
-                self.surface(kind, path, role_polarity(n.role), (None, n.origin));
+                self.surface(kind, &path, role_polarity(n.role), (None, n.origin));
             }
         }
     }
@@ -481,7 +492,7 @@ impl<'a> Differ<'a> {
             .filter_map(|(name, &ty)| new.named.get(name).map(|&n| (name.to_string(), ty, n)))
             .collect();
         for (name, o, n) in pending {
-            let path = IrPath::new().join(Segment::Type(name));
+            let path = Trail::new().join(Segment::Type(name));
             self.compare(o, n, &path, Polarity::NONE);
         }
     }

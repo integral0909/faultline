@@ -1,6 +1,7 @@
 use std::fmt;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use faultline_doc::loader::{FsLoader, LoadError, Loader, SchemeRouter, workspace_uri};
@@ -149,54 +150,91 @@ impl Engine {
 
     /// Compares every target. Targets whose versions cannot be lowered
     /// without errors contribute diagnostics and no findings.
+    ///
+    /// Targets are compared on worker threads, as many as there are cores,
+    /// and the two versions of each target are lowered in parallel. Results
+    /// are assembled in target order and diagnostics sorted by file name and
+    /// position, so the output does not depend on scheduling.
     pub fn compare(&self, targets: &[Target]) -> Comparison {
         let mut comparison = Comparison::default();
-        for target in targets {
-            let old = self.lower(
-                &target.old,
-                &target.name,
-                target.format,
-                target.role,
-                &comparison.sources,
-            );
-            if old.missing_entry && target.may_be_new {
-                comparison.diagnostics.push(
-                    Diagnostic::note(format!(
-                        "{}: {} does not exist in {}; the API is new, so there is nothing to compare",
-                        target.name,
-                        target.old.entry.display(),
-                        describe(&target.old)
-                    ))
-                    .with_code(codes::NEW_API),
-                );
-                continue;
+        let workers = std::thread::available_parallelism()
+            .map_or(1, std::num::NonZeroUsize::get)
+            .min(targets.len())
+            .max(1);
+        let next = AtomicUsize::new(0);
+        let outcomes: Vec<Mutex<Option<Outcome>>> =
+            targets.iter().map(|_| Mutex::new(None)).collect();
+        let sources = &comparison.sources;
+        std::thread::scope(|scope| {
+            for _ in 0..workers {
+                let (next, outcomes) = (&next, &outcomes);
+                spawn(scope, move || {
+                    loop {
+                        let i = next.fetch_add(1, Ordering::Relaxed);
+                        let Some(target) = targets.get(i) else {
+                            break;
+                        };
+                        let outcome = self.compare_one(target, sources);
+                        *outcomes[i].lock().expect("no worker holds the lock") = Some(outcome);
+                    }
+                });
             }
-            let new = self.lower(
-                &target.new,
-                &target.name,
-                target.format,
-                target.role,
-                &comparison.sources,
-            );
-            let clean = !old.diagnostics.has_errors() && !new.diagnostics.has_errors();
-            comparison.diagnostics.extend(old.diagnostics);
-            comparison.diagnostics.extend(new.diagnostics);
-            let (Some(old), Some(new), true) = (old.api, new.api, clean) else {
-                continue;
-            };
-            let changes = faultline_diff::diff(&old, &new);
-            let findings: Vec<Finding> =
-                changes.iter().map(|c| classify(&target.name, c)).collect();
-            comparison.apis.push(ApiSummary {
-                name: target.name.clone(),
-                old_version: old.version.clone(),
-                new_version: new.version.clone(),
-                bump: suggest_bump(&findings),
-            });
-            comparison.findings.extend(findings);
+        });
+        for outcome in outcomes {
+            let outcome = outcome
+                .into_inner()
+                .expect("workers finished")
+                .expect("every target was compared");
+            comparison.diagnostics.extend(outcome.diagnostics);
+            if let Some(summary) = outcome.summary {
+                comparison.apis.push(summary);
+            }
+            comparison.findings.extend(outcome.findings);
         }
-        comparison.diagnostics.sort();
+        comparison.diagnostics.sort_in(&comparison.sources);
         comparison
+    }
+
+    fn compare_one(&self, target: &Target, sources: &SourceMap) -> Outcome {
+        let lower =
+            |source: &Source| self.lower(source, &target.name, target.format, target.role, sources);
+        let (old, new) = std::thread::scope(|scope| {
+            let new = spawn(scope, || lower(&target.new));
+            let old = lower(&target.old);
+            (
+                old,
+                new.join()
+                    .unwrap_or_else(|panic| std::panic::resume_unwind(panic)),
+            )
+        });
+        let mut outcome = Outcome::default();
+        if old.missing_entry && target.may_be_new {
+            outcome.diagnostics.push(
+                Diagnostic::note(format!(
+                    "{}: {} does not exist in {}; the API is new, so there is nothing to compare",
+                    target.name,
+                    target.old.entry.display(),
+                    describe(&target.old)
+                ))
+                .with_code(codes::NEW_API),
+            );
+            return outcome;
+        }
+        let clean = !old.diagnostics.has_errors() && !new.diagnostics.has_errors();
+        outcome.diagnostics.extend(old.diagnostics);
+        outcome.diagnostics.extend(new.diagnostics);
+        let (Some(old), Some(new), true) = (old.api, new.api, clean) else {
+            return outcome;
+        };
+        let changes = faultline_diff::diff(&old, &new);
+        outcome.findings = changes.iter().map(|c| classify(&target.name, c)).collect();
+        outcome.summary = Some(ApiSummary {
+            name: target.name.clone(),
+            old_version: old.version.clone(),
+            new_version: new.version.clone(),
+            bump: suggest_bump(&outcome.findings),
+        });
+        outcome
     }
 
     /// Lowers one version of an API, registering its files in `sources`.
@@ -392,6 +430,29 @@ pub fn network_policy(config: &NetworkConfig) -> Result<Option<NetworkPolicy>, S
             .map_or(defaults.timeout, Duration::from_secs),
         max_redirects: config.max_redirects.unwrap_or(defaults.max_redirects),
     }))
+}
+
+/// What comparing one target produced.
+#[derive(Default)]
+struct Outcome {
+    diagnostics: Diagnostics,
+    summary: Option<ApiSummary>,
+    findings: Vec<Finding>,
+}
+
+/// Stack size for worker threads: parsing and comparison recurse, within
+/// their depth limits, deeper than a default thread stack allows for.
+const WORKER_STACK: usize = 32 * 1024 * 1024;
+
+/// Spawns `f` on a scoped thread with a [`WORKER_STACK`]-sized stack.
+fn spawn<'scope, 'env, T: Send + 'scope>(
+    scope: &'scope std::thread::Scope<'scope, 'env>,
+    f: impl FnOnce() -> T + Send + 'scope,
+) -> std::thread::ScopedJoinHandle<'scope, T> {
+    std::thread::Builder::new()
+        .stack_size(WORKER_STACK)
+        .spawn_scoped(scope, f)
+        .expect("threads can be spawned")
 }
 
 /// Why a source could not be opened.

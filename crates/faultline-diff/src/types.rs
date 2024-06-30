@@ -6,22 +6,31 @@
 //! which terminates the walk on recursive types.
 
 use faultline_ir::{
-    Access, ArrayType, Bound, EnumType, Field, IrPath, Meta, NumericType, ObjectType, Polarity,
-    Retired, Segment, StringType, TypeId, TypeKind, TypeNode, UnionType,
+    Access, ArrayType, Bound, EnumType, Field, Meta, NumericType, ObjectType, Polarity, Retired,
+    Segment, StringType, TypeId, TypeKind, TypeNode, UnionType,
 };
 
 use crate::align::align_variants;
 use crate::change::{Change, ChangeKind, Facet};
-use crate::differ::{Differ, Direction};
+use crate::differ::{Differ, Direction, Trail};
 
 type Local = Vec<(ChangeKind, Direction)>;
+
+/// Positions deeper than this are not walked from the root that reached
+/// them.
+pub(crate) const MAX_WALK_DEPTH: usize = 256;
 
 /// Changes to a node's shape that carry no value-level evidence.
 type Shape = Vec<ChangeKind>;
 
 impl Differ<'_> {
     /// Compares the type `old` with `new` at `path`, recording changes.
-    pub(crate) fn compare(&mut self, old: TypeId, new: TypeId, path: &IrPath, polarity: Polarity) {
+    pub(crate) fn compare(&mut self, old: TypeId, new: TypeId, path: &Trail, polarity: Polarity) {
+        // Bounded recursion: named types beyond the limit are compared on
+        // their own afterwards, from a short path.
+        if path.depth() > MAX_WALK_DEPTH {
+            return;
+        }
         let old = self.old.types.resolve(old);
         let new = self.new.types.resolve(new);
         if !self.first_visit(old, new, polarity) {
@@ -105,11 +114,11 @@ impl Differ<'_> {
         }
         self.emit_local(old, new, path, polarity, local);
         for kind in shape {
-            self.surface(kind, path.clone(), polarity, (on.origin, nn.origin));
+            self.surface(kind, path, polarity, (on.origin, nn.origin));
         }
     }
 
-    fn meta_changes(&mut self, on: &TypeNode, nn: &TypeNode, path: &IrPath, polarity: Polarity) {
+    fn meta_changes(&mut self, on: &TypeNode, nn: &TypeNode, path: &Trail, polarity: Polarity) {
         let spans = (on.origin, nn.origin);
         let (a, b): (&Meta, &Meta) = (&on.meta, &nn.meta);
         if a.deprecated != b.deprecated {
@@ -117,7 +126,7 @@ impl Differ<'_> {
                 ChangeKind::DeprecatedChanged {
                     deprecated: b.deprecated,
                 },
-                path.clone(),
+                &path.clone(),
                 polarity,
                 spans,
             );
@@ -128,7 +137,7 @@ impl Differ<'_> {
                     old: access_name(a.access).into(),
                     new: access_name(b.access).into(),
                 },
-                path.clone(),
+                &path.clone(),
                 polarity,
                 spans,
             );
@@ -139,7 +148,7 @@ impl Differ<'_> {
                     old: a.default.clone(),
                     new: b.default.clone(),
                 },
-                path.clone(),
+                &path.clone(),
                 polarity,
                 spans,
             );
@@ -150,7 +159,7 @@ impl Differ<'_> {
         &mut self,
         a: &ObjectType,
         b: &ObjectType,
-        path: &IrPath,
+        path: &Trail,
         polarity: Polarity,
         local: &mut Local,
     ) {
@@ -191,13 +200,13 @@ impl Differ<'_> {
             let segment = Segment::PatternProperty(pattern.clone());
             match b.pattern_properties.iter().find(|(p, _)| p == pattern) {
                 Some((_, nt)) => self.compare(*ot, *nt, &path.join(segment), polarity),
-                None => self.constraint(path.join(segment), polarity),
+                None => self.constraint(&path.join(segment), polarity),
             }
         }
         for (pattern, _) in &b.pattern_properties {
             if !a.pattern_properties.iter().any(|(p, _)| p == pattern) {
                 self.constraint(
-                    path.join(Segment::PatternProperty(pattern.clone())),
+                    &path.join(Segment::PatternProperty(pattern.clone())),
                     polarity,
                 );
             }
@@ -211,7 +220,7 @@ impl Differ<'_> {
         match (a.property_names, b.property_names) {
             (Some(x), Some(y)) => self.compare(x, y, &path.join(Segment::PropertyNames), polarity),
             (None, None) => {}
-            _ => self.constraint(path.join(Segment::PropertyNames), polarity),
+            _ => self.constraint(&path.join(Segment::PropertyNames), polarity),
         }
         bound_u64(
             Facet::MinProperties,
@@ -241,7 +250,7 @@ impl Differ<'_> {
         b: &ObjectType,
         of: &Field,
         nf: &Field,
-        path: &IrPath,
+        path: &Trail,
         polarity: Polarity,
         local: &mut Local,
     ) {
@@ -254,7 +263,7 @@ impl Differ<'_> {
                 new: name.clone(),
                 tag: nf.tag,
             };
-            self.surface(kind, at.clone(), polarity, spans);
+            self.surface(kind, &at, polarity, spans);
         }
         if let (Some(old), Some(new)) = (of.tag, nf.tag)
             && old != new
@@ -264,7 +273,7 @@ impl Differ<'_> {
                 old,
                 new,
             };
-            self.surface(kind, at.clone(), polarity, spans);
+            self.surface(kind, &at, polarity, spans);
         }
         let removed: Vec<String> = of
             .aliases
@@ -284,7 +293,7 @@ impl Differ<'_> {
                 removed,
                 added,
             };
-            self.surface(kind, at.clone(), polarity, spans);
+            self.surface(kind, &at, polarity, spans);
         }
         // Declarations on the field itself, as opposed to its (possibly
         // shared) type: a deprecated Protobuf field, a proto2 default.
@@ -292,14 +301,14 @@ impl Differ<'_> {
             let kind = ChangeKind::DeprecatedChanged {
                 deprecated: nf.meta.deprecated,
             };
-            self.surface(kind, at.clone(), polarity, spans);
+            self.surface(kind, &at, polarity, spans);
         }
         if of.meta.default != nf.meta.default {
             let kind = ChangeKind::DefaultChanged {
                 old: of.meta.default.clone(),
                 new: nf.meta.default.clone(),
             };
-            self.surface(kind, at.clone(), polarity, spans);
+            self.surface(kind, &at, polarity, spans);
         }
         if of.required != nf.required {
             let direction = if nf.required {
@@ -329,7 +338,7 @@ impl Differ<'_> {
         match (of.arguments, nf.arguments) {
             (Some(oa), Some(na)) => self.compare(oa, na, &args_at, polarity.flip()),
             (None, None) => {}
-            _ => self.constraint(args_at, polarity.flip()),
+            _ => self.constraint(&args_at, polarity.flip()),
         }
     }
 
@@ -337,7 +346,7 @@ impl Differ<'_> {
         &mut self,
         a: &ArrayType,
         b: &ArrayType,
-        path: &IrPath,
+        path: &Trail,
         polarity: Polarity,
         local: &mut Local,
     ) {
@@ -393,7 +402,7 @@ impl Differ<'_> {
         &mut self,
         a: &UnionType,
         b: &UnionType,
-        path: &IrPath,
+        path: &Trail,
         polarity: Polarity,
         local: &mut Local,
     ) {
@@ -412,7 +421,7 @@ impl Differ<'_> {
 
     /// Compares discriminator properties and value mappings. Mapping targets
     /// are compared by the name of the schema they select.
-    fn discriminators(&mut self, a: &UnionType, b: &UnionType, path: &IrPath, polarity: Polarity) {
+    fn discriminators(&mut self, a: &UnionType, b: &UnionType, path: &Trail, polarity: Polarity) {
         let (old_api, new_api) = (self.old, self.new);
         let property = |u: &UnionType| u.discriminator.as_ref().map(|d| d.property.clone());
         if property(a) != property(b) {
@@ -420,7 +429,7 @@ impl Differ<'_> {
                 old: property(a),
                 new: property(b),
             };
-            self.surface(kind, path.clone(), polarity, (None, None));
+            self.surface(kind, path, polarity, (None, None));
             return;
         }
         let (Some(da), Some(db)) = (&a.discriminator, &b.discriminator) else {
@@ -450,14 +459,14 @@ impl Differ<'_> {
                     }
                 }
             };
-            self.surface(kind, path.clone(), polarity, (None, None));
+            self.surface(kind, path, polarity, (None, None));
         }
         for (value, _) in &db.mapping {
             if !da.mapping.iter().any(|(v, _)| v == value) {
                 let kind = ChangeKind::DiscriminatorValueAdded {
                     value: value.clone(),
                 };
-                self.surface(kind, path.clone(), polarity, (None, None));
+                self.surface(kind, path, polarity, (None, None));
             }
         }
     }
@@ -466,7 +475,7 @@ impl Differ<'_> {
         &mut self,
         a: &[TypeId],
         b: &[TypeId],
-        path: &IrPath,
+        path: &Trail,
         polarity: Polarity,
         local: &mut Local,
     ) {
@@ -492,10 +501,10 @@ impl Differ<'_> {
         }
     }
 
-    fn constraint(&mut self, path: IrPath, polarity: Polarity) {
+    fn constraint(&mut self, path: &Trail, polarity: Polarity) {
         self.push(Change {
             kind: ChangeKind::ConstraintChanged,
-            path,
+            path: path.to_path(),
             polarity,
             old_span: None,
             new_span: None,

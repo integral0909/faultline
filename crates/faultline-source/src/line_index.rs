@@ -21,6 +21,28 @@ pub struct LineIndex {
     /// Byte offset of the first character of each line. Always starts with 0.
     line_starts: Vec<u32>,
     len: u32,
+    /// Column counts at intervals within long lines, so that columns in
+    /// minified documents (one line of megabytes) are found without scanning
+    /// from the start of the line. Sorted by offset.
+    checkpoints: Vec<Checkpoint>,
+}
+
+/// Columns, in characters and UTF-16 units, at a byte offset within its
+/// line.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Checkpoint {
+    offset: u32,
+    chars: u32,
+    utf16: u32,
+}
+
+/// Lines longer than this get checkpoints this far apart.
+const CHECKPOINT_INTERVAL: usize = 4096;
+
+#[derive(Clone, Copy)]
+enum Unit {
+    Chars,
+    Utf16,
 }
 
 impl LineIndex {
@@ -41,9 +63,11 @@ impl LineIndex {
             }
             i += 1;
         }
+        let checkpoints = checkpoints(text, &line_starts);
         Self {
             line_starts,
             len: text.len() as u32,
+            checkpoints,
         }
     }
 
@@ -102,23 +126,41 @@ impl LineIndex {
     /// An offset inside a multi-byte character is rounded down to that
     /// character's start.
     pub fn line_col_chars(&self, offset: u32, text: &str) -> LineCol {
-        self.line_col_with(offset, text, |s| s.chars().count())
+        self.line_col_with(offset, text, Unit::Chars)
     }
 
     /// Position of `offset` with the column measured in UTF-16 code units, as
     /// required by the Language Server Protocol's default position encoding.
     pub fn line_col_utf16(&self, offset: u32, text: &str) -> LineCol {
-        self.line_col_with(offset, text, |s| s.encode_utf16().count())
+        self.line_col_with(offset, text, Unit::Utf16)
     }
 
-    fn line_col_with(&self, offset: u32, text: &str, measure: impl Fn(&str) -> usize) -> LineCol {
+    fn line_col_with(&self, offset: u32, text: &str, unit: Unit) -> LineCol {
         let offset = floor_char_boundary(text, offset.min(self.len));
         let line = self.line_of(offset);
-        let start = self.line_starts[line as usize];
+        let line_start = self.line_starts[line as usize];
+        // Start from the nearest checkpoint in this line, if any.
+        let nearest = self.checkpoints[..self.checkpoints.partition_point(|c| c.offset <= offset)]
+            .last()
+            .filter(|c| c.offset >= line_start);
+        let (start, base) = match nearest {
+            Some(c) => (
+                c.offset,
+                match unit {
+                    Unit::Chars => c.chars,
+                    Unit::Utf16 => c.utf16,
+                },
+            ),
+            None => (line_start, 0),
+        };
         let prefix = &text[start as usize..offset as usize];
+        let measured = match unit {
+            Unit::Chars => prefix.chars().count(),
+            Unit::Utf16 => prefix.encode_utf16().count(),
+        };
         LineCol {
             line,
-            col: measure(prefix) as u32,
+            col: base + measured as u32,
         }
     }
 
@@ -141,6 +183,35 @@ impl LineIndex {
     }
 }
 
+/// Checkpoints every [`CHECKPOINT_INTERVAL`] bytes within long lines.
+fn checkpoints(text: &str, line_starts: &[u32]) -> Vec<Checkpoint> {
+    let mut out = Vec::new();
+    for (i, &start) in line_starts.iter().enumerate() {
+        let end = line_starts
+            .get(i + 1)
+            .map_or(text.len(), |&next| next as usize);
+        if end - start as usize <= CHECKPOINT_INTERVAL {
+            continue;
+        }
+        let (mut chars, mut utf16) = (0u32, 0u32);
+        let mut next = start as usize + CHECKPOINT_INTERVAL;
+        for (at, c) in text[start as usize..end].char_indices() {
+            let offset = start as usize + at;
+            if offset >= next {
+                out.push(Checkpoint {
+                    offset: offset as u32,
+                    chars,
+                    utf16,
+                });
+                next = offset + CHECKPOINT_INTERVAL;
+            }
+            chars += 1;
+            utf16 += c.len_utf16() as u32;
+        }
+    }
+    out
+}
+
 fn floor_char_boundary(text: &str, mut offset: u32) -> u32 {
     while offset > 0 && !text.is_char_boundary(offset as usize) {
         offset -= 1;
@@ -151,6 +222,48 @@ fn floor_char_boundary(text: &str, mut offset: u32) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn long_lines_use_checkpoints_with_the_same_results() {
+        // A minified document: one long line with multi-byte characters.
+        let text = "é😀a".repeat(5000);
+        let index = LineIndex::new(&text);
+        assert!(!index.checkpoints.is_empty());
+        for offset in [
+            0u32,
+            1,
+            2,
+            6,
+            7,
+            4095,
+            4096,
+            4099,
+            10_000,
+            20_001,
+            text.len() as u32,
+        ] {
+            let offset = floor_char_boundary(&text, offset);
+            let prefix = &text[..offset as usize];
+            assert_eq!(
+                index.line_col_chars(offset, &text).col,
+                prefix.chars().count() as u32,
+                "chars at {offset}"
+            );
+            assert_eq!(
+                index.line_col_utf16(offset, &text).col,
+                prefix.encode_utf16().count() as u32,
+                "utf16 at {offset}"
+            );
+        }
+        // A second line restarts the count.
+        let two = format!("{}\nab", "x".repeat(9000));
+        let index = LineIndex::new(&two);
+        let offset = 9002;
+        assert_eq!(
+            index.line_col_chars(offset, &two),
+            LineCol { line: 1, col: 1 }
+        );
+    }
     use proptest::prelude::*;
 
     #[test]

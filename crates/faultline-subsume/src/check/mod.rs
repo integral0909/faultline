@@ -52,6 +52,10 @@ impl Verdict {
 /// produce `Unknown` rather than unbounded run time.
 const STEP_BUDGET: usize = 200_000;
 
+/// Nested comparisons deeper than this produce `Unknown` rather than
+/// exhausting the stack.
+const MAX_DEPTH: usize = 256;
+
 /// Compares types of a left API against types of a right API.
 pub struct Checker<'a> {
     pub(crate) left: &'a Api,
@@ -111,6 +115,9 @@ impl<'a> Checker<'a> {
         self.steps += 1;
         if self.steps > STEP_BUDGET {
             return Verdict::Unknown("comparison budget exhausted".into());
+        }
+        if self.stack.len() >= MAX_DEPTH {
+            return Verdict::Unknown("types are nested too deeply to compare".into());
         }
 
         let depth = self.stack.len();
