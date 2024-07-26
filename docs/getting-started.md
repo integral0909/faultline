@@ -222,6 +222,30 @@ faultline diff v1/openapi.yaml v2/openapi.yaml --baseline .faultline/baseline.js
 To accept one specific break temporarily, add a waiver with an expiry date to
 `faultline.toml` (see [configuration.md](configuration.md#waivers)).
 
+## In the editor
+
+`faultline lsp` is a language server: editors that speak the Language Server
+Protocol show findings while an API description is edited, before anything is
+committed. It compares every `[[api]]` of `faultline.toml` (or, without one,
+each open OpenAPI, JSON Schema, Protobuf, GraphQL or Avro document) with the
+last commit; pass `--base origin/main`, or set the `base` initialization
+option, to compare with another revision. Hovering a finding explains it, and
+its quick fix adds a 30-day waiver to `faultline.toml`.
+
+For Neovim:
+
+```lua
+vim.lsp.config("faultline", {
+  cmd = { "faultline", "lsp" },
+  filetypes = { "yaml", "json", "proto", "graphql" },
+  root_markers = { "faultline.toml", ".git" },
+  init_options = { base = "origin/main" },
+})
+vim.lsp.enable("faultline")
+```
+
+See [internals/lsp.md](internals/lsp.md) for how the server works.
+
 ## Inspecting Faultline's model
 
 `faultline ir dump openapi.yaml` prints the normalized model Faultline

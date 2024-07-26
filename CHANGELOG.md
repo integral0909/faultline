@@ -112,6 +112,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fragments expanded). With `[usage] index`, findings about unused parts of
   an API are capped at `unused_severity` and marked in reports. Indexes hold
   counts of templated operations, parameter names and field paths only.
+- `faultline-lsp` and `faultline lsp`: a language server that compares the
+  workspace's APIs (or, without configuration, each open API document) with
+  a base revision as documents are edited, unsaved text included. Findings
+  appear where the change is, with the rule and an example value on hover
+  and a quick fix that adds a waiver to `faultline.toml`; input errors,
+  expired waivers and too small version increases are shown too.
 - Releases: `[policy] versioning = "semver"` checks declared versions
   against the bump the changes need (with SemVer's rules below 1.0.0) and
   fails on too small an increase; `--output changelog` writes release notes;

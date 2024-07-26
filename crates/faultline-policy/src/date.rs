@@ -64,6 +64,25 @@ impl Date {
             day: u8::try_from(day).unwrap_or(1),
         }
     }
+
+    /// Days from 1970-01-01 to this date (Howard Hinnant's
+    /// `days_from_civil`), the inverse of [`Date::from_days_since_epoch`].
+    pub fn days_since_epoch(self) -> i64 {
+        let year = i64::from(self.year) - i64::from(self.month <= 2);
+        let era = year.div_euclid(400);
+        let yoe = year.rem_euclid(400);
+        let month = i64::from(self.month);
+        let mp = if month > 2 { month - 3 } else { month + 9 };
+        let doy = (153 * mp + 2) / 5 + i64::from(self.day) - 1;
+        let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+        era * 146_097 + doe - 719_468
+    }
+
+    /// The date `days` later (or earlier, when negative).
+    #[must_use]
+    pub fn plus_days(self, days: i64) -> Date {
+        Date::from_days_since_epoch(self.days_since_epoch() + days)
+    }
 }
 
 fn days_in_month(year: i32, month: u8) -> u8 {
@@ -100,6 +119,25 @@ mod tests {
             assert_eq!(Date::parse(bad), None, "{bad}");
         }
         assert!(Date::parse("2026-01-31").unwrap() < Date::parse("2026-02-01").unwrap());
+    }
+
+    #[test]
+    fn date_arithmetic() {
+        for text in [
+            "1970-01-01",
+            "2000-02-29",
+            "2026-09-28",
+            "1969-12-31",
+            "2400-12-31",
+        ] {
+            let date = Date::parse(text).unwrap();
+            assert_eq!(Date::from_days_since_epoch(date.days_since_epoch()), date);
+        }
+        let d = |s: &str| Date::parse(s).unwrap();
+        assert_eq!(d("2026-09-28").plus_days(30), d("2026-10-28"));
+        assert_eq!(d("2026-12-15").plus_days(30), d("2027-01-14"));
+        assert_eq!(d("2028-02-28").plus_days(1), d("2028-02-29"));
+        assert_eq!(d("2026-03-01").plus_days(-1), d("2026-02-28"));
     }
 
     #[test]

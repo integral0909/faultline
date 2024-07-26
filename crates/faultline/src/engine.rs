@@ -226,14 +226,9 @@ impl Engine {
         let (Some(old), Some(new), true) = (old.api, new.api, clean) else {
             return outcome;
         };
-        let changes = faultline_diff::diff(&old, &new);
-        outcome.findings = changes.iter().map(|c| classify(&target.name, c)).collect();
-        outcome.summary = Some(ApiSummary {
-            name: target.name.clone(),
-            old_version: old.version.clone(),
-            new_version: new.version.clone(),
-            bump: suggest_bump(&outcome.findings),
-        });
+        let (findings, summary) = compare_apis(&target.name, &old, &new);
+        outcome.findings = findings;
+        outcome.summary = Some(summary);
         outcome
     }
 
@@ -258,15 +253,31 @@ impl Engine {
                 };
             }
         };
+        self.lower_entry(loader.as_ref(), &entry, name, format, role, sources)
+    }
+
+    /// Lowers the API whose entry document is `entry`, read through
+    /// `loader`: for callers that serve documents their own way, such as an
+    /// editor serving unsaved text.
+    pub fn lower_entry(
+        &self,
+        loader: &dyn Loader,
+        entry: &UriRef,
+        name: &str,
+        format: Option<ApiFormat>,
+        role: SchemaRole,
+        sources: &SourceMap,
+    ) -> Lowered {
+        let entry = entry.clone();
         let router = SchemeRouter {
-            workspace: loader.as_ref(),
+            workspace: loader,
             remote: self.remote.as_deref(),
         };
         // Protobuf and GraphQL files are not JSON or YAML documents: they
         // are read by their own front ends.
         let format = format.or_else(|| format_by_extension(&entry));
         if format == Some(ApiFormat::GraphQl) {
-            let lowered = faultline_graphql::lower_graphql(&entry, loader.as_ref(), sources, name);
+            let lowered = faultline_graphql::lower_graphql(&entry, loader, sources, name);
             return Lowered {
                 api: lowered.api,
                 diagnostics: lowered.diagnostics,
@@ -274,13 +285,8 @@ impl Engine {
             };
         }
         if format == Some(ApiFormat::Protobuf) {
-            let lowered = faultline_protobuf::lower_protobuf(
-                &entry,
-                loader.as_ref(),
-                sources,
-                name,
-                ir_role(role),
-            );
+            let lowered =
+                faultline_protobuf::lower_protobuf(&entry, loader, sources, name, ir_role(role));
             return Lowered {
                 api: lowered.api,
                 diagnostics: lowered.diagnostics,
@@ -410,6 +416,20 @@ impl Engine {
     }
 }
 
+/// Compares two lowered versions of the API `name`, classifying every
+/// change.
+pub fn compare_apis(name: &str, old: &Api, new: &Api) -> (Vec<Finding>, ApiSummary) {
+    let changes = faultline_diff::diff(old, new);
+    let findings: Vec<Finding> = changes.iter().map(|c| classify(name, c)).collect();
+    let summary = ApiSummary {
+        name: name.to_owned(),
+        old_version: old.version.clone(),
+        new_version: new.version.clone(),
+        bump: suggest_bump(&findings),
+    };
+    (findings, summary)
+}
+
 /// The network policy a `[network]` section describes, or `None` when remote
 /// references stay disabled.
 pub fn network_policy(config: &NetworkConfig) -> Result<Option<NetworkPolicy>, String> {
@@ -510,7 +530,7 @@ fn describe(source: &Source) -> String {
 /// GraphQL schemas are not JSON or YAML documents, and are read by their own
 /// front ends; Avro schemas are JSON but cannot be told from JSON Schema by
 /// their content alone.
-fn format_by_extension(entry: &UriRef) -> Option<ApiFormat> {
+pub fn format_by_extension(entry: &UriRef) -> Option<ApiFormat> {
     let extension = std::path::Path::new(entry.path())
         .extension()?
         .to_str()?

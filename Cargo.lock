@@ -456,6 +456,7 @@ dependencies = [
  "clap",
  "faultline",
  "faultline-ir",
+ "faultline-lsp",
  "faultline-policy",
  "faultline-report",
  "faultline-rules",
@@ -521,6 +522,21 @@ dependencies = [
  "faultline-source",
  "indexmap",
  "proptest",
+]
+
+[[package]]
+name = "faultline-lsp"
+version = "0.1.0"
+dependencies = [
+ "faultline",
+ "faultline-doc",
+ "faultline-ir",
+ "faultline-policy",
+ "faultline-rules",
+ "faultline-source",
+ "faultline-usage",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]

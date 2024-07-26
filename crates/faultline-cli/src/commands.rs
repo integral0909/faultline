@@ -207,6 +207,14 @@ pub(crate) struct DumpArgs {
     root: Option<PathBuf>,
 }
 
+#[derive(Debug, Args)]
+pub(crate) struct LspArgs {
+    /// Revision to compare with, unless the editor chooses one in its
+    /// initialization options.
+    #[arg(long, default_value = faultline_lsp::DEFAULT_BASE)]
+    base: String,
+}
+
 /// Runs a command and returns the process exit code.
 pub(crate) fn run(command: Command) -> i32 {
     let result = match command {
@@ -231,11 +239,23 @@ pub(crate) fn run(command: Command) -> i32 {
         Command::Usage {
             command: UsageCommand::Import(args),
         } => usage_import(&args),
+        Command::Lsp(args) => Ok(lsp(&args)),
     };
     result.unwrap_or_else(|message| {
         eprintln!("error: {message}");
         exit::INVALID_INPUT
     })
+}
+
+fn lsp(args: &LspArgs) -> i32 {
+    let server = faultline_lsp::Server::new()
+        .with_base(&args.base)
+        .with_today(today());
+    faultline_lsp::run(
+        std::io::BufReader::new(std::io::stdin()),
+        std::io::stdout().lock(),
+        server,
+    )
 }
 
 /// Loads the configuration and resolves the workspace root.

@@ -43,6 +43,9 @@ enum Command {
         #[command(subcommand)]
         command: UsageCommand,
     },
+    /// Serve the Language Server Protocol over standard input and output,
+    /// for editors.
+    Lsp(commands::LspArgs),
 }
 
 #[derive(Debug, Subcommand)]

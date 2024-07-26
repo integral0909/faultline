@@ -22,6 +22,7 @@ doc = false
 clap.workspace = true
 faultline.workspace = true
 faultline-ir.workspace = true
+faultline-lsp.workspace = true
 faultline-policy.workspace = true
 faultline-report.workspace = true
 faultline-rules.workspace = true
