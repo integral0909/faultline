@@ -60,6 +60,9 @@ See [getting started](docs/getting-started.md) and
 * **Built for CI.** Reads git revisions straight from the object database, has
   stable finding ids for waivers (which must expire), and emits SARIF, JSON,
   Markdown and GitHub annotations.
+* **Beyond CI.** A language server shows findings in the editor before a
+  change is committed, and a schema registry refuses breaking versions at
+  publication time.
 * **Safe on untrusted input.** Offline by default, sandboxed reference
   resolution, and resource limits on every parser.
 
@@ -81,6 +84,7 @@ including the tools used by CI.
 
 * [Getting started](docs/getting-started.md)
 * [Configuration](docs/configuration.md)
+* [Schema registry](docs/registry.md)
 * [Troubleshooting](docs/troubleshooting.md)
 * [Performance](docs/performance.md)
 * [Rule reference](docs/rules.md)

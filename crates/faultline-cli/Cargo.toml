@@ -24,13 +24,14 @@ faultline.workspace = true
 faultline-ir.workspace = true
 faultline-lsp.workspace = true
 faultline-policy.workspace = true
+faultline-registry.workspace = true
 faultline-report.workspace = true
 faultline-rules.workspace = true
 faultline-source.workspace = true
 faultline-usage.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
-serde_json.workspace = true
 tempfile.workspace = true
 
 [lints]

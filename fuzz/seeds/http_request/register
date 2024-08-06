@@ -1,0 +1,5 @@
+POST /subjects/pets/versions HTTP/1.1
+Content-Type: application/json
+Content-Length: 58
+
+{"entry": "a.proto", "files": {"a.proto": "syntax = 1;"}}

@@ -240,6 +240,7 @@ pub(crate) fn run(command: Command) -> i32 {
             command: UsageCommand::Import(args),
         } => usage_import(&args),
         Command::Lsp(args) => Ok(lsp(&args)),
+        Command::Registry { command } => crate::registry::run(&command),
     };
     result.unwrap_or_else(|message| {
         eprintln!("error: {message}");

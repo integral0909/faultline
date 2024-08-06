@@ -1,6 +1,7 @@
 //! The `faultline` command-line tool.
 
 mod commands;
+mod registry;
 
 use std::process::ExitCode;
 
@@ -46,6 +47,11 @@ enum Command {
     /// Serve the Language Server Protocol over standard input and output,
     /// for editors.
     Lsp(commands::LspArgs),
+    /// Run or use a schema registry that refuses breaking versions.
+    Registry {
+        #[command(subcommand)]
+        command: registry::RegistryCommand,
+    },
 }
 
 #[derive(Debug, Subcommand)]

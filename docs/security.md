@@ -10,10 +10,11 @@ Faultline defends against and how. To report a vulnerability, see
 | Input | Trust level |
 |---|---|
 | Schema documents and everything they reference | untrusted |
-| Usage data (HAR files, access logs, operation documents) | untrusted |
+| Usage data (access logs, GraphQL client documents) | untrusted |
 | `faultline.toml` | trusted as configuration, validated strictly |
 | Command-line flags and `FAULTLINE_*` environment variables | trusted |
-| Registry API requests | untrusted until authenticated, then authorized per subject |
+| Registry API requests | untrusted; writes need the registry's bearer token |
+| Editor messages to `faultline lsp` | trusted as the user's own |
 
 ## Threats and mitigations
 
@@ -54,14 +55,29 @@ requested without compression so the size cap applies to what is read.
 **Code execution.** Faultline never executes anything found in inputs: there
 are no templates, scripts or plugins. Custom rules are declarative data.
 
-**Secret handling.** Configuration refers to secrets indirectly (`env:VAR`) and
-they are redacted from logs. Usage importers persist only templated paths,
-field paths and counts — never query values, headers or bodies, which the
-importers read past without storing.
+**Secret handling.** Configuration holds no secrets. The registry's token is
+read from the `FAULTLINE_REGISTRY_TOKEN` environment variable, compared in
+constant time, and never logged or echoed. Usage importers persist only
+templated paths, field paths and counts — never query values, headers or
+bodies, which the importers read past without storing.
 
-**Registry.** Bearer tokens are random, high-entropy and stored as SHA-256
-hashes. Access is authorized per subject, request bodies are size-limited and
-rate limits apply.
+**Registry.** `faultline registry serve` listens on localhost unless told
+otherwise and speaks plain HTTP: it is meant to sit behind a TLS-terminating
+proxy. Writes (registering versions, changing settings) need the bearer token
+when one is configured, and the server warns at start when none is. Reads
+and dry-run checks are open to anyone who can connect. The HTTP layer serves
+one request per connection, frames bodies by `Content-Length` only (requests
+with `Transfer-Encoding` are refused, which rules out request smuggling
+through framing disagreements), and bounds the header block (16 KiB), the
+body (16 MiB by default), the time to send a request and the number of
+connections served at once. Request bodies must be `application/json`, which
+browsers cannot send across origins without a preflight the server never
+answers. Registered files are held inside version records rather than written
+as files, so client-chosen paths never reach the filesystem; subject names
+are validated before they name a directory. Lowering in the registry reads
+only the files it was sent: remote references are never fetched. Responses
+carry `X-Content-Type-Options: nosniff` and are never HTML. The parser is
+fuzzed (`http_request`).
 
 **Supply chain.** Dependencies come from crates.io only, the lockfile is
 committed, and `cargo-deny` checks advisories, licenses and sources in CI.

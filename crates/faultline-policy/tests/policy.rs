@@ -325,3 +325,23 @@ fn declared_versions_must_cover_the_changes() {
     let error = Config::parse("[policy]\nversioning = \"calver\"\n").unwrap_err();
     assert!(error.to_string().contains("versioning"), "{error}");
 }
+
+#[test]
+fn names_round_trip() {
+    use faultline_policy::{ApiFormat, FailOn, SchemaRole};
+    for format in [
+        ApiFormat::OpenApi,
+        ApiFormat::JsonSchema,
+        ApiFormat::Protobuf,
+        ApiFormat::GraphQl,
+        ApiFormat::Avro,
+    ] {
+        assert_eq!(ApiFormat::parse(format.as_str()), Some(format));
+    }
+    for role in [SchemaRole::Input, SchemaRole::Output, SchemaRole::Both] {
+        assert_eq!(SchemaRole::parse(role.as_str()), Some(role));
+    }
+    for fail_on in [FailOn::Breaking, FailOn::Risky, FailOn::Never] {
+        assert_eq!(FailOn::parse(fail_on.as_str()), Some(fail_on));
+    }
+}

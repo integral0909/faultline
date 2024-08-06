@@ -105,6 +105,17 @@ pub enum ApiFormat {
 }
 
 impl ApiFormat {
+    /// The name `parse` reads back.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ApiFormat::OpenApi => "openapi",
+            ApiFormat::JsonSchema => "jsonschema",
+            ApiFormat::Protobuf => "protobuf",
+            ApiFormat::GraphQl => "graphql",
+            ApiFormat::Avro => "avro",
+        }
+    }
+
     pub fn parse(text: &str) -> Option<ApiFormat> {
         match text {
             "openapi" => Some(ApiFormat::OpenApi),
@@ -126,6 +137,14 @@ pub enum SchemaRole {
 }
 
 impl SchemaRole {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            SchemaRole::Input => "input",
+            SchemaRole::Output => "output",
+            SchemaRole::Both => "both",
+        }
+    }
+
     pub fn parse(text: &str) -> Option<SchemaRole> {
         match text {
             "input" => Some(SchemaRole::Input),
@@ -167,6 +186,14 @@ pub enum FailOn {
 }
 
 impl FailOn {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            FailOn::Breaking => "breaking",
+            FailOn::Risky => "risky",
+            FailOn::Never => "never",
+        }
+    }
+
     pub fn parse(text: &str) -> Option<FailOn> {
         match text {
             "breaking" => Some(FailOn::Breaking),

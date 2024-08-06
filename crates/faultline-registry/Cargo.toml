@@ -1,0 +1,27 @@
+[package]
+name = "faultline-registry"
+description = "A schema registry that refuses breaking versions of API descriptions"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+faultline.workspace = true
+faultline-doc.workspace = true
+faultline-policy.workspace = true
+faultline-report.workspace = true
+faultline-source.workspace = true
+serde_json.workspace = true
+ureq.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

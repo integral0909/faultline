@@ -118,6 +118,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   appear where the change is, with the rule and an example value on hover
   and a quick fix that adds a waiver to `faultline.toml`; input errors,
   expired waivers and too small version increases are shown too.
+- `faultline-registry` and `faultline registry serve|push|check`: a schema
+  registry that stores versions of API descriptions in any supported format
+  and refuses versions whose findings fail the subject's settings (against
+  the latest version, or every version when transitive). Its HTTP/1.1 server
+  is bounded in header size, body size, time and concurrency, refuses
+  chunked bodies, and requires a bearer token for writes when configured.
+  Registered files can be fetched individually. A fuzz target covers request
+  parsing and bundle validation.
 - Releases: `[policy] versioning = "semver"` checks declared versions
   against the bump the changes need (with SemVer's rules below 1.0.0) and
   fails on too small an increase; `--output changelog` writes release notes;

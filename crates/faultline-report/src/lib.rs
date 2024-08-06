@@ -110,6 +110,12 @@ pub fn render(report: &Report<'_>, format: OutputFormat) -> String {
     }
 }
 
+/// The JSON report as a value, for embedding in other documents (such as
+/// a registry's responses).
+pub fn json_value(report: &Report<'_>) -> serde_json::Value {
+    json::document(report)
+}
+
 /// Shortens a witness for display, keeping it valid enough to read.
 pub(crate) fn short_witness(value: &faultline_ir::Literal) -> String {
     const MAX: usize = 120;

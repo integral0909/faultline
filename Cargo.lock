@@ -458,6 +458,7 @@ dependencies = [
  "faultline-ir",
  "faultline-lsp",
  "faultline-policy",
+ "faultline-registry",
  "faultline-report",
  "faultline-rules",
  "faultline-source",
@@ -589,6 +590,20 @@ version = "0.1.0"
 dependencies = [
  "proptest",
  "regex",
+]
+
+[[package]]
+name = "faultline-registry"
+version = "0.1.0"
+dependencies = [
+ "faultline",
+ "faultline-doc",
+ "faultline-policy",
+ "faultline-report",
+ "faultline-source",
+ "serde_json",
+ "tempfile",
+ "ureq",
 ]
 
 [[package]]

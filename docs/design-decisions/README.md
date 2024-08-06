@@ -19,3 +19,4 @@ New records start from [template.md](template.md) and take the next number.
 | [0008](0008-protobuf-compared-as-its-wire-format.md) | Protobuf compared as its wire format | Accepted |
 | [0009](0009-graphql-as-selections-with-field-arguments.md) | GraphQL as selections, with field arguments in the IR | Accepted |
 | [0010](0010-writer-and-reader-views.md) | Writer and reader views of a type | Accepted |
+| [0011](0011-a-bounded-http-server-for-the-registry.md) | A small, bounded HTTP server for the registry | Accepted |

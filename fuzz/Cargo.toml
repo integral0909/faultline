@@ -10,6 +10,7 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
+serde_json = "1"
 faultline-doc = { path = "../crates/faultline-doc" }
 faultline-source = { path = "../crates/faultline-source" }
 faultline-ir = { path = "../crates/faultline-ir" }
@@ -19,6 +20,7 @@ faultline-protobuf = { path = "../crates/faultline-protobuf" }
 faultline-graphql = { path = "../crates/faultline-graphql" }
 faultline-avro = { path = "../crates/faultline-avro" }
 faultline-regex = { path = "../crates/faultline-regex" }
+faultline-registry = { path = "../crates/faultline-registry" }
 faultline-diff = { path = "../crates/faultline-diff" }
 
 # Kept out of the main workspace: fuzz targets need a nightly toolchain and
@@ -85,6 +87,13 @@ bench = false
 [[bin]]
 name = "regex"
 path = "fuzz_targets/regex.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "http_request"
+path = "fuzz_targets/http_request.rs"
 test = false
 doc = false
 bench = false

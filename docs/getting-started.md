@@ -246,6 +246,14 @@ vim.lsp.enable("faultline")
 
 See [internals/lsp.md](internals/lsp.md) for how the server works.
 
+## With a schema registry
+
+Teams that publish API descriptions to a central place can run
+`faultline registry serve`, which stores each version and refuses the ones
+that break earlier versions' clients. `faultline registry push` sends a
+version from CI; `faultline registry check` asks whether one would be
+accepted. See [registry.md](registry.md).
+
 ## Inspecting Faultline's model
 
 `faultline ir dump openapi.yaml` prints the normalized model Faultline
