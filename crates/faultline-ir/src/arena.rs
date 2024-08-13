@@ -123,14 +123,79 @@ impl TypeArena {
         id
     }
 
+    /// Moves every node of `other` into this arena, renumbering the ids
+    /// they refer to, and returns the mapping for ids of `other` (its roots
+    /// and named types). Front ends use it to embed a type graph lowered by
+    /// another front end, such as an Avro payload in an AsyncAPI message.
+    pub fn graft(&mut self, other: TypeArena) -> Graft {
+        let offset = self.next_id().0;
+        let graft = Graft { offset };
+        for slot in other.nodes {
+            self.nodes.push(slot.map(|mut node| {
+                crate::graph::for_each_id_mut(&mut node.kind, |id| *id = graft.map(*id));
+                node
+            }));
+        }
+        graft
+    }
+
     fn next_id(&self) -> TypeId {
         TypeId(u32::try_from(self.nodes.len()).expect("more than u32::MAX types"))
+    }
+}
+
+/// How ids of a grafted arena map into the arena it was grafted onto.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Graft {
+    offset: u32,
+}
+
+impl Graft {
+    pub fn map(self, id: TypeId) -> TypeId {
+        TypeId(id.0 + self.offset)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn grafting_renumbers_references() {
+        use crate::types::{Discriminator, ObjectType, UnionMode, UnionType};
+        let mut host = TypeArena::new();
+        host.alloc_kind(TypeKind::Null);
+        let mut guest = TypeArena::new();
+        let any = guest.alloc_kind(TypeKind::Any);
+        let node = guest.reserve();
+        let object = guest.alloc_kind(TypeKind::Object(ObjectType::new(any)));
+        guest.define(
+            node,
+            TypeNode::new(TypeKind::Union(UnionType {
+                mode: UnionMode::Tagged,
+                variants: vec![object, node],
+                discriminator: Some(Discriminator {
+                    property: "kind".into(),
+                    mapping: vec![("o".into(), object)],
+                }),
+            })),
+        );
+        let graft = host.graft(guest);
+        assert_eq!(host.len(), 4);
+        let TypeKind::Union(union) = &host.get(graft.map(node)).kind else {
+            panic!()
+        };
+        assert_eq!(union.variants, [graft.map(object), graft.map(node)]);
+        assert_eq!(
+            union.discriminator.as_ref().unwrap().mapping[0].1,
+            graft.map(object)
+        );
+        let TypeKind::Object(obj) = &host.get(graft.map(object)).kind else {
+            panic!()
+        };
+        assert_eq!(obj.additional, graft.map(any));
+        assert_eq!(graft.map(any), TypeId(1));
+    }
 
     #[test]
     fn reserve_then_define_supports_recursion() {

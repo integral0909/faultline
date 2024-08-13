@@ -126,6 +126,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   chunked bodies, and requires a bearer token for writes when configured.
   Registered files can be fetched individually. A fuzz target covers request
   parsing and bundle validation.
+- `faultline-asyncapi`: AsyncAPI 2.0–2.6 and 3.0 front end. Operations are
+  lowered from the application's point of view (received messages flow in,
+  sent messages out, 3.0 replies are responses) and identified by action and
+  channel address, so migrations between specification versions compare
+  cleanly. Messages are compared as their content type, headers and payload;
+  payloads may be JSON Schema, OpenAPI schemas or Avro, which is lowered by
+  the Avro front end into the same type graph. New rules FL2080
+  (message-added) and FL2081 (message-removed); channels whose address
+  changed are reported as moved (FL2004). Adds an example, a fuzz target and
+  `format = "asyncapi"`.
+- The IR gains message operations, `message[..]` path segments and grafting
+  of one type graph into another; JSON Schema navigation shared by the
+  OpenAPI and AsyncAPI front ends moved into `faultline-jsonschema`.
 - Releases: `[policy] versioning = "semver"` checks declared versions
   against the bump the changes need (with SemVer's rules below 1.0.0) and
   fails on too small an increase; `--output changelog` writes release notes;

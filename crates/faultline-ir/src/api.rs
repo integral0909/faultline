@@ -17,6 +17,8 @@ pub enum ApiFormat {
     Protobuf,
     GraphQl,
     Avro,
+    AsyncApi2,
+    AsyncApi3,
 }
 
 impl ApiFormat {
@@ -28,6 +30,8 @@ impl ApiFormat {
             ApiFormat::Protobuf => "protobuf",
             ApiFormat::GraphQl => "graphql",
             ApiFormat::Avro => "avro",
+            ApiFormat::AsyncApi2 => "asyncapi-2",
+            ApiFormat::AsyncApi3 => "asyncapi-3",
         }
     }
 }
@@ -115,6 +119,8 @@ fn role_polarity(role: Role) -> Polarity {
     }
 }
 
+type SegmentFn = fn(String) -> Segment;
+
 fn operation_roots(op: &Operation, prefix: &IrPath, callback: bool, out: &mut Vec<Root>) {
     // Inside a callback the API is the client: it sends the request and
     // receives the response.
@@ -124,6 +130,12 @@ fn operation_roots(op: &Operation, prefix: &IrPath, callback: bool, out: &mut Ve
         (Polarity::IN, Polarity::OUT)
     };
     let base = prefix.join(Segment::Operation(op.key.identity()));
+    // Message operations key their payloads by message, not media type.
+    let (request_segment, body_segment): (SegmentFn, SegmentFn) = if op.key.is_message() {
+        (Segment::Message, Segment::Message)
+    } else {
+        (Segment::RequestBody, Segment::Body)
+    };
 
     for param in &op.parameters {
         out.push(Root {
@@ -135,7 +147,7 @@ fn operation_roots(op: &Operation, prefix: &IrPath, callback: bool, out: &mut Ve
     if let Some(body) = &op.request_body {
         for content in &body.content {
             out.push(Root {
-                path: base.join(Segment::RequestBody(content.media_type.clone())),
+                path: base.join(request_segment(content.media_type.clone())),
                 ty: content.ty,
                 polarity: request_flow,
             });
@@ -152,7 +164,7 @@ fn operation_roots(op: &Operation, prefix: &IrPath, callback: bool, out: &mut Ve
         }
         for content in &response.content {
             out.push(Root {
-                path: at.join(Segment::Body(content.media_type.clone())),
+                path: at.join(body_segment(content.media_type.clone())),
                 ty: content.ty,
                 polarity: response_flow,
             });

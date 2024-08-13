@@ -113,6 +113,59 @@ pub fn for_each_edge<'a>(node: &'a TypeNode, mut visit: impl FnMut(Edge<'a>, Typ
     }
 }
 
+/// Calls `visit` with every type id `kind` holds, mutably: its edges, and
+/// the targets of discriminator mappings, which are not edges. Used to
+/// renumber a type graph moved into another arena.
+pub fn for_each_id_mut(kind: &mut TypeKind, mut visit: impl FnMut(&mut TypeId)) {
+    match kind {
+        TypeKind::Any
+        | TypeKind::Never
+        | TypeKind::Null
+        | TypeKind::Boolean
+        | TypeKind::Integer(_)
+        | TypeKind::Number(_)
+        | TypeKind::String(_)
+        | TypeKind::Bytes
+        | TypeKind::Enum(_) => {}
+        TypeKind::Object(obj) => {
+            for field in &mut obj.fields {
+                visit(&mut field.ty);
+                if let Some(arguments) = &mut field.arguments {
+                    visit(arguments);
+                }
+            }
+            for (_, ty) in &mut obj.pattern_properties {
+                visit(ty);
+            }
+            visit(&mut obj.additional);
+            if let Some(names) = &mut obj.property_names {
+                visit(names);
+            }
+        }
+        TypeKind::Array(arr) => {
+            arr.prefix_items.iter_mut().for_each(&mut visit);
+            visit(&mut arr.items);
+            if let Some(contains) = &mut arr.contains {
+                visit(&mut contains.ty);
+            }
+        }
+        TypeKind::Map(map) => {
+            visit(&mut map.key);
+            visit(&mut map.value);
+        }
+        TypeKind::Union(union) => {
+            union.variants.iter_mut().for_each(&mut visit);
+            if let Some(discriminator) = &mut union.discriminator {
+                for (_, ty) in &mut discriminator.mapping {
+                    visit(ty);
+                }
+            }
+        }
+        TypeKind::AllOf(members) => members.iter_mut().for_each(&mut visit),
+        TypeKind::Not(operand) | TypeKind::Ref(operand) => visit(operand),
+    }
+}
+
 /// The children of `node` as a vector, for callers that need to iterate more
 /// than once or hold edges across mutation.
 pub fn edges(node: &TypeNode) -> Vec<(Edge<'_>, TypeId)> {

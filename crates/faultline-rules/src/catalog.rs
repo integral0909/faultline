@@ -182,6 +182,10 @@ rules! {
         "The API sends a new webhook.";
     WEBHOOK_REMOVED = "FL2073", "webhook-removed", Wire, "A webhook was removed",
         "The API no longer sends a webhook; receivers depending on it are affected.";
+    MESSAGE_ADDED = "FL2080", "message-added", Wire, "A message type was added",
+        "An operation carries a new kind of message. Applications that receive it accept more; consumers of an application that sends it may not recognize it.";
+    MESSAGE_REMOVED = "FL2081", "message-removed", Wire, "A message type was removed",
+        "An operation no longer carries a kind of message. Producers still sending it to an application that received it are refused; consumers of an application that sent it stop getting it.";
 
     STREAMING_CHANGED = "FL3001", "streaming-changed", Wire, "An RPC changed between unary and streaming",
         "A request or response of a remote procedure became a stream of messages, or stopped being one. Clients and servers disagree on the call's shape, and every call fails.\n\nAdd a new method with the new shape and deprecate the old one.";

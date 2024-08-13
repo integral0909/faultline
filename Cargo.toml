@@ -18,6 +18,7 @@ faultline = { path = "crates/faultline", version = "0.1.0" }
 faultline-source = { path = "crates/faultline-source", version = "0.1.0" }
 faultline-doc = { path = "crates/faultline-doc", version = "0.1.0" }
 faultline-avro = { path = "crates/faultline-avro", version = "0.1.0" }
+faultline-asyncapi = { path = "crates/faultline-asyncapi", version = "0.1.0" }
 faultline-diff = { path = "crates/faultline-diff", version = "0.1.0" }
 faultline-graphql = { path = "crates/faultline-graphql", version = "0.1.0" }
 faultline-ir = { path = "crates/faultline-ir", version = "0.1.0" }

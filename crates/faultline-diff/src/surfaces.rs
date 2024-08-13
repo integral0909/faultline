@@ -89,6 +89,9 @@ impl<'a> Differ<'a> {
         let same_kind = match (&old.key, &new.key) {
             (OperationKey::Http { method: a, .. }, OperationKey::Http { method: b, .. }) => a == b,
             (OperationKey::Rpc { .. }, OperationKey::Rpc { .. }) => true,
+            (OperationKey::Message { action: a, .. }, OperationKey::Message { action: b, .. }) => {
+                a == b
+            }
             _ => false,
         };
         let signature = |op: &Operation| {
@@ -159,13 +162,15 @@ impl<'a> Differ<'a> {
             }
         }
         self.parameters(&old.parameters, &new.parameters, path, request);
+        let messages = old.key.is_message() && new.key.is_message();
         self.request_bodies(
             old.request_body.as_ref(),
             new.request_body.as_ref(),
             path,
             request,
+            messages,
         );
-        self.responses(&old.responses, &new.responses, path, response);
+        self.responses(&old.responses, &new.responses, path, response, messages);
 
         for cb in &old.callbacks {
             let at = path.join(Segment::Callback(cb.name.clone()));
@@ -292,6 +297,7 @@ impl<'a> Differ<'a> {
         new: Option<&'a RequestBody>,
         path: &Trail,
         polarity: Polarity,
+        messages: bool,
     ) {
         match (old, new) {
             (None, None) => {}
@@ -320,7 +326,12 @@ impl<'a> Differ<'a> {
                         (o.origin, n.origin),
                     );
                 }
-                self.contents(&o.content, &n.content, path, polarity, Segment::RequestBody);
+                let segment = if messages {
+                    Segment::Message
+                } else {
+                    Segment::RequestBody
+                };
+                self.contents(&o.content, &n.content, path, polarity, segment, messages);
             }
         }
     }
@@ -331,6 +342,7 @@ impl<'a> Differ<'a> {
         new: &'a [Response],
         path: &Trail,
         polarity: Polarity,
+        messages: bool,
     ) {
         for r in old {
             let at = path.join(Segment::Response(r.status.to_string()));
@@ -381,7 +393,12 @@ impl<'a> Differ<'a> {
                     self.surface(kind, &header_path, polarity, (None, nh.origin));
                 }
             }
-            self.contents(&r.content, &n.content, &at, polarity, Segment::Body);
+            let segment = if messages {
+                Segment::Message
+            } else {
+                Segment::Body
+            };
+            self.contents(&r.content, &n.content, &at, polarity, segment, messages);
         }
         for n in new {
             if !old.iter().any(|r| r.status == n.status) {
@@ -403,26 +420,31 @@ impl<'a> Differ<'a> {
         path: &Trail,
         polarity: Polarity,
         segment: fn(String) -> Segment,
+        messages: bool,
     ) {
+        // Message operations key their contents by message name.
         for c in old {
             let at = path.join(segment(c.media_type.clone()));
-            match new.iter().find(|n| n.media_type == c.media_type) {
-                Some(n) => self.compare(c.ty, n.ty, &at, polarity),
-                None => self.surface(
-                    ChangeKind::MediaTypeRemoved {
-                        media_type: c.media_type.clone(),
-                    },
-                    &at,
-                    polarity,
-                    (c.origin, None),
-                ),
+            if let Some(n) = new.iter().find(|n| n.media_type == c.media_type) {
+                self.compare(c.ty, n.ty, &at, polarity);
+            } else {
+                let name = c.media_type.clone();
+                let kind = if messages {
+                    ChangeKind::MessageRemoved { name }
+                } else {
+                    ChangeKind::MediaTypeRemoved { media_type: name }
+                };
+                self.surface(kind, &at, polarity, (c.origin, None));
             }
         }
         for n in new {
             if !old.iter().any(|c| c.media_type == n.media_type) {
                 let at = path.join(segment(n.media_type.clone()));
-                let kind = ChangeKind::MediaTypeAdded {
-                    media_type: n.media_type.clone(),
+                let name = n.media_type.clone();
+                let kind = if messages {
+                    ChangeKind::MessageAdded { name }
+                } else {
+                    ChangeKind::MediaTypeAdded { media_type: name }
                 };
                 self.surface(kind, &at, polarity, (None, n.origin));
             }

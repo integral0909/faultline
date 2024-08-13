@@ -117,6 +117,11 @@ impl Lowerer {
         });
     }
 
+    /// Lowers one schema that another format embeds, returning its type.
+    pub(crate) fn embedded(&mut self, node: &Node) -> Option<TypeId> {
+        self.schema(node, "").map(|lowered| lowered.id)
+    }
+
     fn error(&mut self, code: faultline_source::DiagnosticCode, span: Span, message: String) {
         self.diagnostics.push(
             Diagnostic::error(message)

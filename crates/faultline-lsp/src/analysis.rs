@@ -349,7 +349,7 @@ pub(crate) fn looks_like_api(path: &Path, text: &str) -> bool {
     let head: String = text.chars().take(4096).collect();
     head.lines().any(|line| {
         let key = line.trim_start().trim_start_matches(['{', '"', '\'']);
-        key.starts_with("openapi") || key.starts_with("$schema")
+        key.starts_with("openapi") || key.starts_with("asyncapi") || key.starts_with("$schema")
     })
 }
 
@@ -674,6 +674,7 @@ mod tests {
         assert!(yes("schema.graphql", ""));
         assert!(yes("user.avsc", "{}"));
         assert!(yes("api.yaml", "openapi: 3.1.0\ninfo: {}\n"));
+        assert!(yes("events.yaml", "asyncapi: 3.0.0\n"));
         assert!(yes("api.json", "{\n  \"openapi\": \"3.0.3\"\n}"));
         assert!(yes(
             "pet.json",

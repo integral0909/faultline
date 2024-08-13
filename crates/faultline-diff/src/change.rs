@@ -132,6 +132,13 @@ pub enum ChangeKind {
     MediaTypeRemoved {
         media_type: String,
     },
+    /// A message type an operation carries was added (AsyncAPI).
+    MessageAdded {
+        name: String,
+    },
+    MessageRemoved {
+        name: String,
+    },
     ResponseAdded {
         status: StatusKey,
     },
@@ -357,6 +364,8 @@ impl ChangeKind {
             ChangeKind::RequestBodyRequiredChanged { .. } => "request-body-required-changed",
             ChangeKind::MediaTypeAdded { .. } => "media-type-added",
             ChangeKind::MediaTypeRemoved { .. } => "media-type-removed",
+            ChangeKind::MessageAdded { .. } => "message-added",
+            ChangeKind::MessageRemoved { .. } => "message-removed",
             ChangeKind::ResponseAdded { .. } => "response-added",
             ChangeKind::ResponseRemoved { .. } => "response-removed",
             ChangeKind::ResponseHeaderAdded { .. } => "response-header-added",

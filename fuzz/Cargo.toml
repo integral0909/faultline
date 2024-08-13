@@ -19,6 +19,7 @@ faultline-openapi = { path = "../crates/faultline-openapi" }
 faultline-protobuf = { path = "../crates/faultline-protobuf" }
 faultline-graphql = { path = "../crates/faultline-graphql" }
 faultline-avro = { path = "../crates/faultline-avro" }
+faultline-asyncapi = { path = "../crates/faultline-asyncapi" }
 faultline-regex = { path = "../crates/faultline-regex" }
 faultline-registry = { path = "../crates/faultline-registry" }
 faultline-diff = { path = "../crates/faultline-diff" }
@@ -94,6 +95,13 @@ bench = false
 [[bin]]
 name = "http_request"
 path = "fuzz_targets/http_request.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "lower_asyncapi"
+path = "fuzz_targets/lower_asyncapi.rs"
 test = false
 doc = false
 bench = false

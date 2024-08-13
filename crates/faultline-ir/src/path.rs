@@ -18,6 +18,7 @@
 //! | operation, callback, webhook, schema root, named type | `op[..]`, `callback[..]`, `webhook[..]`, `schema[..]`, `type[..]` |
 //! | parameter | `param[query:limit]` |
 //! | request body, response, response header, response body | `request[..]`, `response[..]`, `header[..]`, `body[..]` |
+//! | message (AsyncAPI) | `message[..]` |
 //! | field | `.name`, or `."any name"` when it contains other characters |
 //! | field arguments | `.name()` |
 //! | array items, prefix item, contains | `[]`, `[0]`, `[contains]` |
@@ -45,6 +46,8 @@ pub enum Segment {
     Response(String),
     Header(String),
     Body(String),
+    /// A message an operation carries, by name.
+    Message(String),
     Field(String),
     /// The arguments of a field: `.name()`.
     Arguments(String),
@@ -75,6 +78,7 @@ impl Segment {
                 | Segment::Response(_)
                 | Segment::Header(_)
                 | Segment::Body(_)
+                | Segment::Message(_)
         )
     }
 
@@ -201,6 +205,7 @@ fn write_segment(segment: &Segment, out: &mut String) {
         Segment::Response(s) => keyword(out, "response", s),
         Segment::Header(s) => keyword(out, "header", s),
         Segment::Body(s) => keyword(out, "body", s),
+        Segment::Message(s) => keyword(out, "message", s),
         Segment::Field(name) | Segment::Arguments(name) => {
             out.push('.');
             if is_bare_field(name) {
@@ -395,6 +400,7 @@ impl PathParser<'_> {
             "response" => Segment::Response(content),
             "header" => Segment::Header(content),
             "body" => Segment::Body(content),
+            "message" => Segment::Message(content),
             "param" => {
                 let Some((loc, param)) = content.split_once(':') else {
                     return Err(PathParseError {

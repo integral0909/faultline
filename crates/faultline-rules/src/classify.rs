@@ -198,6 +198,10 @@ fn surface_pair(kind: &ChangeKind) -> Option<Surface> {
         K::RequestBodyRemoved => Request(pair(Risky, Breaking)),
         K::MediaTypeAdded { .. } => Request(pair(Info, Risky)),
         K::MediaTypeRemoved { .. } => Request(same(Breaking)),
+        // Messages flow in from producers and out to consumers: a consumer
+        // gaining or losing a message type may mishandle it or miss it.
+        K::MessageAdded { .. } => Request(pair(Info, Risky)),
+        K::MessageRemoved { .. } => Request(pair(Breaking, Risky)),
         K::SecurityRequirementAdded { .. } => Request(same(Info)),
         K::SecurityRequirementRemoved { .. } => Request(pair(Breaking, Info)),
         K::CallbackAdded { .. } => Request(same(Info)),
@@ -406,6 +410,12 @@ fn describe(kind: &ChangeKind) -> (&'static Rule, String, String) {
         K::MediaTypeRemoved { media_type } => (
             &c::MEDIA_TYPE_REMOVED,
             format!("media type {media_type} removed"),
+            none(),
+        ),
+        K::MessageAdded { name } => (&c::MESSAGE_ADDED, format!("message {name} added"), none()),
+        K::MessageRemoved { name } => (
+            &c::MESSAGE_REMOVED,
+            format!("message {name} removed"),
             none(),
         ),
         K::ResponseAdded { status } => (

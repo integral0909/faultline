@@ -1,0 +1,84 @@
+asyncapi: 3.0.0
+info:
+  title: Order events
+  version: 2.0.0
+defaultContentType: application/json
+channels:
+  placed:
+    address: orders/{region}/placed
+    parameters:
+      region:
+        enum: [eu, us]
+    messages:
+      OrderPlaced:
+        $ref: '#/components/messages/OrderPlaced'
+      OrderCancelled:
+        $ref: '#/components/messages/OrderCancelled'
+  payments:
+    address: payments
+    messages:
+      PaymentReceived:
+        $ref: '#/components/messages/PaymentReceived'
+  shipments:
+    address: shipments
+    messages:
+      ShipmentRequested:
+        name: ShipmentRequested
+        contentType: application/octet-stream
+        payload:
+          schemaFormat: application/vnd.apache.avro;version=1.9.0
+          schema:
+            type: record
+            name: ShipmentRequested
+            namespace: shop
+            fields:
+              - {name: orderId, type: string}
+              - {name: address, type: string}
+              - {name: priority, type: boolean, default: false}
+operations:
+  publishOrderPlaced:
+    action: send
+    channel:
+      $ref: '#/channels/placed'
+  takePayment:
+    action: receive
+    channel:
+      $ref: '#/channels/payments'
+  requestShipment:
+    action: receive
+    channel:
+      $ref: '#/channels/shipments'
+components:
+  messages:
+    OrderPlaced:
+      name: OrderPlaced
+      headers:
+        type: object
+        properties:
+          traceId: {type: string}
+      payload:
+        $ref: '#/components/schemas/Order'
+    OrderCancelled:
+      name: OrderCancelled
+      payload:
+        type: object
+        properties:
+          id: {type: string}
+        required: [id]
+    PaymentReceived:
+      name: PaymentReceived
+      payload:
+        type: object
+        properties:
+          orderId: {type: string}
+          amount: {type: number, minimum: 0}
+          method: {type: string, enum: [card, transfer]}
+        required: [orderId, amount, method]
+  schemas:
+    Order:
+      type: object
+      properties:
+        id: {type: string}
+        total: {type: number}
+        currency: {type: string}
+      required: [id, total]

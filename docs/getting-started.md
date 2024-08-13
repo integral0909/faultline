@@ -146,6 +146,23 @@ fill in defaults and match renamed fields through aliases, and the numeric
 promotions Avro allows are compatible. See [examples/avro](../examples/avro)
 and the [Avro internals](internals/avro.md).
 
+## AsyncAPI
+
+Documents with an `asyncapi` field are read as AsyncAPI 2.x or 3.0. Messages
+an application receives are compared like requests it accepts, and messages
+it sends like responses its consumers read:
+
+```sh
+faultline diff v1/asyncapi.yaml v2/asyncapi.yaml
+```
+
+Operations are identified by action and channel address
+(`op[receive payments]`, `webhook[sent]/op[send orders/{}/placed]`), so a
+description migrated from 2.6 to 3.0 compares cleanly with its old self.
+Payloads may be JSON Schema, OpenAPI schemas or Avro. See
+[examples/asyncapi](../examples/asyncapi) and the
+[AsyncAPI internals](internals/asyncapi.md).
+
 ## Checking pull requests
 
 List the APIs in `faultline.toml` at the root of the repository:
@@ -227,7 +244,8 @@ To accept one specific break temporarily, add a waiver with an expiry date to
 `faultline lsp` is a language server: editors that speak the Language Server
 Protocol show findings while an API description is edited, before anything is
 committed. It compares every `[[api]]` of `faultline.toml` (or, without one,
-each open OpenAPI, JSON Schema, Protobuf, GraphQL or Avro document) with the
+each open OpenAPI, AsyncAPI, JSON Schema, Protobuf, GraphQL or Avro document)
+with the
 last commit; pass `--base origin/main`, or set the `base` initialization
 option, to compare with another revision. Hovering a finding explains it, and
 its quick fix adds a 30-day waiver to `faultline.toml`.

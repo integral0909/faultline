@@ -420,6 +420,7 @@ checksum = "da7c62ceae207dd37ea5b845da6a0696c799f85e97da1ab5b7910be3c1c80223"
 name = "faultline"
 version = "0.1.0"
 dependencies = [
+ "faultline-asyncapi",
  "faultline-avro",
  "faultline-diff",
  "faultline-doc",
@@ -435,6 +436,19 @@ dependencies = [
  "faultline-source",
  "faultline-vcs",
  "tempfile",
+]
+
+[[package]]
+name = "faultline-asyncapi"
+version = "0.1.0"
+dependencies = [
+ "faultline-avro",
+ "faultline-diff",
+ "faultline-doc",
+ "faultline-ir",
+ "faultline-jsonschema",
+ "faultline-rules",
+ "faultline-source",
 ]
 
 [[package]]

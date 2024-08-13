@@ -28,15 +28,15 @@ mod types;
 mod validate;
 
 pub use api::{Api, ApiFormat, Root};
-pub use arena::{TypeArena, TypeId};
+pub use arena::{Graft, TypeArena, TypeId};
 pub use dump::dump;
 pub use literal::Literal;
 pub use path::{IrPath, PathParseError, Segment};
 pub use polarity::{Polarities, Polarity};
 pub use surface::{
-    Callback, Content, Header, HttpMethod, Operation, OperationKey, ParamLocation, Parameter,
-    PathTemplate, RequestBody, Response, Role, SchemaRoot, SecurityRequirement, Serialization,
-    StatusKey, Streaming,
+    Callback, Content, Header, HttpMethod, MessageAction, Operation, OperationKey, ParamLocation,
+    Parameter, PathTemplate, RequestBody, Response, Role, SchemaRoot, SecurityRequirement,
+    Serialization, StatusKey, Streaming,
 };
 pub use types::{
     Access, ArrayType, Bound, Contains, Discriminator, EnumType, EnumValue, ExclusiveGroup, Field,

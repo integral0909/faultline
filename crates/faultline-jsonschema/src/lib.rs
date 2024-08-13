@@ -16,6 +16,7 @@ pub mod codes;
 mod dialect;
 mod keywords;
 mod lower;
+pub mod nav;
 mod registry;
 
 use faultline_doc::{DocumentStore, UriRef};

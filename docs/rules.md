@@ -67,6 +67,8 @@ at the change, and on the evidence found (see
 | [FL2071](#fl2071) | `callback-removed` | wire | A callback was removed |
 | [FL2072](#fl2072) | `webhook-added` | wire | A webhook was added |
 | [FL2073](#fl2073) | `webhook-removed` | wire | A webhook was removed |
+| [FL2080](#fl2080) | `message-added` | wire | A message type was added |
+| [FL2081](#fl2081) | `message-removed` | wire | A message type was removed |
 | [FL3001](#fl3001) | `streaming-changed` | wire | An RPC changed between unary and streaming |
 
 ## FL1001
@@ -440,6 +442,18 @@ The API sends a new webhook.
 **webhook-removed** — A webhook was removed
 
 The API no longer sends a webhook; receivers depending on it are affected.
+
+## FL2080
+
+**message-added** — A message type was added
+
+An operation carries a new kind of message. Applications that receive it accept more; consumers of an application that sends it may not recognize it.
+
+## FL2081
+
+**message-removed** — A message type was removed
+
+An operation no longer carries a kind of message. Producers still sending it to an application that received it are refused; consumers of an application that sent it stop getting it.
 
 ## FL3001
 

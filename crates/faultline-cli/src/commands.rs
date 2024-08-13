@@ -19,6 +19,7 @@ pub(crate) enum Format {
     Protobuf,
     Graphql,
     Avro,
+    Asyncapi,
 }
 
 impl From<Format> for ApiFormat {
@@ -29,6 +30,7 @@ impl From<Format> for ApiFormat {
             Format::Protobuf => ApiFormat::Protobuf,
             Format::Graphql => ApiFormat::GraphQl,
             Format::Avro => ApiFormat::Avro,
+            Format::Asyncapi => ApiFormat::AsyncApi,
         }
     }
 }

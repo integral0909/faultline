@@ -2,7 +2,8 @@
 
 Faultline finds breaking changes in API contracts before your consumers do.
 
-It reads OpenAPI, JSON Schema, Protobuf, GraphQL and Avro, lowers each into a
+It reads OpenAPI, AsyncAPI, JSON Schema, Protobuf, GraphQL and Avro, lowers
+each into a
 single typed model in which every position knows whether data flows **into**
 the API or **out of** it, and decides compatibility semantically: a change is
 breaking when some value that used to be valid no longer is, in the direction
@@ -25,12 +26,13 @@ breaking[FL1007]: op[GET /pets]/param[query:limit]: maximum changed from 100 to 
    = help: `faultline explain FL1007` describes this rule
 ```
 
-> **Status:** early development (0.1). OpenAPI 3.0/3.1, JSON Schema
-> (draft-04 to 2020-12), Protobuf (proto2, proto3, editions), GraphQL SDL and
-> Avro are supported, with text, JSON, SARIF, Markdown,
-> GitHub annotation and JUnit output, and pull requests can be checked
-> against their base branch straight from git. AsyncAPI and a language server
-> are on the [roadmap](docs/architecture.md#roadmap).
+> **Status:** early development (0.1). OpenAPI 3.0/3.1, AsyncAPI 2.x/3.0,
+> JSON Schema (draft-04 to 2020-12), Protobuf (proto2, proto3, editions),
+> GraphQL SDL and Avro are supported, with text, JSON, SARIF, Markdown,
+> GitHub annotation and JUnit output. Pull requests can be checked against
+> their base branch straight from git, editors show findings through a
+> language server, and a schema registry refuses breaking versions. See the
+> [roadmap](docs/architecture.md#roadmap).
 
 ## Quick start
 

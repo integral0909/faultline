@@ -32,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [parse_json, parse_yaml, uri_pointer, lower_jsonschema, lower_openapi, lower_protobuf, lower_graphql, lower_avro, regex, http_request]
+        target: [parse_json, parse_yaml, uri_pointer, lower_jsonschema, lower_openapi, lower_protobuf, lower_graphql, lower_avro, regex, http_request, lower_asyncapi]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly

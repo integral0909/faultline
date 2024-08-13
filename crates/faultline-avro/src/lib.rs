@@ -8,8 +8,8 @@
 pub mod codes;
 mod lower;
 
-use faultline_doc::{DocumentStore, StoreError, UriRef};
-use faultline_ir::{Api, Role};
+use faultline_doc::{DocumentStore, Node, StoreError, UriRef};
+use faultline_ir::{Api, Role, TypeId};
 use faultline_source::{Diagnostic, Diagnostics};
 
 /// The result of lowering one version.
@@ -18,6 +18,31 @@ pub struct Lowered {
     /// `None` when the schema has errors.
     pub api: Option<Api>,
     pub diagnostics: Diagnostics,
+}
+
+/// An Avro schema embedded in another format's document (an AsyncAPI
+/// message payload): its types, in an API of their own, and the type of the
+/// schema itself. The caller grafts the types into its own arena.
+#[derive(Debug)]
+pub struct Embedded {
+    /// `None` when the schema has errors.
+    pub lowered: Option<(Api, TypeId)>,
+    pub diagnostics: Diagnostics,
+}
+
+/// Lowers the Avro schema `node`, checking it as [`lower_avro`] does.
+pub fn lower_embedded(node: &Node) -> Embedded {
+    let mut lowerer = lower::Lowerer::new("embedded");
+    let id = lowerer.embedded(node);
+    let diagnostics = lowerer.diagnostics;
+    let lowered = match id {
+        Some(id) if !diagnostics.has_errors() => Some((lowerer.api, id)),
+        _ => None,
+    };
+    Embedded {
+        lowered,
+        diagnostics,
+    }
 }
 
 /// Reads the schema at `entry` and lowers it into an [`Api`] named `name`,

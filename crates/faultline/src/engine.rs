@@ -317,6 +317,10 @@ impl Engine {
                 );
                 (lowered.api, lowered.diagnostics)
             }
+            ApiFormat::AsyncApi => {
+                let lowered = faultline_asyncapi::lower_asyncapi(&entry, &mut store, name);
+                (lowered.api, lowered.diagnostics)
+            }
             ApiFormat::Avro => {
                 let lowered = faultline_avro::lower_avro(&entry, &mut store, name, ir_role(role));
                 (lowered.api, lowered.diagnostics)
@@ -544,12 +548,15 @@ pub fn format_by_extension(entry: &UriRef) -> Option<ApiFormat> {
 }
 
 /// Recognizes OpenAPI (and Swagger, so the OpenAPI front end can say it is
-/// unsupported) by its version field; everything else is JSON Schema.
+/// unsupported) and AsyncAPI by their version fields; everything else is
+/// JSON Schema.
 pub fn detect_format(store: &mut DocumentStore<'_>, entry: &UriRef) -> Option<ApiFormat> {
     let document = store.get(entry).ok()?;
     let root = &document.document.root;
     if root.get("openapi").is_some() || root.get("swagger").is_some() {
         Some(ApiFormat::OpenApi)
+    } else if root.get("asyncapi").is_some() {
+        Some(ApiFormat::AsyncApi)
     } else {
         Some(ApiFormat::JsonSchema)
     }

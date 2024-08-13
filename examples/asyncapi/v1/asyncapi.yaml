@@ -1,0 +1,61 @@
+asyncapi: 2.6.0
+info:
+  title: Order events
+  version: 1.4.0
+defaultContentType: application/json
+channels:
+  orders/{region}/placed:
+    parameters:
+      region:
+        schema:
+          type: string
+          enum: [eu, us]
+    subscribe:
+      operationId: publishOrderPlaced
+      message:
+        $ref: '#/components/messages/OrderPlaced'
+  payments:
+    publish:
+      operationId: takePayment
+      message:
+        $ref: '#/components/messages/PaymentReceived'
+  shipments:
+    publish:
+      operationId: requestShipment
+      message:
+        name: ShipmentRequested
+        contentType: application/octet-stream
+        schemaFormat: application/vnd.apache.avro;version=1.9.0
+        payload:
+          type: record
+          name: ShipmentRequested
+          namespace: shop
+          fields:
+            - {name: orderId, type: string}
+            - {name: address, type: string}
+components:
+  messages:
+    OrderPlaced:
+      name: OrderPlaced
+      headers:
+        type: object
+        properties:
+          traceId: {type: string}
+      payload:
+        $ref: '#/components/schemas/Order'
+    PaymentReceived:
+      name: PaymentReceived
+      payload:
+        type: object
+        properties:
+          orderId: {type: string}
+          amount: {type: number, minimum: 0}
+        required: [orderId, amount]
+  schemas:
+    Order:
+      type: object
+      properties:
+        id: {type: string}
+        total: {type: number}
+        note: {type: string}
+      required: [id, total, note]

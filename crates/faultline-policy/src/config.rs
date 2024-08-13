@@ -102,6 +102,7 @@ pub enum ApiFormat {
     Protobuf,
     GraphQl,
     Avro,
+    AsyncApi,
 }
 
 impl ApiFormat {
@@ -113,6 +114,7 @@ impl ApiFormat {
             ApiFormat::Protobuf => "protobuf",
             ApiFormat::GraphQl => "graphql",
             ApiFormat::Avro => "avro",
+            ApiFormat::AsyncApi => "asyncapi",
         }
     }
 
@@ -123,6 +125,7 @@ impl ApiFormat {
             "protobuf" | "proto" => Some(ApiFormat::Protobuf),
             "graphql" => Some(ApiFormat::GraphQl),
             "avro" => Some(ApiFormat::Avro),
+            "asyncapi" => Some(ApiFormat::AsyncApi),
             _ => None,
         }
     }

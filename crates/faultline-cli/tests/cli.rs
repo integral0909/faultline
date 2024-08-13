@@ -442,6 +442,65 @@ fn avro_schemas_are_compared_in_each_compatibility_mode() {
 }
 
 #[test]
+fn asyncapi_migrations_are_compared_by_meaning() {
+    let dir = repo().join("examples/asyncapi");
+    let output = faultline(
+        &dir,
+        &[
+            "diff",
+            "v1/asyncapi.yaml",
+            "v2/asyncapi.yaml",
+            "--output",
+            "json",
+        ],
+    );
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    let report: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+    let findings: Vec<(String, String)> = report["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| {
+            (
+                f["severity"].as_str().unwrap().to_owned(),
+                f["path"].as_str().unwrap().to_owned(),
+            )
+        })
+        .collect();
+    let expected = [
+        (
+            "breaking",
+            "op[receive payments]/message[PaymentReceived].payload",
+        ),
+        (
+            "breaking",
+            "webhook[sent]/op[send orders/{}/placed]/message[OrderPlaced].payload",
+        ),
+        (
+            "risky",
+            "webhook[sent]/op[send orders/{}/placed]/message[OrderCancelled]",
+        ),
+        (
+            "info",
+            "op[receive shipments]/message[ShipmentRequested].payload",
+        ),
+        (
+            "info",
+            "webhook[sent]/op[send orders/{}/placed]/message[OrderPlaced].payload",
+        ),
+    ];
+    let mut sorted = findings.clone();
+    sorted.sort();
+    let mut wanted: Vec<(String, String)> = expected
+        .iter()
+        .map(|(s, p)| ((*s).to_owned(), (*p).to_owned()))
+        .collect();
+    wanted.sort();
+    assert_eq!(sorted, wanted);
+    assert_eq!(report["apis"][0]["suggested_bump"], "major");
+}
+
+#[test]
 fn declared_versions_are_checked_with_semver_versioning() {
     let dir = workspace();
     // Version 2 claims to be a minor release despite its breaking changes.

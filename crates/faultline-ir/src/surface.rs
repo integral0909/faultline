@@ -119,6 +119,37 @@ pub enum OperationKey {
     /// A remote procedure: `service` is fully qualified
     /// (`petstore.v1.PetService`), as it appears in the gRPC method path.
     Rpc { service: String, method: String },
+    /// Messages the application sends or receives on a channel (AsyncAPI).
+    /// `channel` is the channel's address, a template like
+    /// `orders/{region}/created`.
+    Message {
+        action: MessageAction,
+        channel: PathTemplate,
+    },
+}
+
+/// Which way an application's messages flow, from its own point of view.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum MessageAction {
+    /// The application publishes messages; consumers receive them.
+    Send,
+    /// The application consumes messages that others publish.
+    Receive,
+}
+
+impl MessageAction {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            MessageAction::Send => "send",
+            MessageAction::Receive => "receive",
+        }
+    }
+}
+
+impl fmt::Display for MessageAction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
 }
 
 impl OperationKey {
@@ -128,7 +159,15 @@ impl OperationKey {
         match self {
             OperationKey::Http { method, path } => format!("{method} {}", path.normalized()),
             OperationKey::Rpc { service, method } => format!("{service}/{method}"),
+            OperationKey::Message { action, channel } => {
+                format!("{action} {}", channel.normalized())
+            }
         }
+    }
+
+    /// Whether the operation carries messages rather than requests.
+    pub fn is_message(&self) -> bool {
+        matches!(self, OperationKey::Message { .. })
     }
 }
 
@@ -138,6 +177,7 @@ impl fmt::Display for OperationKey {
         match self {
             OperationKey::Http { method, path } => write!(f, "{method} {}", path.raw()),
             OperationKey::Rpc { service, method } => write!(f, "{service}/{method}"),
+            OperationKey::Message { action, channel } => write!(f, "{action} {}", channel.raw()),
         }
     }
 }

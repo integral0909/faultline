@@ -66,7 +66,7 @@ pub fn import<S: AsRef<str>>(
                     specificity,
                 })
             }
-            OperationKey::Rpc { .. } => None,
+            OperationKey::Rpc { .. } | OperationKey::Message { .. } => None,
         })
         .collect();
     routes.sort_by_key(|r| std::cmp::Reverse(r.specificity));
