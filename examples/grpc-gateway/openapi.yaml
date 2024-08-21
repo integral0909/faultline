@@ -1,0 +1,81 @@
+openapi: 3.0.3
+info:
+  title: Pets
+  version: 1.0.0
+paths:
+  /v1/{name}:
+    get:
+      operationId: PetService_GetPet
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: The pet.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Pet'}
+    delete:
+      operationId: PetService_DeletePet
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: The pet was deleted.
+  /v1/pets:
+    get:
+      operationId: PetService_ListPets
+      parameters:
+        - name: pageSize
+          in: query
+          schema: {type: integer, format: int32}
+        - name: pageToken
+          in: query
+          schema: {type: string}
+      responses:
+        '200':
+          description: A page of pets.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pets:
+                    type: array
+                    items: {$ref: '#/components/schemas/Pet'}
+                  nextPageToken: {type: string}
+    post:
+      operationId: PetService_CreatePet
+      parameters:
+        - name: petId
+          in: query
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Pet'}
+      responses:
+        '200':
+          description: The new pet.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Pet'}
+components:
+  schemas:
+    Pet:
+      type: object
+      properties:
+        name: {type: string}
+        displayName: {type: string}
+        species:
+          type: string
+          enum: [SPECIES_UNSPECIFIED, DOG, CAT]
+        weightGrams: {type: string, format: int64}
+        createTime: {type: string, format: date-time}
+      required: [displayName]

@@ -69,6 +69,11 @@ pub struct Target {
     pub new: Source,
     /// Detected from the entry document when `None`.
     pub format: Option<ApiFormat>,
+    /// Overrides `format` for the old version, for comparisons across
+    /// formats (an OpenAPI description against a gRPC service's HTTP view).
+    pub old_format: Option<ApiFormat>,
+    /// Overrides `format` for the new version.
+    pub new_format: Option<ApiFormat>,
     /// For standalone JSON Schemas: which direction documents flow.
     pub role: SchemaRole,
     /// Whether the API may be new: when set, a missing old entry document
@@ -83,6 +88,8 @@ impl Target {
             old,
             new,
             format: None,
+            old_format: None,
+            new_format: None,
             role: SchemaRole::Both,
             may_be_new: false,
         }
@@ -196,11 +203,18 @@ impl Engine {
     }
 
     fn compare_one(&self, target: &Target, sources: &SourceMap) -> Outcome {
-        let lower =
-            |source: &Source| self.lower(source, &target.name, target.format, target.role, sources);
+        let lower = |source: &Source, format: Option<ApiFormat>| {
+            self.lower(
+                source,
+                &target.name,
+                format.or(target.format),
+                target.role,
+                sources,
+            )
+        };
         let (old, new) = std::thread::scope(|scope| {
-            let new = spawn(scope, || lower(&target.new));
-            let old = lower(&target.old);
+            let new = spawn(scope, || lower(&target.new, target.new_format));
+            let old = lower(&target.old, target.old_format);
             (
                 old,
                 new.join()
@@ -284,6 +298,14 @@ impl Engine {
                 missing_entry: false,
             };
         }
+        if format == Some(ApiFormat::ProtobufHttp) {
+            let lowered = faultline_protobuf::lower_protobuf_http(&entry, loader, sources, name);
+            return Lowered {
+                api: lowered.api,
+                diagnostics: lowered.diagnostics,
+                missing_entry: false,
+            };
+        }
         if format == Some(ApiFormat::Protobuf) {
             let lowered =
                 faultline_protobuf::lower_protobuf(&entry, loader, sources, name, ir_role(role));
@@ -325,7 +347,9 @@ impl Engine {
                 let lowered = faultline_avro::lower_avro(&entry, &mut store, name, ir_role(role));
                 (lowered.api, lowered.diagnostics)
             }
-            ApiFormat::Protobuf | ApiFormat::GraphQl => unreachable!("handled above"),
+            ApiFormat::Protobuf | ApiFormat::ProtobufHttp | ApiFormat::GraphQl => {
+                unreachable!("handled above")
+            }
         };
         if let Some(api) = &mut api {
             name.clone_into(&mut api.name);

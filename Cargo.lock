@@ -593,6 +593,7 @@ dependencies = [
  "faultline-diff",
  "faultline-doc",
  "faultline-ir",
+ "faultline-openapi",
  "faultline-rules",
  "faultline-source",
  "proptest",

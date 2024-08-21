@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package pets.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/timestamp.proto";
+
+// Pets, served over gRPC and, through the gateway, over HTTP/JSON.
+service PetService {
+  rpc GetPet(GetPetRequest) returns (Pet) {
+    option (google.api.http) = {get: "/v1/{name=pets/*}"};
+  }
+  rpc ListPets(ListPetsRequest) returns (ListPetsResponse) {
+    option (google.api.http) = {get: "/v1/pets"};
+  }
+  rpc CreatePet(CreatePetRequest) returns (Pet) {
+    option (google.api.http) = {
+      post: "/v1/pets"
+      body: "pet"
+    };
+  }
+}
+
+message Pet {
+  string name = 1;
+  string display_name = 2 [(google.api.field_behavior) = REQUIRED];
+  Species species = 3;
+  int32 weight_grams = 4;
+  google.protobuf.Timestamp create_time = 5;
+}
+
+enum Species {
+  SPECIES_UNSPECIFIED = 0;
+  DOG = 1;
+  CAT = 2;
+}
+
+message GetPetRequest {
+  string name = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message ListPetsRequest {
+  int32 max_page_size = 1;
+  string page_token = 2;
+}
+
+message ListPetsResponse {
+  repeated Pet pets = 1;
+  string next_page_token = 2;
+}
+
+message CreatePetRequest {
+  Pet pet = 1 [(google.api.field_behavior) = REQUIRED];
+  string pet_id = 2;
+}

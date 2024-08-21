@@ -336,6 +336,7 @@ fn names_round_trip() {
         ApiFormat::GraphQl,
         ApiFormat::Avro,
         ApiFormat::AsyncApi,
+        ApiFormat::ProtobufHttp,
     ] {
         assert_eq!(ApiFormat::parse(format.as_str()), Some(format));
     }

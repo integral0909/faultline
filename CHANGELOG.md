@@ -139,6 +139,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The IR gains message operations, `message[..]` path segments and grafting
   of one type graph into another; JSON Schema navigation shared by the
   OpenAPI and AsyncAPI front ends moved into `faultline-jsonschema`.
+- Cross-format checks: `format = "protobuf-http"` (`--format`,
+  `--old-format`, `--new-format`) reads a `.proto` file's services as the
+  HTTP/JSON API their `google.api.http` rules expose, with path, query and
+  body bindings, `additional_bindings`, `response_body`, proto3 JSON types
+  and `(google.api.field_behavior) = REQUIRED`, so a gRPC service can be
+  compared with its OpenAPI description. `google/api/annotations.proto`,
+  `http.proto` and `field_behavior.proto` are built in, and imports used
+  only by custom options are no longer reported as unused.
 - Releases: `[policy] versioning = "semver"` checks declared versions
   against the bump the changes need (with SemVer's rules below 1.0.0) and
   fails on too small an increase; `--output changelog` writes release notes;

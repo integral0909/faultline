@@ -28,3 +28,7 @@ pub const IMPORT_CYCLE: DiagnosticCode = DiagnosticCode::new("FLE3010");
 pub const INVALID_FOR_SYNTAX: DiagnosticCode = DiagnosticCode::new("FLE3011");
 /// An import is not used (a warning).
 pub const UNUSED_IMPORT: DiagnosticCode = DiagnosticCode::new("FLE3012");
+/// An HTTP rule cannot be used for the HTTP/JSON view (a warning): it is
+/// malformed, names fields the request does not have, or binds a path
+/// twice.
+pub const HTTP_RULE: DiagnosticCode = DiagnosticCode::new("FLE3013");

@@ -20,6 +20,9 @@ pub(crate) enum Format {
     Graphql,
     Avro,
     Asyncapi,
+    /// A `.proto` file's services as the HTTP/JSON API their
+    /// `google.api.http` rules expose.
+    ProtobufHttp,
 }
 
 impl From<Format> for ApiFormat {
@@ -31,6 +34,7 @@ impl From<Format> for ApiFormat {
             Format::Graphql => ApiFormat::GraphQl,
             Format::Avro => ApiFormat::Avro,
             Format::Asyncapi => ApiFormat::AsyncApi,
+            Format::ProtobufHttp => ApiFormat::ProtobufHttp,
         }
     }
 }
@@ -105,6 +109,14 @@ pub(crate) struct CompareArgs {
     /// Description format (default: detected).
     #[arg(long, value_enum)]
     format: Option<Format>,
+    /// The old version's format, when it differs from the new one's.
+    #[arg(long, value_enum)]
+    old_format: Option<Format>,
+    /// The new version's format, when it differs from the old one's: for
+    /// example `--new-format protobuf-http` to check a gRPC service against
+    /// its OpenAPI description.
+    #[arg(long, value_enum)]
+    new_format: Option<Format>,
     /// For schemas without operations (JSON Schema, Protobuf messages,
     /// Avro): which direction documents flow. For Avro, `input` is BACKWARD
     /// compatibility, `output` FORWARD and `both` FULL.
@@ -302,6 +314,8 @@ fn target(args: &CompareArgs, root: &Path) -> Target {
         new_source,
     );
     target.format = args.format.map(Into::into);
+    target.old_format = args.old_format.map(Into::into);
+    target.new_format = args.new_format.map(Into::into);
     target.role = args.role.into();
     target
 }

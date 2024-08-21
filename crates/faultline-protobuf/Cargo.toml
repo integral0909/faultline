@@ -16,6 +16,7 @@ faultline-source.workspace = true
 
 [dev-dependencies]
 faultline-diff.workspace = true
+faultline-openapi.workspace = true
 faultline-rules.workspace = true
 proptest.workspace = true
 

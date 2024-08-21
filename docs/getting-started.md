@@ -163,6 +163,22 @@ Payloads may be JSON Schema, OpenAPI schemas or Avro. See
 [examples/asyncapi](../examples/asyncapi) and the
 [AsyncAPI internals](internals/asyncapi.md).
 
+## gRPC services and their OpenAPI descriptions
+
+A gRPC service exposed over HTTP/JSON with `google.api.http` rules can be
+checked against the OpenAPI description published for its JSON clients:
+
+```sh
+faultline diff openapi.yaml proto/pets.proto --new-format protobuf-http
+```
+
+`protobuf-http` reads the `.proto` file as the HTTP/JSON API its rules
+expose, with messages in their proto3 JSON form. Any breaking finding is a
+promise of the description the service does not keep. `--old-format` and
+`--new-format` set each side's format separately whenever two versions are
+written in different formats. See
+[examples/grpc-gateway](../examples/grpc-gateway).
+
 ## Checking pull requests
 
 List the APIs in `faultline.toml` at the root of the repository:

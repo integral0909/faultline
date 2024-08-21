@@ -428,12 +428,25 @@ impl Linker<'_> {
             if index != 0 {
                 continue;
             }
+            let options = custom_options(&file.ast);
             for (i, import) in file.ast.imports.iter().enumerate() {
-                let failed = file.imports[i].is_none();
-                if failed
-                    || import.kind != ast::ImportKind::Default
-                    || self.used_imports[index].contains(&i)
+                let Some(imported) = file.imports[i] else {
+                    continue;
+                };
+                if import.kind != ast::ImportKind::Default || self.used_imports[index].contains(&i)
                 {
+                    continue;
+                }
+                // Imports that declare the extensions custom options name
+                // (`(google.api.http)`) are used by those options.
+                let provides_option = self.exported[imported].iter().any(|&f| {
+                    extensions(&self.files[f].ast).iter().any(|e| {
+                        options
+                            .iter()
+                            .any(|o| e == o || e.ends_with(&format!(".{o}")))
+                    })
+                });
+                if provides_option {
                     continue;
                 }
                 self.linked.diagnostics.push(
@@ -714,6 +727,66 @@ impl Linker<'_> {
                 .with_primary(span, "here"),
         );
     }
+}
+
+/// The extensions custom options in `file` name: `(google.api.http)` and
+/// `(google.api.http).get` both name `google.api.http`.
+fn custom_options(file: &ast::File) -> HashSet<String> {
+    fn add(options: &[ast::OptionDecl], out: &mut HashSet<String>) {
+        for option in options {
+            if let Some(rest) = option.name.strip_prefix('(')
+                && let Some((name, _)) = rest.split_once(')')
+            {
+                out.insert(name.trim_start_matches('.').to_owned());
+            }
+        }
+    }
+    fn message(m: &ast::Message, out: &mut HashSet<String>) {
+        add(&m.options, out);
+        for field in &m.fields {
+            add(&field.options, out);
+        }
+        for oneof in &m.oneofs {
+            add(&oneof.options, out);
+        }
+        for e in &m.enums {
+            enumeration(e, out);
+        }
+        for nested in &m.messages {
+            message(nested, out);
+        }
+    }
+    fn enumeration(e: &ast::Enum, out: &mut HashSet<String>) {
+        add(&e.options, out);
+        for value in &e.values {
+            add(&value.options, out);
+        }
+    }
+    let mut out = HashSet::new();
+    add(&file.options, &mut out);
+    for m in &file.messages {
+        message(m, &mut out);
+    }
+    for e in &file.enums {
+        enumeration(e, &mut out);
+    }
+    for service in &file.services {
+        add(&service.options, &mut out);
+        for method in &service.methods {
+            add(&method.options, &mut out);
+        }
+    }
+    out
+}
+
+/// The full names of the extensions `file` declares at its top level.
+fn extensions(file: &ast::File) -> Vec<String> {
+    let package = file.package.as_ref().map_or("", |p| p.text.as_str());
+    file.extends
+        .iter()
+        .flat_map(|extend| &extend.fields)
+        .map(|field| qualify(package, &field.name.text))
+        .collect()
 }
 
 /// The lowerCamelCase JSON name `protoc` derives from a field name.

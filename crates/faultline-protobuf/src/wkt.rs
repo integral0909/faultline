@@ -1,5 +1,6 @@
-//! The well-known types under `google/protobuf/`, built in so that imports of
-//! them resolve without the files being present in the workspace.
+//! The well-known types under `google/protobuf/`, and the HTTP annotations
+//! under `google/api/`, built in so that imports of them resolve without the
+//! files being present in the workspace.
 //!
 //! Only the messages, fields and numbers matter for compatibility; the
 //! definitions here declare exactly those.
@@ -15,6 +16,9 @@ pub(crate) fn builtin(path: &str) -> Option<&'static str> {
         "google/protobuf/timestamp.proto" => TIMESTAMP,
         "google/protobuf/wrappers.proto" => WRAPPERS,
         "google/protobuf/descriptor.proto" => DESCRIPTOR,
+        "google/api/annotations.proto" => ANNOTATIONS,
+        "google/api/http.proto" => HTTP,
+        "google/api/field_behavior.proto" => FIELD_BEHAVIOR,
         _ => return None,
     })
 }
@@ -106,6 +110,62 @@ message MethodOptions { extensions 1000 to max; }
 message ExtensionRangeOptions { extensions 1000 to max; }
 "#;
 
+/// `(google.api.http)`: how an RPC is exposed over HTTP/JSON.
+const ANNOTATIONS: &str = r#"syntax = "proto3";
+package google.api;
+import "google/api/http.proto";
+import "google/protobuf/descriptor.proto";
+extend google.protobuf.MethodOptions {
+  HttpRule http = 72295728;
+}
+"#;
+
+const HTTP: &str = r#"syntax = "proto3";
+package google.api;
+message Http {
+  repeated HttpRule rules = 1;
+  bool fully_decode_reserved_expansion = 2;
+}
+message HttpRule {
+  string selector = 1;
+  oneof pattern {
+    string get = 2;
+    string put = 3;
+    string post = 4;
+    string delete = 5;
+    string patch = 6;
+    CustomHttpPattern custom = 8;
+  }
+  string body = 7;
+  string response_body = 12;
+  repeated HttpRule additional_bindings = 11;
+}
+message CustomHttpPattern {
+  string kind = 1;
+  string path = 2;
+}
+"#;
+
+/// `(google.api.field_behavior)`: `REQUIRED`, `OUTPUT_ONLY` and friends.
+const FIELD_BEHAVIOR: &str = r#"syntax = "proto3";
+package google.api;
+import "google/protobuf/descriptor.proto";
+extend google.protobuf.FieldOptions {
+  repeated google.api.FieldBehavior field_behavior = 1052;
+}
+enum FieldBehavior {
+  FIELD_BEHAVIOR_UNSPECIFIED = 0;
+  OPTIONAL = 1;
+  REQUIRED = 2;
+  OUTPUT_ONLY = 3;
+  INPUT_ONLY = 4;
+  IMMUTABLE = 5;
+  UNORDERED_LIST = 6;
+  NON_EMPTY_DEFAULT = 7;
+  IDENTIFIER = 8;
+}
+"#;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -123,8 +183,13 @@ mod tests {
             "timestamp",
             "wrappers",
             "descriptor",
+            "annotations",
+            "http",
+            "field_behavior",
         ] {
-            let text = builtin(&format!("google/protobuf/{path}.proto")).unwrap();
+            let text = builtin(&format!("google/protobuf/{path}.proto"))
+                .or_else(|| builtin(&format!("google/api/{path}.proto")))
+                .unwrap();
             let (_, diagnostics) = parse(SourceId::from_raw(0), text);
             assert!(diagnostics.is_empty(), "{path}: {diagnostics:?}");
         }

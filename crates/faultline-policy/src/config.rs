@@ -103,6 +103,9 @@ pub enum ApiFormat {
     GraphQl,
     Avro,
     AsyncApi,
+    /// A Protobuf file's services as the HTTP/JSON API their
+    /// `google.api.http` rules expose.
+    ProtobufHttp,
 }
 
 impl ApiFormat {
@@ -115,6 +118,7 @@ impl ApiFormat {
             ApiFormat::GraphQl => "graphql",
             ApiFormat::Avro => "avro",
             ApiFormat::AsyncApi => "asyncapi",
+            ApiFormat::ProtobufHttp => "protobuf-http",
         }
     }
 
@@ -126,6 +130,7 @@ impl ApiFormat {
             "graphql" => Some(ApiFormat::GraphQl),
             "avro" => Some(ApiFormat::Avro),
             "asyncapi" => Some(ApiFormat::AsyncApi),
+            "protobuf-http" => Some(ApiFormat::ProtobufHttp),
             _ => None,
         }
     }

@@ -501,6 +501,42 @@ fn asyncapi_migrations_are_compared_by_meaning() {
 }
 
 #[test]
+fn grpc_services_are_checked_against_their_openapi_description() {
+    let dir = repo().join("examples/grpc-gateway");
+    let output = faultline(
+        &dir,
+        &[
+            "diff",
+            "openapi.yaml",
+            "proto/pets.proto",
+            "--new-format",
+            "protobuf-http",
+            "--output",
+            "json",
+        ],
+    );
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    let report: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+    let mut breaking: Vec<String> = report["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["severity"] == "breaking")
+        .map(|f| f["path"].as_str().unwrap().to_owned())
+        .collect();
+    breaking.sort();
+    assert_eq!(
+        breaking,
+        [
+            "op[DELETE /v1/{}]",
+            "op[GET /v1/{}]/response[200]/body[application/json].weightGrams",
+            "op[POST /v1/pets]/request[application/json].weightGrams",
+        ]
+    );
+    assert!(report["diagnostics"].as_array().unwrap().is_empty());
+}
+
+#[test]
 fn declared_versions_are_checked_with_semver_versioning() {
     let dir = workspace();
     // Version 2 claims to be a minor release despite its breaking changes.
