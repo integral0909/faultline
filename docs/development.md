@@ -36,6 +36,17 @@ cargo +1.88 check --workspace --all-features
 cargo deny check advisories bans licenses sources
 ```
 
+To fuzz locally, run `cargo fuzz` with the nightly toolchain first on
+`PATH` (a system `cargo` earlier on `PATH` ignores `+nightly`):
+
+```sh
+cd fuzz
+PATH="$(dirname "$(rustup which --toolchain nightly cargo)"):$PATH" \
+    cargo fuzz run lower_openapi corpus/lower_openapi seeds/lower_openapi -- -max_total_time=60
+```
+
+Releases are described in [releasing.md](releasing.md).
+
 ## Workspace layout
 
 Each crate lives in `crates/<name>` and inherits version, edition, license and

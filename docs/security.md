@@ -77,7 +77,11 @@ as files, so client-chosen paths never reach the filesystem; subject names
 are validated before they name a directory. Lowering in the registry reads
 only the files it was sent: remote references are never fetched. Responses
 carry `X-Content-Type-Options: nosniff` and are never HTML. The parser is
-fuzzed (`http_request`).
+fuzzed (`http_request`). Each worker serves one connection at a time, so
+clients that send slowly can hold every worker until the timeout; a proxy
+that buffers requests in front of the server avoids that. The client
+(`faultline registry push`) sends the token only over HTTPS, or over plain
+HTTP to the local machine.
 
 **Supply chain.** Dependencies come from crates.io only, the lockfile is
 committed, and `cargo-deny` checks advisories, licenses and sources in CI.

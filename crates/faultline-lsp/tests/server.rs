@@ -50,8 +50,20 @@ fn repository(files: &[(&str, &str)]) -> tempfile::TempDir {
     dir
 }
 
+/// The `file:` URI of `path`, spelled as editors spell it on every
+/// platform (`file:///C:/...` on Windows).
+fn uri_of(path: &Path) -> String {
+    let text = path.to_string_lossy().replace('\\', "/");
+    let text = text.trim_start_matches("//?/");
+    if text.starts_with('/') {
+        format!("file://{text}")
+    } else {
+        format!("file:///{text}")
+    }
+}
+
 fn file_uri(dir: &Path, path: &str) -> String {
-    format!("file://{}", dir.join(path).display())
+    uri_of(&dir.join(path))
 }
 
 const CONFIG: &str = r#"[[api]]
@@ -91,7 +103,7 @@ impl Client {
         let result = client.request(
             "initialize",
             &json!({
-                "rootUri": format!("file://{}", dir.display()),
+                "rootUri": uri_of(dir),
                 "capabilities": {},
                 "initializationOptions": options,
             }),
@@ -403,7 +415,7 @@ fn stdio_session() {
         let body = value.to_string();
         format!("Content-Length: {}\r\n\r\n{body}", body.len())
     };
-    let root = format!("file://{}", dir.path().display());
+    let root = uri_of(dir.path());
     let input = [
         frame(
             json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"rootUri": root}}),

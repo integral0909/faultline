@@ -36,6 +36,23 @@ enum Incoming {
     Malformed(String),
 }
 
+/// Runs an analysis, turning a panic into a message: one malformed input
+/// must not take the editor's server down with it.
+fn analyze(server: &mut Server) -> Vec<Value> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| server.analyze())).unwrap_or_else(
+        |_| {
+            vec![protocol::notification(
+                "window/showMessage",
+                &serde_json::json!({
+                    "type": 1,
+                    "message": "faultline: internal error while analyzing the workspace; \
+                                please report it with the files that caused it",
+                }),
+            )]
+        },
+    )
+}
+
 /// Serves `server` until the client sends `exit` or closes the stream,
 /// returning the process exit code: 0 after an orderly shutdown, 1
 /// otherwise.
@@ -82,7 +99,7 @@ where
                 code::PARSE_ERROR,
                 format!("the message is not JSON: {reason}"),
             )],
-            Err(RecvTimeoutError::Timeout) => server.analyze(),
+            Err(RecvTimeoutError::Timeout) => analyze(&mut server),
             Err(RecvTimeoutError::Disconnected) => return 1,
         };
         if !send(replies) {

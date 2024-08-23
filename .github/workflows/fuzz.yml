@@ -15,6 +15,8 @@ on:
       - "crates/faultline-protobuf/**"
       - "crates/faultline-graphql/**"
       - "crates/faultline-avro/**"
+      - "crates/faultline-asyncapi/**"
+      - "crates/faultline-registry/**"
       - "crates/faultline-regex/**"
       - "crates/faultline-diff/**"
       - "crates/faultline-subsume/**"
@@ -41,6 +43,14 @@ jobs:
           workspaces: fuzz
       - name: Install cargo-fuzz
         run: cargo install --locked cargo-fuzz
+      # The corpus grows from run to run: each run starts from the inputs
+      # earlier runs found interesting.
+      - name: Restore the corpus
+        uses: actions/cache@v4
+        with:
+          path: fuzz/corpus/${{ matrix.target }}
+          key: fuzz-corpus-${{ matrix.target }}-${{ github.run_id }}
+          restore-keys: fuzz-corpus-${{ matrix.target }}-
       # Pull requests only prove the targets still build and survive a short
       # run; the nightly schedule fuzzes for longer.
       - name: Fuzz

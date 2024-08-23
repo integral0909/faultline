@@ -95,12 +95,22 @@ pub struct Reply {
 }
 
 impl Client {
-    /// A client for the registry at `url` (`http` or `https`).
+    /// A client for the registry at `url` (`http` or `https`). A token is
+    /// only sent over plain HTTP to the local machine.
     pub fn new(url: &str, token: Option<String>) -> Result<Client, String> {
         let lower = url.to_ascii_lowercase();
         if !(lower.starts_with("http://") || lower.starts_with("https://")) {
             return Err(format!(
                 "the registry URL `{url}` must start with http:// or https://"
+            ));
+        }
+        let token = token.filter(|t| !t.is_empty());
+        if token.is_some()
+            && lower.starts_with("http://")
+            && !is_loopback(&lower["http://".len()..])
+        {
+            return Err(format!(
+                "refusing to send the registry token to {url} over unencrypted HTTP; use https://"
             ));
         }
         let config = ureq::Agent::config_builder()
@@ -111,7 +121,7 @@ impl Client {
             .build();
         Ok(Client {
             base: url.trim_end_matches('/').to_owned(),
-            token: token.filter(|t| !t.is_empty()),
+            token,
             agent: ureq::Agent::new_with_config(config),
         })
     }
@@ -156,6 +166,22 @@ impl Client {
         })?;
         Ok(Reply { status, body })
     }
+}
+
+/// Whether the authority at the start of `rest` (`host[:port]/...`) names
+/// the local machine.
+fn is_loopback(rest: &str) -> bool {
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    let host = match authority.strip_prefix('[') {
+        Some(bracketed) => bracketed.split(']').next().unwrap_or_default(),
+        None => authority
+            .rsplit_once(':')
+            .map_or(authority, |(host, _)| host),
+    };
+    host == "localhost"
+        || host
+            .parse::<std::net::IpAddr>()
+            .is_ok_and(|ip| ip.is_loopback())
 }
 
 #[cfg(test)]
@@ -208,6 +234,19 @@ mod tests {
     fn urls_must_be_http() {
         assert!(Client::new("ftp://registry.example.com", None).is_err());
         assert!(Client::new("registry.example.com", None).is_err());
+        let token = || Some("placeholder-token".to_owned());
+        assert!(Client::new("http://registry.example.com", token()).is_err());
+        assert!(Client::new("http://registry.example.com", None).is_ok());
+        for local in [
+            "http://localhost:8080",
+            "http://127.0.0.1:9/x",
+            "http://127.1.2.3",
+            "http://[::1]:8080/",
+        ] {
+            assert!(Client::new(local, token()).is_ok(), "{local}");
+        }
+        assert!(Client::new("http://localhost.example.com", token()).is_err());
+        assert!(Client::new("https://registry.example.com", token()).is_ok());
         let client = Client::new("https://registry.example.com/", None).unwrap();
         assert_eq!(client.base, "https://registry.example.com");
     }

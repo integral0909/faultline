@@ -223,11 +223,14 @@ version); any mismatch is a miss, never an error, and writes are atomic.
 | Document → references | root sandbox, no network unless allowed, HTTPS + host allowlist + private-address refusal |
 | References → IR | reference-chain and node-count limits |
 | IR → subsumption | automaton state budget, recursion guard |
-| Registry requests → engine | authentication, body limits, rate limits, bounded execution time |
+| Registry requests → engine | bearer token for writes, header/body size and time limits, a fixed pool of workers, lowering from the request's files only |
 
 See [security.md](security.md) for the threat model.
 
 ## Roadmap
+
+The milestones the project was built in, in order. The
+[changelog](../CHANGELOG.md) records what each delivered.
 
 | Milestone | Scope |
 |---|---|
@@ -245,7 +248,7 @@ See [security.md](security.md) for the threat model.
 | M11 Advanced subsumption | Regex inclusion, formats, pattern properties, conditionals |
 | M12 Renames and releases | Rename detection, semver, changelog |
 | M13 Usage | Usage index and importers, policy integration |
-| M14 Performance | IR cache, parallel pipeline, benchmarks |
+| M14 Performance | Linear-time comparison, parallel pipeline, benchmarks |
 | M15 LSP | Language server |
 | M16 Registry | Registry server with compatibility enforcement |
 | M17 AsyncAPI and cross-format | AsyncAPI, Protobuf ↔ OpenAPI consistency |

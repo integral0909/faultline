@@ -147,6 +147,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   compared with its OpenAPI description. `google/api/annotations.proto`,
   `http.proto` and `field_behavior.proto` are built in, and imports used
   only by custom options are no longer reported as unused.
+- Release pipeline: pushing a `vX.Y.Z` tag checks the version and release
+  notes, packages every crate, builds the binary for Linux (x86-64 glibc
+  and musl, AArch64), macOS and Windows with build provenance attestations,
+  publishes a GitHub release with checksums, and publishes the crates after
+  approval. `scripts/release-notes.sh` extracts a version's notes;
+  `docs/releasing.md` describes the process.
+- Hardening: nightly fuzzing keeps its corpus between runs; the language
+  server reports an internal error during analysis instead of exiting; the
+  remote document cache survives a panicking thread; `faultline registry`
+  clients refuse to send the token over plain HTTP except to the local
+  machine.
 - Releases: `[policy] versioning = "semver"` checks declared versions
   against the bump the changes need (with SemVer's rules below 1.0.0) and
   fails on too small an increase; `--output changelog` writes release notes;

@@ -56,6 +56,8 @@ Findings marked `*` are the ones that failed. Sending a version identical
 to the latest registers nothing and succeeds, so pushing from every CI run
 of the main branch is safe.
 
+The token is sent only over HTTPS, or over plain HTTP to `localhost`.
+
 `faultline registry check` runs the same comparison without registering,
 and needs no token: use it in pull requests to learn early whether a change
 will be accepted. Both commands take `--root`, `--format`, `--role` and

@@ -153,18 +153,20 @@ impl<T: Transport> Loader for RemoteLoader<T> {
     fn load(&self, uri: &UriRef) -> Result<Loaded, LoadError> {
         let uri = uri.without_fragment().normalized();
         let key = uri.to_string();
-        if let Some(cached) = self.cache.lock().expect("cache lock").get(&key) {
+        // The cache holds finished results only, so it stays consistent
+        // even if a thread panicked while holding the lock.
+        let cache = || {
+            self.cache
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+        };
+        if let Some(cached) = cache().get(&key) {
             return cached.clone();
         }
         // Not holding the lock while fetching: another thread may fetch the
         // same document concurrently, which costs a request but not
         // correctness, since both results are equivalent.
         let result = self.fetch(&uri);
-        self.cache
-            .lock()
-            .expect("cache lock")
-            .entry(key)
-            .or_insert(result)
-            .clone()
+        cache().entry(key).or_insert(result).clone()
     }
 }
