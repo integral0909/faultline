@@ -85,16 +85,36 @@ impl Context<'_, '_, '_> {
         );
     }
 
-    /// Warns that `traits` at `at` are not applied, when there are any.
-    pub(crate) fn traits(&mut self, at: &At, what: &str) {
-        if let Some(traits) = at.get("traits") {
-            let span = traits.span;
-            self.warning(
-                codes::TRAITS_IGNORED,
-                &format!("{what} traits are not applied; the comparison may miss what they add"),
-                span,
-            );
+    /// The traits of the message or operation at `at`, resolved, in the
+    /// order they apply.
+    pub(crate) fn trait_list(&mut self, at: &At) -> Vec<At> {
+        let Some(list) = at.child("traits") else {
+            return Vec::new();
+        };
+        if list.node().as_array().is_none() {
+            let span = list.span();
+            self.error(codes::INVALID_FIELD, "traits must be an array", span);
+            return Vec::new();
         }
+        list.elements()
+            .into_iter()
+            .filter_map(|element| self.resolve(element))
+            .filter(|t| t.object().is_some())
+            .collect()
+    }
+
+    /// A string field of `at` with its traits applied. In 2.x traits are
+    /// merge patches applied in order, so the last trait that sets the
+    /// field wins; in 3.0 the object's own value takes precedence, and
+    /// traits only fill in what it leaves out.
+    pub(crate) fn traited_string(&mut self, at: &At, traits: &[At], key: &str) -> Option<String> {
+        let from_traits = traits.iter().rev().find(|t| t.get(key).is_some()).cloned();
+        let source = if self.v3 {
+            at.get(key).is_some().then(|| at.clone()).or(from_traits)
+        } else {
+            from_traits.or_else(|| at.get(key).is_some().then(|| at.clone()))
+        }?;
+        self.string(&source, key)
     }
 }
 

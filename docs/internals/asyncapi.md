@@ -73,9 +73,19 @@ default, in a sent one removing a field needs the old readers to have had a
 default for it. Named Avro types become named types of the API. An Avro
 payload may also be a reference to an `.avsc` file.
 
+## Traits
+
+Message traits are applied. The fields that matter to the comparison are
+`name` (the message's identity), `contentType`, `schemaFormat` (2.x) and
+`headers`. In 2.x traits are merge patches applied in order, so the last
+trait that sets a field overrides the message; in 3.0 the message's own
+fields take precedence and traits fill in the rest. Header schemas from the
+message and its traits are compared as their `allOf`, which is how a merge
+patch combines header schemas that constrain different members. Of
+operation traits only the 2.x `operationId` affects the comparison.
+
 ## Not modelled
 
-* Message and operation traits are not applied (warning FLE6006).
 * Servers, protocol bindings, correlation ids and security schemes are not
   compared.
 * 3.0 channels that no operation uses have no direction and are not

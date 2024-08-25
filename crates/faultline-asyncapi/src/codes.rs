@@ -13,7 +13,7 @@ pub const REFERENCE_CYCLE: DiagnosticCode = DiagnosticCode::new("FLE6004");
 /// A payload or headers schema uses a schema format that is not supported;
 /// it is compared as accepting any value.
 pub const UNSUPPORTED_SCHEMA_FORMAT: DiagnosticCode = DiagnosticCode::new("FLE6005");
-/// Message or operation traits are not applied.
+/// No longer emitted: traits are applied. The code is not reused.
 pub const TRAITS_IGNORED: DiagnosticCode = DiagnosticCode::new("FLE6006");
 /// A 3.0 operation's `action` is neither `send` nor `receive`.
 pub const INVALID_ACTION: DiagnosticCode = DiagnosticCode::new("FLE6007");

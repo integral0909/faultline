@@ -108,7 +108,7 @@ pub(crate) fn version_2(cx: &mut Context<'_, '_, '_>, root: &At) {
             if !cx.expect_object(&at, "an operation") {
                 continue;
             }
-            cx.traits(&at, "operation");
+            let traits = cx.trait_list(&at);
             let mut contents = Vec::new();
             if let Some(message) = at.child("message") {
                 match message.child("oneOf") {
@@ -125,7 +125,7 @@ pub(crate) fn version_2(cx: &mut Context<'_, '_, '_>, root: &At) {
                 action,
                 channel: PathTemplate::parse(&address),
             });
-            op.operation_id = cx.string(&at, "operationId");
+            op.operation_id = cx.traited_string(&at, &traits, "operationId");
             op.parameters.clone_from(&parameters);
             op.request_body = Some(RequestBody {
                 required: true,
@@ -157,7 +157,7 @@ pub(crate) fn version_3(cx: &mut Context<'_, '_, '_>, root: &At) {
         if !cx.expect_object(&at, "an operation") {
             continue;
         }
-        cx.traits(&at, "operation");
+        // 3.0 operation traits carry nothing the comparison uses.
         let action = match cx.string(&at, "action").as_deref() {
             Some("send") => MessageAction::Send,
             Some("receive") => MessageAction::Receive,

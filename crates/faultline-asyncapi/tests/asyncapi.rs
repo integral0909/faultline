@@ -490,7 +490,10 @@ channels:
 "#;
     let found = codes(warnings);
     assert!(found.contains(&("FLE6005".to_owned(), false)), "{found:?}");
-    assert!(found.contains(&("FLE6006".to_owned(), false)), "{found:?}");
+    assert!(
+        !found.iter().any(|(code, _)| code == "FLE6006"),
+        "traits apply: {found:?}"
+    );
     assert!(found.iter().all(|(_, error)| !error));
 }
 
@@ -532,4 +535,112 @@ channels:
         api.roots()[0].path.segments().last(),
         Some(Segment::Message(name)) if name == "message1"
     ));
+}
+
+#[test]
+fn traits_apply() {
+    let text = r"
+asyncapi: 2.6.0
+info: {title: x, version: '1'}
+channels:
+  orders:
+    subscribe:
+      traits: [{$ref: '#/components/operationTraits/Named'}]
+      message:
+        payload: {type: object}
+        headers: {type: object, properties: {id: {type: string}}}
+        traits:
+          - $ref: '#/components/messageTraits/Common'
+components:
+  operationTraits:
+    Named: {operationId: publishOrders}
+  messageTraits:
+    Common:
+      name: OrderPlaced
+      contentType: application/xml
+      headers: {type: object, properties: {trace: {type: string}}, required: [trace]}
+";
+    let lowered = api(text);
+    let op = &lowered.webhooks[0].operations[0];
+    assert_eq!(op.operation_id.as_deref(), Some("publishOrders"));
+    let message = &op.request_body.as_ref().unwrap().content[0];
+    assert_eq!(
+        message.media_type, "OrderPlaced",
+        "the trait names the message"
+    );
+    let TypeKind::Object(envelope) = &lowered.types.get(message.ty).kind else {
+        panic!()
+    };
+    let headers = envelope.field("headers").unwrap().ty;
+    assert!(
+        matches!(&lowered.types.get(headers).kind, TypeKind::AllOf(parts) if parts.len() == 2),
+        "the message's and the trait's headers both apply"
+    );
+
+    // A header the trait requires is part of the contract: dropping the
+    // requirement from the trait changes what consumers may rely on.
+    let relaxed = text.replace("required: [trace]", "");
+    let found = findings(&lowered, &api(&relaxed));
+    assert_eq!(worst(&found), Severity::Breaking, "{:?}", summary(&found));
+
+    // In 2.x a trait overrides the message; in 3.0 the message wins.
+    let own = text.replace(
+        "        payload: {type: object}\n",
+        "        payload: {type: object}\n        contentType: application/json\n",
+    );
+    assert_eq!(content_type_of(&api(&own)), "application/xml");
+}
+
+/// The content type the first sent message declares.
+fn content_type_of(api: &Api) -> String {
+    let message = api.webhooks[0].operations[0]
+        .request_body
+        .as_ref()
+        .unwrap()
+        .content[0]
+        .ty;
+    let TypeKind::Object(envelope) = &api.types.get(message).kind else {
+        panic!()
+    };
+    let TypeKind::Enum(values) = &api
+        .types
+        .get(envelope.field("contentType").unwrap().ty)
+        .kind
+    else {
+        panic!()
+    };
+    values.values[0]
+        .value
+        .to_string()
+        .trim_matches('"')
+        .to_owned()
+}
+
+#[test]
+fn in_3_0_messages_take_precedence_over_traits() {
+    let text = r"
+asyncapi: 3.0.0
+info: {title: x, version: '1'}
+channels:
+  orders:
+    address: orders
+    messages:
+      placed:
+        contentType: application/json
+        payload: {type: object}
+        traits: [{contentType: application/xml, name: OrderPlaced}]
+operations:
+  publish: {action: send, channel: {$ref: '#/channels/orders'}}
+";
+    let api = api(text);
+    assert_eq!(content_type_of(&api), "application/json");
+    let message = &api.webhooks[0].operations[0]
+        .request_body
+        .as_ref()
+        .unwrap()
+        .content[0];
+    assert_eq!(
+        message.media_type, "OrderPlaced",
+        "traits fill in what is left out"
+    );
 }

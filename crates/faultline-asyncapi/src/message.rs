@@ -67,21 +67,25 @@ pub(crate) fn content(cx: &mut Context<'_, '_, '_>, entry: At, fallback: &str) -
     if !cx.expect_object(&message, "a message") {
         return None;
     }
+    let traits = cx.trait_list(&message);
     let name = cx
-        .string(&message, "name")
-        .or_else(|| (!cx.v3).then(|| cx.string(&message, "messageId")).flatten())
+        .traited_string(&message, &traits, "name")
+        .or_else(|| {
+            (!cx.v3)
+                .then(|| cx.traited_string(&message, &traits, "messageId"))
+                .flatten()
+        })
         .or(referenced)
         .unwrap_or_else(|| fallback.to_owned());
-    cx.traits(&message, "message");
     let content_type = cx
-        .string(&message, "contentType")
+        .traited_string(&message, &traits, "contentType")
         .unwrap_or_else(|| cx.default_content_type.clone());
     // In 2.x the message says which format its payload is in; in 3.0 a
     // payload may carry its own (a Multi Format Schema Object).
     let format = if cx.v3 {
         None
     } else {
-        cx.string(&message, "schemaFormat")
+        cx.traited_string(&message, &traits, "schemaFormat")
     };
     let payload = match message.child("payload") {
         Some(at) => {
@@ -90,20 +94,41 @@ pub(crate) fn content(cx: &mut Context<'_, '_, '_>, entry: At, fallback: &str) -
         }
         None => None,
     };
-    let headers = match message.child("headers") {
-        Some(at) => {
-            let span = at.span();
-            // 2.x headers are always AsyncAPI schemas.
-            Some((payload_type(cx, at, None), span))
-        }
-        None => None,
-    };
+    let headers = headers(cx, &message, &traits);
     let ty = envelope(cx, &content_type, headers, payload, &message);
     Some(Content {
         media_type: name,
         ty,
         origin: Some(message.span()),
     })
+}
+
+/// A message's headers, with those its traits declare. Traits are merged
+/// into messages as JSON Merge Patches, which combine the members of header
+/// schemas; the combination is compared as their `allOf`, which accepts
+/// the same objects when the schemas constrain different members.
+fn headers(
+    cx: &mut Context<'_, '_, '_>,
+    message: &At,
+    traits: &[At],
+) -> Option<(TypeId, faultline_source::Span)> {
+    let mut sources: Vec<At> = message.child("headers").into_iter().collect();
+    sources.extend(traits.iter().filter_map(|t| t.child("headers")));
+    let span = sources.first()?.span();
+    // 2.x headers are always AsyncAPI schemas.
+    let mut types: Vec<TypeId> = sources
+        .into_iter()
+        .map(|at| payload_type(cx, at, None))
+        .collect();
+    let ty = if types.len() == 1 {
+        types.remove(0)
+    } else {
+        cx.lowerer
+            .api_mut()
+            .types
+            .alloc(TypeNode::new(TypeKind::AllOf(types)).with_origin(span))
+    };
+    Some((ty, span))
 }
 
 /// The object a message is compared as: its content type, headers and
