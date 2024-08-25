@@ -66,8 +66,8 @@ case-sensitive and use `~1` for `/` and `~0` for `~`.
 
 ## Formats
 
-**`FLE2010` Swagger 2.0.** Only OpenAPI 3.0 and 3.1 are read. Convert the
-description to OpenAPI 3 first.
+**`FLE2010` Swagger version.** Of the Swagger versions, only 2.0 is read
+(`swagger: "2.0"`). Swagger 1.x descriptions must be converted first.
 
 **The format is misdetected.** Documents with a top-level `openapi` (or
 `swagger`) field are OpenAPI; everything else is JSON Schema. Pass `--format`

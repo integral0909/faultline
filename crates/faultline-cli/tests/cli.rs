@@ -537,6 +537,37 @@ fn grpc_services_are_checked_against_their_openapi_description() {
 }
 
 #[test]
+fn swagger_migrations_compare_cleanly() {
+    let dir = repo().join("examples");
+    let migrated = faultline(
+        &dir,
+        &["diff", "swagger/swagger.yaml", "swagger/openapi.yaml"],
+    );
+    assert_eq!(migrated.status.code(), Some(0), "{}", stdout(&migrated));
+    // Swagger 2.0 against the next OpenAPI 3 version finds what the OpenAPI
+    // 3 versions do.
+    let json = |old: &str| -> Vec<String> {
+        let output = faultline(
+            &dir,
+            &["diff", old, "petstore/v2/openapi.yaml", "--output", "json"],
+        );
+        let report: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+        let mut ids: Vec<String> = report["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|f| format!("{} {}", f["rule"], f["path"]))
+            .collect();
+        ids.sort();
+        ids
+    };
+    assert_eq!(
+        json("swagger/swagger.yaml"),
+        json("petstore/v1/openapi.yaml")
+    );
+}
+
+#[test]
 fn declared_versions_are_checked_with_semver_versioning() {
     let dir = workspace();
     // Version 2 claims to be a minor release despite its breaking changes.

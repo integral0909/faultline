@@ -147,6 +147,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   compared with its OpenAPI description. `google/api/annotations.proto`,
   `http.proto` and `field_behavior.proto` are built in, and imports used
   only by custom options are no longer reported as unused.
+- Swagger 2.0: descriptions with `swagger: "2.0"` are lowered as the
+  official converters translate them to OpenAPI 3 (body and `formData`
+  parameters as request bodies, `consumes`/`produces` as media types,
+  inline parameter schemas, `collectionFormat` as `style`/`explode`,
+  `x-nullable`, `type: file`), so Swagger versions compare with each other
+  and a migration to OpenAPI 3 compares cleanly. Other Swagger versions
+  remain `FLE2010`.
 - Release pipeline: pushing a `vX.Y.Z` tag checks the version and release
   notes, packages every crate, builds the binary for Linux (x86-64 glibc
   and musl, AArch64), macOS and Windows with build provenance attestations,

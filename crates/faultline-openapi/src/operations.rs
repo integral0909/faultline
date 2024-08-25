@@ -113,7 +113,7 @@ impl Context<'_, '_, '_> {
 
     /// Every `{name}` in the template needs a required path parameter, and
     /// every path parameter needs a `{name}` in the template.
-    fn check_path_parameters(
+    pub(crate) fn check_path_parameters(
         &mut self,
         template: &PathTemplate,
         parameters: &[Parameter],
@@ -433,7 +433,7 @@ impl Context<'_, '_, '_> {
         out
     }
 
-    fn meta(&mut self, at: &At) -> Meta {
+    pub(crate) fn meta(&mut self, at: &At) -> Meta {
         let mut meta = Meta {
             title: self.string(at, "summary"),
             description: self.string(at, "description"),
@@ -460,7 +460,7 @@ impl Context<'_, '_, '_> {
         }
     }
 
-    fn any(&mut self) -> faultline_ir::TypeId {
+    pub(crate) fn any(&mut self) -> faultline_ir::TypeId {
         self.lowerer
             .api_mut()
             .types
@@ -469,7 +469,7 @@ impl Context<'_, '_, '_> {
 }
 
 /// Media type keys compared case-insensitively, without surrounding space.
-fn normalize_media_type(media_type: &str) -> String {
+pub(crate) fn normalize_media_type(media_type: &str) -> String {
     media_type
         .split(';')
         .map(str::trim)

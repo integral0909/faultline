@@ -153,7 +153,9 @@ impl Lowerer<'_, '_> {
         let mut declared = self.type_keyword(ctx);
         // OpenAPI 3.0: `nullable` adds null to the *declared* types and has
         // no effect without `type` (OpenAPI 3.0.3, Schema Object).
-        if ctx.dialect().has_nullable() && self.read_bool(ctx, "nullable") == Some(true) {
+        if let Some(keyword) = ctx.dialect().nullable_keyword()
+            && self.read_bool(ctx, keyword) == Some(true)
+        {
             declared = declared.map(|types| types.with(TypeSet::NULL));
         }
         let format = ctx.get("format").and_then(Node::as_str);
@@ -284,7 +286,14 @@ impl Lowerer<'_, '_> {
         };
         let mut set = TypeSet::EMPTY;
         for name in names {
-            match name.as_str().and_then(TypeSet::from_name) {
+            // A Swagger 2.0 `file` is uploaded bytes: a string on the wire.
+            let swagger_file = ctx.dialect().is_swagger() && name.as_str() == Some("file");
+            let known = if swagger_file {
+                Some(TypeSet::STRING)
+            } else {
+                name.as_str().and_then(TypeSet::from_name)
+            };
+            match known {
                 Some(t) => set = set.with(t),
                 None => self.diagnostics.push(
                     Diagnostic::error("unknown type name")
@@ -567,6 +576,10 @@ impl Lowerer<'_, '_> {
         let Some(node) = ctx.get(keyword) else {
             return Vec::new();
         };
+        // Swagger parameters say `required: true` about themselves.
+        if keyword == "required" && ctx.dialect().is_swagger() && node.as_bool().is_some() {
+            return Vec::new();
+        }
         let Some(items) = node.as_array() else {
             self.invalid_at(node, keyword, "must be an array of strings");
             return Vec::new();

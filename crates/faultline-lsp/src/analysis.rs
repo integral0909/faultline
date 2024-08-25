@@ -349,7 +349,9 @@ pub(crate) fn looks_like_api(path: &Path, text: &str) -> bool {
     let head: String = text.chars().take(4096).collect();
     head.lines().any(|line| {
         let key = line.trim_start().trim_start_matches(['{', '"', '\'']);
-        key.starts_with("openapi") || key.starts_with("asyncapi") || key.starts_with("$schema")
+        ["openapi", "swagger", "asyncapi", "$schema"]
+            .iter()
+            .any(|k| key.starts_with(k))
     })
 }
 

@@ -276,7 +276,7 @@ schemas:
 #[test]
 fn diagnostics() {
     let cases: &[(&str, &str)] = &[
-        ("swagger: '2.0'\n", "FLE2010"),
+        ("swagger: '1.2'\n", "FLE2010"),
         ("info: {title: x}\n", "FLE2001"),
         ("openapi: 2.5.0\n", "FLE2001"),
         (

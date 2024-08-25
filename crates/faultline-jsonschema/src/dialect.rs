@@ -16,6 +16,11 @@ pub enum Dialect {
     Draft2020_12,
     /// The OpenAPI 3.0 Schema Object: an extended subset of draft-05.
     OpenApi30,
+    /// The Swagger 2.0 Schema Object, and the schema keywords Swagger
+    /// parameters, headers and items carry inline: draft-04 validation
+    /// without identifiers, plus `type: file`, `x-nullable`, and a boolean
+    /// `required` on parameters (which is not a schema keyword there).
+    Swagger2,
 }
 
 impl Dialect {
@@ -47,6 +52,7 @@ impl Dialect {
             Dialect::Draft2019_09 => "2019-09",
             Dialect::Draft2020_12 => "2020-12",
             Dialect::OpenApi30 => "OpenAPI 3.0",
+            Dialect::Swagger2 => "Swagger 2.0",
         }
     }
 
@@ -55,7 +61,7 @@ impl Dialect {
     pub fn id_keyword(self) -> Option<&'static str> {
         match self {
             Dialect::Draft4 => Some("id"),
-            Dialect::OpenApi30 => None,
+            Dialect::OpenApi30 | Dialect::Swagger2 => None,
             _ => Some("$id"),
         }
     }
@@ -75,7 +81,10 @@ impl Dialect {
     /// Draft-04 spells exclusive bounds as booleans modifying
     /// `minimum`/`maximum`; later drafts give them their own numeric values.
     pub fn boolean_exclusive_bounds(self) -> bool {
-        matches!(self, Dialect::Draft4 | Dialect::OpenApi30)
+        matches!(
+            self,
+            Dialect::Draft4 | Dialect::OpenApi30 | Dialect::Swagger2
+        )
     }
 
     /// `true` and `false` are valid schemas from draft-06 on.
@@ -85,7 +94,10 @@ impl Dialect {
 
     /// `const`, `contains`, `propertyNames` and numeric exclusive bounds.
     pub fn has_draft6_keywords(self) -> bool {
-        !matches!(self, Dialect::Draft4 | Dialect::OpenApi30)
+        !matches!(
+            self,
+            Dialect::Draft4 | Dialect::OpenApi30 | Dialect::Swagger2
+        )
     }
 
     /// `if`/`then`/`else`.
@@ -118,9 +130,20 @@ impl Dialect {
         self == Dialect::Draft2020_12
     }
 
-    /// `nullable: true` adds `null` to the declared types (OpenAPI 3.0).
-    pub fn has_nullable(self) -> bool {
-        self == Dialect::OpenApi30
+    /// The keyword that, set to `true`, adds `null` to the declared types:
+    /// `nullable` in OpenAPI 3.0, the `x-nullable` extension in Swagger 2.0.
+    pub fn nullable_keyword(self) -> Option<&'static str> {
+        match self {
+            Dialect::OpenApi30 => Some("nullable"),
+            Dialect::Swagger2 => Some("x-nullable"),
+            _ => None,
+        }
+    }
+
+    /// Swagger 2.0 quirks: `type: file`, and a boolean `required` that is not
+    /// a schema keyword.
+    pub fn is_swagger(self) -> bool {
+        self == Dialect::Swagger2
     }
 }
 

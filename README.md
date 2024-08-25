@@ -26,9 +26,9 @@ breaking[FL1007]: op[GET /pets]/param[query:limit]: maximum changed from 100 to 
    = help: `faultline explain FL1007` describes this rule
 ```
 
-> **Status:** early development (0.1). OpenAPI 3.0/3.1, AsyncAPI 2.x/3.0,
-> JSON Schema (draft-04 to 2020-12), Protobuf (proto2, proto3, editions),
-> GraphQL SDL and Avro are supported, with text, JSON, SARIF, Markdown,
+> **Status:** early development (0.1). Swagger 2.0, OpenAPI 3.0/3.1,
+> AsyncAPI 2.x/3.0, JSON Schema (draft-04 to 2020-12), Protobuf (proto2,
+> proto3, editions), GraphQL SDL and Avro are supported, with text, JSON, SARIF, Markdown,
 > GitHub annotation and JUnit output. Pull requests can be checked against
 > their base branch straight from git, editors show findings through a
 > language server, and a schema registry refuses breaking versions. See the

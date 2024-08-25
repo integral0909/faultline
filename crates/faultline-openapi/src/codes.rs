@@ -20,7 +20,7 @@ pub const INVALID_LOCATION: DiagnosticCode = DiagnosticCode::new("FLE2007");
 pub const REFERENCE_CYCLE: DiagnosticCode = DiagnosticCode::new("FLE2008");
 /// A parameter or header has neither `schema` nor `content`.
 pub const MISSING_SCHEMA: DiagnosticCode = DiagnosticCode::new("FLE2009");
-/// Swagger 2.0 descriptions are not supported yet.
+/// A `swagger` version other than `"2.0"`.
 pub const SWAGGER_2: DiagnosticCode = DiagnosticCode::new("FLE2010");
 /// A path template does not start with `/`.
 pub const INVALID_PATH: DiagnosticCode = DiagnosticCode::new("FLE2011");

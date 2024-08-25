@@ -11,6 +11,7 @@ use crate::types::QualName;
 /// The format an [`Api`] was lowered from.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ApiFormat {
+    Swagger2,
     OpenApi30,
     OpenApi31,
     JsonSchema,
@@ -24,6 +25,7 @@ pub enum ApiFormat {
 impl ApiFormat {
     pub fn as_str(self) -> &'static str {
         match self {
+            ApiFormat::Swagger2 => "swagger-2.0",
             ApiFormat::OpenApi30 => "openapi-3.0",
             ApiFormat::OpenApi31 => "openapi-3.1",
             ApiFormat::JsonSchema => "jsonschema",

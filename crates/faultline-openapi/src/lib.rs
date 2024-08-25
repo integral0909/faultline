@@ -1,6 +1,7 @@
 //! The OpenAPI front end.
 //!
-//! Lowers OpenAPI 3.0 and 3.1 descriptions into the Faultline IR: every
+//! Lowers Swagger 2.0, OpenAPI 3.0 and OpenAPI 3.1
+//! descriptions into the Faultline IR: every
 //! operation with its parameters (including their serialization), request
 //! body, responses, headers, callbacks and security requirements; 3.1
 //! webhooks; and every schema, lowered by the JSON Schema front end in the
@@ -16,6 +17,7 @@
 pub mod codes;
 mod context;
 mod operations;
+mod swagger;
 
 use std::collections::HashMap;
 
@@ -85,7 +87,11 @@ pub fn lower_openapi(entry: &UriRef, store: &mut DocumentStore<'_>, name: &str) 
         dialect,
         diagnostics,
     };
-    lower_description(&mut context, &root);
+    if format == ApiFormat::Swagger2 {
+        swagger::lower_description(&mut context, &root);
+    } else {
+        lower_description(&mut context, &root);
+    }
     let own = context.diagnostics;
     let mut all = lowerer.finish();
     all.extend(own);
@@ -99,12 +105,22 @@ pub fn lower_openapi(entry: &UriRef, store: &mut DocumentStore<'_>, name: &str) 
 /// Reads `openapi`/`swagger` and chooses the schema dialect.
 fn detect_version(root: &At, diagnostics: &mut Diagnostics) -> Option<(ApiFormat, Dialect)> {
     let span = root.span();
-    if root.get("swagger").is_some() {
+    if let Some(swagger) = root.get("swagger") {
+        // `swagger: 2.0` unquoted is a YAML number.
+        let two = match &swagger.value {
+            faultline_doc::Value::String(text) => text == "2.0",
+            faultline_doc::Value::Number(number) => {
+                matches!(number.to_string().as_str(), "2" | "2.0")
+            }
+            _ => false,
+        };
+        if two {
+            return Some((ApiFormat::Swagger2, Dialect::Swagger2));
+        }
         diagnostics.push(
-            Diagnostic::error("Swagger 2.0 descriptions are not supported yet")
+            Diagnostic::error("only Swagger 2.0 is supported among Swagger versions")
                 .with_code(codes::SWAGGER_2)
-                .with_primary(span, "")
-                .with_help("convert the description to OpenAPI 3"),
+                .with_primary(swagger.span, ""),
         );
         return None;
     }

@@ -1,6 +1,6 @@
 # OpenAPI lowering
 
-`faultline-openapi` lowers OpenAPI 3.0 and 3.1 descriptions into the IR
+`faultline-openapi` lowers Swagger 2.0, OpenAPI 3.0 and 3.1 descriptions into the IR
 ([ir.md](ir.md)). Schemas are delegated to the JSON Schema front end
 ([json-schema.md](json-schema.md)); this crate handles everything around them.
 
@@ -10,7 +10,7 @@
 |---|---|
 | `3.0.x` | the OpenAPI 3.0 Schema Object: draft-04-style bounds, no `$id`, `$ref` siblings ignored, `nullable` |
 | `3.1.x` | `jsonSchemaDialect` if it names a known dialect, else JSON Schema 2020-12 |
-| `swagger: "2.0"` | not supported yet (`FLE2010`) |
+| `swagger: "2.0"` | the Swagger 2.0 Schema Object: as OpenAPI 3.0, with `x-nullable` for `nullable` and `type: file` as a string |
 
 `nullable: true` adds `null` to the declared `type` and has no effect without
 one, following the OpenAPI 3.0.3 clarification; an `enum` without `null` still
@@ -42,6 +42,28 @@ rejects it.
   name), and implicit mappings from the component names of `$ref` variants
   that no explicit entry already targets.
 
+## Swagger 2.0
+
+Swagger 2.0 is lowered into the same IR, as the official converters
+translate it to OpenAPI 3, so that a migration compares cleanly with the
+description it replaces:
+
+| Swagger 2.0 | IR (as OpenAPI 3) |
+|---|---|
+| `in: body` parameter | the request body, one content entry per media type in `consumes` (default `application/json`); its `required` |
+| `in: formData` parameters | an object request body with one member per parameter, as `multipart/form-data` if consumed or if a parameter is a `file`, else `application/x-www-form-urlencoded` |
+| `in: path`, `query`, `header` | parameters whose inline schema keywords (`type`, `items`, `enum`, bounds) are lowered in the Swagger dialect |
+| `collectionFormat` of arrays | `csv`: `form`/`simple` unexploded; `multi`: `form` exploded; `ssv`, `pipes`, `tsv`: `spaceDelimited`, `pipeDelimited`, `tabDelimited`. Other parameters get OpenAPI 3's defaults. |
+| response `schema` | one content entry per media type in `produces` |
+| response `headers` | headers with inline schemas, not required |
+| `definitions` | named types |
+| `consumes`, `produces`, `security` | document-wide, overridden per operation |
+
+`host`, `basePath` and `schemes` are not compared, just as OpenAPI 3
+`servers` are not. A migration that keeps the wire format produces no
+findings; one that drops Swagger's `csv` array format for OpenAPI 3's
+exploded default is reported as a serialization change, because it is one.
+
 ## References
 
 Reference Objects between non-schema objects (parameters, responses, headers,
@@ -62,5 +84,5 @@ sandboxed document store as schema references. Chains are followed for up to
 | FLE2007 | invalid parameter location |
 | FLE2008 | reference cycle |
 | FLE2009 | parameter or header without schema or content |
-| FLE2010 | Swagger 2.0 not supported |
+| FLE2010 | a Swagger version other than 2.0 |
 | FLE2011 | path template does not start with `/` |
