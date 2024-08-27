@@ -10,7 +10,7 @@ Faultline defends against and how. To report a vulnerability, see
 | Input | Trust level |
 |---|---|
 | Schema documents and everything they reference | untrusted |
-| Usage data (access logs, GraphQL client documents) | untrusted |
+| Usage data (access logs, GraphQL client documents, HAR files) | untrusted |
 | `faultline.toml` | trusted as configuration, validated strictly |
 | Command-line flags and `FAULTLINE_*` environment variables | trusted |
 | Registry API requests | untrusted; writes need the registry's bearer token |

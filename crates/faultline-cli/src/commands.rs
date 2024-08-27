@@ -185,11 +185,15 @@ pub(crate) struct UsageImportArgs {
     /// The API description the usage refers to (its current version).
     api: PathBuf,
     /// Server access logs (Common or Combined Log Format, or JSON lines).
-    #[arg(long = "access-log", value_name = "FILE", num_args = 1.., required_unless_present = "graphql", conflicts_with = "graphql")]
+    #[arg(long = "access-log", value_name = "FILE", num_args = 1.., required_unless_present_any = ["graphql", "har"], conflicts_with_all = ["graphql", "har"])]
     access_logs: Vec<PathBuf>,
     /// GraphQL documents clients send.
-    #[arg(long = "graphql", value_name = "FILE", num_args = 1..)]
+    #[arg(long = "graphql", value_name = "FILE", num_args = 1.., conflicts_with = "har")]
     graphql: Vec<PathBuf>,
+    /// Recorded traffic as HTTP Archives (HAR), which also show the request
+    /// fields clients send.
+    #[arg(long = "har", value_name = "FILE", num_args = 1..)]
+    har: Vec<PathBuf>,
     /// A path prefix the API is served under (`/v1`), removed before
     /// matching access log requests.
     #[arg(long)]
@@ -536,7 +540,7 @@ pub(crate) fn rules_markdown() -> String {
 
 /// Builds a usage index from access logs or GraphQL documents.
 fn usage_import(args: &UsageImportArgs) -> Result<i32, String> {
-    use faultline_usage::{UsageIndex, access_log, graphql};
+    use faultline_usage::{UsageIndex, access_log, graphql, har};
     use std::io::BufRead as _;
 
     let (config, root) = setup(&args.workspace)?;
@@ -557,10 +561,21 @@ fn usage_import(args: &UsageImportArgs) -> Result<i32, String> {
     let open = |path: &PathBuf| {
         std::fs::File::open(path).map_err(|e| format!("cannot read {}: {e}", path.display()))
     };
-    let mut index = if args.graphql.is_empty() {
-        let options = access_log::AccessLogOptions {
-            base_path: args.base_path.clone(),
-        };
+    let options = access_log::AccessLogOptions {
+        base_path: args.base_path.clone(),
+    };
+    let mut index = if !args.har.is_empty() {
+        let mut index = UsageIndex::new(faultline_usage::Source::Har);
+        for path in &args.har {
+            let text = std::fs::read_to_string(path)
+                .map_err(|e| format!("cannot read {}: {e}", path.display()))?;
+            index.merge(
+                &har::import(&api, &text, &options)
+                    .map_err(|e| format!("{}: {e}", path.display()))?,
+            );
+        }
+        index
+    } else if args.graphql.is_empty() {
         let mut lines = Vec::new();
         let mut index = UsageIndex::new(faultline_usage::Source::AccessLog);
         for path in &args.access_logs {

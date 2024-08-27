@@ -118,7 +118,8 @@ Only `id` is matched; the other fields are for readers.
 ## Usage
 
 A usage index records which operations, query parameters and (from GraphQL
-client documents) fields and arguments clients use. With `[usage] index`
+client documents) fields and arguments or (from recorded traffic) request
+fields clients use. With `[usage] index`
 set, a finding about a part of the API the index shows unused is capped
 at `unused_severity` (default `risky`) and marked as unused. For example,
 an operation removed while nobody calls it. Parts the index does not
@@ -135,6 +136,15 @@ or from the GraphQL documents clients send:
 
 ```sh
 faultline usage import schema.graphql --graphql clients/**/*.graphql
+```
+
+or from recorded traffic, HTTP Archives exported by browsers or proxies,
+which also show the header parameters and request body members clients
+send (responses are ignored: what a server sent does not show what clients
+read):
+
+```sh
+faultline usage import api/openapi.yaml --har captures/*.har --base-path /v1
 ```
 
 `--merge` adds to an existing index. Indexes hold operation identities,

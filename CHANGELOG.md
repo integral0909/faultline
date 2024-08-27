@@ -157,6 +157,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - AsyncAPI message traits are applied (name, content type, schema format and
   headers, with 2.x and 3.0 precedence), as is a 2.x operation trait's
   `operationId`; the FLE6006 warning is no longer emitted.
+- `faultline usage import --har`: usage from recorded traffic (HTTP
+  Archives). Besides calls and query parameter names, the names of declared
+  header parameters and of request body members (JSON and forms) are
+  recorded, so findings about request fields no client sends are softened
+  too. Values, other headers, cookies and responses are never stored.
 - Release pipeline: pushing a `vX.Y.Z` tag checks the version and release
   notes, packages every crate, builds the binary for Linux (x86-64 glibc
   and musl, AArch64), macOS and Windows with build provenance attestations,

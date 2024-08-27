@@ -37,45 +37,91 @@ enum Part {
     Hole,
 }
 
+/// The HTTP operations of an API, for matching requests to them.
+pub(crate) struct Routes {
+    /// Most specific first.
+    routes: Vec<Route>,
+    base_path: Option<String>,
+}
+
+impl Routes {
+    pub(crate) fn new(api: &Api, options: &AccessLogOptions) -> Self {
+        let mut routes: Vec<Route> = api
+            .operations
+            .iter()
+            .filter_map(|op| match &op.key {
+                OperationKey::Http { method, path } => {
+                    let segments: Vec<Vec<Part>> = path
+                        .normalized()
+                        .split('/')
+                        .filter(|s| !s.is_empty())
+                        .map(parts)
+                        .collect();
+                    let specificity = segments
+                        .iter()
+                        .filter(|s| s.iter().all(|p| matches!(p, Part::Literal(_))))
+                        .count();
+                    Some(Route {
+                        method: method.to_string(),
+                        segments,
+                        identity: op.key.identity(),
+                        specificity,
+                    })
+                }
+                OperationKey::Rpc { .. } | OperationKey::Message { .. } => None,
+            })
+            .collect();
+        routes.sort_by_key(|r| std::cmp::Reverse(r.specificity));
+        Self {
+            routes,
+            base_path: options.base_path.clone(),
+        }
+    }
+
+    /// An index covering every route, none of them called yet.
+    pub(crate) fn seed(&self, source: Source) -> UsageIndex {
+        let mut index = UsageIndex::new(source);
+        for route in &self.routes {
+            index
+                .operations
+                .insert(route.identity.clone(), OperationUsage::default());
+        }
+        index
+    }
+
+    /// The identity of the operation a request with `method` and request
+    /// target `path` (without its query) calls.
+    pub(crate) fn find(&self, method: &str, path: &str) -> Option<&str> {
+        let path = match &self.base_path {
+            Some(base) => {
+                let base = base.trim_end_matches('/');
+                match path.strip_prefix(base) {
+                    Some(rest) if rest.is_empty() || rest.starts_with('/') => rest,
+                    _ => return None,
+                }
+            }
+            None => path,
+        };
+        let segments: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
+        self.routes
+            .iter()
+            .find(|r| {
+                r.method.eq_ignore_ascii_case(method)
+                    && r.segments.len() == segments.len()
+                    && r.segments.iter().zip(&segments).all(|(t, s)| fits(t, s))
+            })
+            .map(|r| r.identity.as_str())
+    }
+}
+
 /// Imports `lines` against the HTTP operations of `api`.
 pub fn import<S: AsRef<str>>(
     api: &Api,
     lines: impl IntoIterator<Item = S>,
     options: &AccessLogOptions,
 ) -> UsageIndex {
-    let mut index = UsageIndex::new(Source::AccessLog);
-    let mut routes: Vec<Route> = api
-        .operations
-        .iter()
-        .filter_map(|op| match &op.key {
-            OperationKey::Http { method, path } => {
-                let segments: Vec<Vec<Part>> = path
-                    .normalized()
-                    .split('/')
-                    .filter(|s| !s.is_empty())
-                    .map(parts)
-                    .collect();
-                let specificity = segments
-                    .iter()
-                    .filter(|s| s.iter().all(|p| matches!(p, Part::Literal(_))))
-                    .count();
-                Some(Route {
-                    method: method.to_string(),
-                    segments,
-                    identity: op.key.identity(),
-                    specificity,
-                })
-            }
-            OperationKey::Rpc { .. } | OperationKey::Message { .. } => None,
-        })
-        .collect();
-    routes.sort_by_key(|r| std::cmp::Reverse(r.specificity));
-    for route in &routes {
-        index
-            .operations
-            .insert(route.identity.clone(), OperationUsage::default());
-    }
-
+    let routes = Routes::new(api, options);
+    let mut index = routes.seed(Source::AccessLog);
     for line in lines {
         let line = line.as_ref();
         let Some((method, target)) = request(line) else {
@@ -85,32 +131,13 @@ pub fn import<S: AsRef<str>>(
             continue;
         };
         let (path, query) = split_target(&target);
-        let path = match &options.base_path {
-            Some(base) => {
-                let base = base.trim_end_matches('/');
-                match path.strip_prefix(base) {
-                    Some(rest) if rest.is_empty() || rest.starts_with('/') => rest.to_owned(),
-                    _ => {
-                        index.unmatched += 1;
-                        continue;
-                    }
-                }
-            }
-            None => path,
-        };
-        let segments: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
-        let route = routes.iter().find(|r| {
-            r.method.eq_ignore_ascii_case(&method)
-                && r.segments.len() == segments.len()
-                && r.segments.iter().zip(&segments).all(|(t, s)| fits(t, s))
-        });
-        let Some(route) = route else {
+        let Some(identity) = routes.find(&method, &path) else {
             index.unmatched += 1;
             continue;
         };
         let usage = index
             .operations
-            .get_mut(&route.identity)
+            .get_mut(identity)
             .expect("every route is seeded");
         usage.calls += 1;
         for name in query_names(query) {
@@ -193,7 +220,7 @@ fn request_line(text: &str) -> Option<(String, String)> {
 }
 
 /// The path of a request target (origin or absolute form) and its query.
-fn split_target(target: &str) -> (String, &str) {
+pub(crate) fn split_target(target: &str) -> (String, &str) {
     let without_fragment = target.split('#').next().unwrap_or(target);
     let (before, query) = without_fragment
         .split_once('?')
@@ -209,7 +236,7 @@ fn split_target(target: &str) -> (String, &str) {
 }
 
 /// Parameter names in a query string, without their values.
-fn query_names(query: &str) -> Vec<String> {
+pub(crate) fn query_names(query: &str) -> Vec<String> {
     let mut names: Vec<String> = query
         .split('&')
         .filter_map(|pair| pair.split('=').next())

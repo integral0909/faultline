@@ -1,14 +1,17 @@
 //! Usage indexes: which operations, parameters and fields clients use.
 //!
 //! A breaking change to something no client uses is a different risk from
-//! one to a hot path. An index built from access logs ([`access_log`]) or
-//! from the GraphQL documents clients send ([`graphql`]) lets the policy
-//! soften findings about unused parts of an API. Indexes hold counts of
+//! one to a hot path. An index built from access logs ([`access_log`]),
+//! from the GraphQL documents clients send ([`graphql`]) or from recorded
+//! traffic ([`har`]) lets the policy
+//! soften findings about unused parts of an API; recorded traffic ([`har`])
+//! also says which request fields clients send. Indexes hold counts of
 //! templated operations, parameter names and field paths only; request
 //! values, bodies, headers and client identities are never read into them.
 
 pub mod access_log;
 pub mod graphql;
+pub mod har;
 mod index;
 
 pub use index::{INDEX_VERSION, Observed, OperationUsage, Source, UsageIndex, field_chain};

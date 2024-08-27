@@ -693,6 +693,79 @@ fn usage_indexes_soften_changes_nobody_uses() {
 }
 
 #[test]
+fn recorded_traffic_shows_which_request_fields_are_sent() {
+    let dir = workspace();
+    let entry = |method: &str, url: &str, body: Option<&str>| {
+        let post = body.map_or(
+            serde_json::Value::Null,
+            |text| serde_json::json!({"mimeType": "application/json", "text": text}),
+        );
+        serde_json::json!({
+            "request": {
+                "method": method,
+                "url": url,
+                "headers": [{"name": "Cookie", "value": "session=placeholder"}],
+                "queryString": [],
+                "postData": post,
+            },
+            "response": {"status": 200, "content": {"mimeType": "application/json", "text": "[]"}},
+        })
+    };
+    let har = serde_json::json!({"log": {"version": "1.2", "entries": [
+        entry("GET", "https://pets.example.com/v1/pets?species=cat", None),
+        entry("POST", "https://pets.example.com/v1/pets", Some(r#"{"name": "Rex"}"#)),
+        entry("GET", "https://pets.example.com/v1/elsewhere", None),
+    ]}});
+    std::fs::write(dir.path().join("traffic.har"), har.to_string()).unwrap();
+    let import = faultline(
+        dir.path(),
+        &[
+            "usage",
+            "import",
+            "v1/openapi.yaml",
+            "--har",
+            "traffic.har",
+            "--base-path",
+            "/v1",
+        ],
+    );
+    assert_eq!(import.status.code(), Some(0), "{}", stderr(&import));
+    let text = std::fs::read_to_string(dir.path().join(".faultline/usage.json")).unwrap();
+    for secret in ["Rex", "placeholder", "cat", "Cookie", "cookie"] {
+        assert!(!text.contains(secret), "{secret} is stored: {text}");
+    }
+    let index: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(index["source"], "har");
+    assert_eq!(index["unmatched"], 1);
+    assert_eq!(index["operations"]["POST /pets"]["fields"]["()name"], 1);
+
+    std::fs::write(
+        dir.path().join("faultline.toml"),
+        "[usage]\nindex = \".faultline/usage.json\"\n",
+    )
+    .unwrap();
+    let output = faultline(dir.path(), &[&DIFF[..], &["--output", "json"]].concat());
+    let report: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+    let finding = |path: &str| {
+        report["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|f| f["path"] == path)
+            .unwrap_or_else(|| panic!("no finding at {path}"))
+            .clone()
+    };
+    // Nobody sends `limit`: its tighter bound is softened.
+    let limit = finding("op[GET /pets]/param[query:limit]");
+    assert_eq!(limit["unused"], true);
+    assert_eq!(limit["severity"], "risky");
+    // Clients send `name`: its shorter maximum length still breaks them.
+    let name = finding("op[POST /pets]/request[application/json].name");
+    assert_eq!(name["unused"], false);
+    assert_eq!(name["severity"], "breaking");
+}
+
+#[test]
 fn graphql_client_documents_are_usage() {
     let dir = tempfile::tempdir().unwrap();
     for version in ["v1", "v2"] {

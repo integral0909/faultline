@@ -35,6 +35,9 @@ pub enum Source {
     AccessLog,
     /// Client documents: the fields and arguments every operation selects.
     GraphqlDocuments,
+    /// Recorded HTTP traffic: calls, parameter names, and the members of
+    /// request bodies. What clients read from responses is not known.
+    Har,
 }
 
 /// Usage of one API.
@@ -124,11 +127,15 @@ impl UsageIndex {
         if let Some(Segment::Parameter(location, name)) = segments.get(1) {
             return count(usage.parameters.get(&format!("{location}:{name}")).copied());
         }
-        if self.source != Source::GraphqlDocuments {
-            return Observed::Used(usage.calls);
-        }
         let chain = field_chain(segments);
-        if chain.is_empty() {
+        // Field paths are known everywhere for GraphQL documents, and for
+        // request bodies (`()...`) in recorded traffic.
+        let fields_known = match self.source {
+            Source::GraphqlDocuments => true,
+            Source::Har => chain.starts_with("()"),
+            Source::AccessLog => false,
+        };
+        if !fields_known || chain.is_empty() {
             return Observed::Used(usage.calls);
         }
         // A field is used if it, or anything under it, is selected.
@@ -248,6 +255,26 @@ mod tests {
         assert_eq!(
             at("op[query/pet]/request[application/graphql].locale"),
             Observed::Unused
+        );
+    }
+
+    #[test]
+    fn recorded_traffic_knows_request_fields_only() {
+        let mut index = UsageIndex::new(Source::Har);
+        let mut create = OperationUsage {
+            calls: 2,
+            ..OperationUsage::default()
+        };
+        create.fields.insert("()name".into(), 2);
+        index.operations.insert("POST /pets".into(), create);
+        let at = |p: &str| index.observe(&path(p));
+        let request = "op[POST /pets]/request[application/json]";
+        assert_eq!(at(&format!("{request}.name")), Observed::Used(2));
+        assert_eq!(at(&format!("{request}.tag")), Observed::Unused);
+        assert_eq!(
+            at("op[POST /pets]/response[201]/body[application/json].id"),
+            Observed::Used(2),
+            "responses say nothing about what clients read"
         );
     }
 
