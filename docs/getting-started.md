@@ -206,7 +206,21 @@ Locations in the old version carry the revision (`3f9a2c1b7d4e:api/openapi.yaml`
 An API that does not exist in the base yet is reported as new and not
 compared. `--api NAME` checks only the named APIs. In GitHub Actions pull
 request builds, `--base` defaults to `origin/$GITHUB_BASE_REF`; the checkout
-needs enough history to contain the merge base (`fetch-depth: 0`). See
+needs enough history to contain the merge base (`fetch-depth: 0`).
+
+The repository is also a GitHub Action, which installs the release for the
+runner (verified against its checksums) and runs faultline:
+
+```yaml
+- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0
+- uses: integral0909/faultline@vX.Y.Z
+  with:
+    args: check --output github   # the default
+```
+
+Its `exit-code` output holds faultline's exit code. See
 [examples/ci/github-actions.yml](../examples/ci/github-actions.yml).
 
 `diff` can read either side from a revision too. The new path defaults to the

@@ -1,0 +1,62 @@
+name: Faultline
+description: Find breaking changes in API contracts (OpenAPI, AsyncAPI, JSON Schema, Protobuf, GraphQL, Avro).
+author: Fredrik Ahman
+branding:
+  icon: git-pull-request
+  color: orange
+
+inputs:
+  args:
+    description: >
+      Arguments to run faultline with. The default checks every API in
+      faultline.toml against the pull request's base branch and annotates
+      the changed files.
+    required: false
+    default: check --output github
+  version:
+    description: >
+      The release to install, such as `0.2.0`, or `latest`. When no release
+      archive exists for the runner, faultline is built from the action's
+      source instead (which needs a Rust toolchain).
+    required: false
+    default: latest
+  install:
+    description: "`release` to download a release archive (falling back to source), or `source` to build from the action's source."
+    required: false
+    default: release
+  working-directory:
+    description: Directory to run faultline in.
+    required: false
+    default: .
+
+outputs:
+  exit-code:
+    description: "faultline's exit code: 0 passed, 1 findings, 2 invalid input, 4 expired waivers."
+    value: ${{ steps.run.outputs.exit-code }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install faultline
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        VERSION: ${{ inputs.version }}
+        INSTALL: ${{ inputs.install }}
+        RUNNER_OS_NAME: ${{ runner.os }}
+        RUNNER_ARCH_NAME: ${{ runner.arch }}
+      run: "\"$GITHUB_ACTION_PATH/scripts/install-action.sh\""
+    - name: Run faultline
+      id: run
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        ARGS: ${{ inputs.args }}
+      run: |
+        set +e
+        # Word splitting of ARGS is intended: it holds a command line.
+        # shellcheck disable=SC2086
+        faultline $ARGS
+        code=$?
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+        exit $code

@@ -85,3 +85,25 @@ jobs:
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           command: check advisories bans licenses sources
+
+  action:
+    name: GitHub Action
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: A version compared with itself passes
+        uses: ./
+        with:
+          install: source
+          args: diff examples/petstore/v1/openapi.yaml examples/petstore/v1/openapi.yaml
+      - name: Breaking changes fail
+        id: breaking
+        continue-on-error: true
+        uses: ./
+        with:
+          install: source
+          args: diff examples/petstore/v1/openapi.yaml examples/petstore/v2/openapi.yaml --output github
+      - name: Check the exit code
+        run: test "${{ steps.breaking.outputs.exit-code }}" = 1

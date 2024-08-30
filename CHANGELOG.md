@@ -162,6 +162,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   header parameters and of request body members (JSON and forms) are
   recorded, so findings about request fields no client sends are softened
   too. Values, other headers, cookies and responses are never stored.
+- A GitHub Action (`uses: integral0909/faultline@...`) that installs the
+  release archive for the runner, verified against the release checksums,
+  or builds from source when there is none, and runs faultline with the
+  given arguments; CI exercises it.
 - Release pipeline: pushing a `vX.Y.Z` tag checks the version and release
   notes, packages every crate, builds the binary for Linux (x86-64 glibc
   and musl, AArch64), macOS and Windows with build provenance attestations,

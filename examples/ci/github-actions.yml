@@ -24,11 +24,13 @@ jobs:
         with:
           # The merge base with the target branch must be in the clone.
           fetch-depth: 0
-      - name: Install faultline
-        run: cargo install --locked --git https://github.com/integral0909/faultline faultline-cli
       - name: Check
-        # --base defaults to origin/$GITHUB_BASE_REF in pull request builds.
-        run: faultline check --output github
+        # Installs the release for the runner and annotates the pull request.
+        # Pin a release tag (integral0909/faultline@vX.Y.Z) for reproducible
+        # builds. --base defaults to origin/$GITHUB_BASE_REF.
+        uses: integral0909/faultline@main
+        with:
+          args: check --output github
       - name: SARIF report
         if: always()
         run: faultline check --output sarif --fail-on never > faultline.sarif
