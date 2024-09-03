@@ -322,6 +322,7 @@ dependencies = [
  "faultline-regex",
  "faultline-registry",
  "faultline-source",
+ "faultline-xml",
  "libfuzzer-sys",
  "serde_json",
 ]
@@ -451,6 +452,13 @@ dependencies = [
  "faultline-doc",
  "faultline-source",
  "gix",
+]
+
+[[package]]
+name = "faultline-xml"
+version = "0.1.0"
+dependencies = [
+ "faultline-source",
 ]
 
 [[package]]
