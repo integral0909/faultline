@@ -34,6 +34,7 @@ faultline-report = { path = "crates/faultline-report", version = "0.1.0" }
 faultline-rules = { path = "crates/faultline-rules", version = "0.1.0" }
 faultline-subsume = { path = "crates/faultline-subsume", version = "0.1.0" }
 faultline-xml = { path = "crates/faultline-xml", version = "0.1.0" }
+faultline-xsd = { path = "crates/faultline-xsd", version = "0.1.0" }
 faultline-usage = { path = "crates/faultline-usage", version = "0.1.0" }
 faultline-vcs = { path = "crates/faultline-vcs", version = "0.1.0" }
 

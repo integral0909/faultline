@@ -696,6 +696,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "faultline-xsd"
+version = "0.1.0"
+dependencies = [
+ "faultline-diff",
+ "faultline-doc",
+ "faultline-ir",
+ "faultline-rules",
+ "faultline-source",
+ "faultline-xml",
+]
+
+[[package]]
 name = "filetime"
 version = "0.2.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
