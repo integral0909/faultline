@@ -20,6 +20,7 @@ pub enum ApiFormat {
     Avro,
     AsyncApi2,
     AsyncApi3,
+    XmlSchema,
 }
 
 impl ApiFormat {
@@ -34,6 +35,7 @@ impl ApiFormat {
             ApiFormat::Avro => "avro",
             ApiFormat::AsyncApi2 => "asyncapi-2",
             ApiFormat::AsyncApi3 => "asyncapi-3",
+            ApiFormat::XmlSchema => "xsd",
         }
     }
 }
