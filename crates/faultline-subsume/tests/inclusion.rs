@@ -273,6 +273,17 @@ fn arrays() {
             r#"{"type":"array","items":{"type":"boolean"},"maxItems":5}"#,
             No,
         ),
+        // Limits far beyond what sampling builds are still exceeded.
+        (
+            r#"{"type":"array","items":{"type":"integer"}}"#,
+            r#"{"type":"array","items":{"type":"integer"},"maxItems":100}"#,
+            No,
+        ),
+        (
+            r#"{"type":"array","prefixItems":[{"type":"string"}],"items":{"type":"integer"}}"#,
+            r#"{"type":"array","prefixItems":[{"type":"string"}],"items":{"type":"integer"},"maxItems":40}"#,
+            No,
+        ),
         (
             r#"{"type":"array","prefixItems":[{"type":"string"}],"items":false}"#,
             r#"{"type":"array","prefixItems":[{"type":"string","minLength":1}]}"#,

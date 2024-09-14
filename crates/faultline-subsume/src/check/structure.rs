@@ -49,10 +49,42 @@ impl Checker<'_> {
             }
         }
         if proven {
-            Verdict::Yes
-        } else {
-            self.search(l, r, "array constraints could not be compared exactly")
+            return Verdict::Yes;
         }
+        if let Some(witness) = self.longer_than(l, a, r, b) {
+            return Verdict::No(witness);
+        }
+        self.search(l, r, "array constraints could not be compared exactly")
+    }
+
+    /// When the right type allows fewer items than the left, an array of
+    /// the left type one item too long for the right. Sampling only builds
+    /// short arrays, so a limit of a hundred would otherwise go unproven.
+    fn longer_than(&self, l: TypeId, a: &ArrayType, r: TypeId, b: &ArrayType) -> Option<Literal> {
+        const MAX_LENGTH: u64 = 10_000;
+        let limit = b.max_items?;
+        if a.max_items.is_some_and(|max| max <= limit) || limit >= MAX_LENGTH || a.unique_items {
+            return None;
+        }
+        let length = usize::try_from((limit + 1).max(a.min_items)).ok()?;
+        self.left_samples
+            .candidates(l)
+            .into_iter()
+            .find_map(|base| {
+                let Literal::Array(mut items) = base else {
+                    return None;
+                };
+                if items.is_empty() || items.len() > length {
+                    return None;
+                }
+                let prefix = a.prefix_items.len();
+                // Items past the prefixes all have the same type, so any of
+                // them can be repeated.
+                let filler = items.get(prefix).or(items.last())?.clone();
+                items.resize(length, filler);
+                let candidate = Literal::Array(items);
+                self.confirmed(l, r, &candidate).then_some(candidate)
+            })
     }
 
     pub(super) fn objects(
