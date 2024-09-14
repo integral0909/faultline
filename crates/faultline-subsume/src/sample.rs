@@ -212,8 +212,13 @@ impl<'a> Sampler<'a> {
             let mut values: Vec<Literal> = prefix.iter().take(length).cloned().collect();
             let mut i = 0;
             while values.len() < length {
-                let item = if distinct {
+                // Distinct items where there are enough samples; arrays
+                // that need not be unique cycle through them, so long
+                // arrays (up to the maximum) are still built.
+                let item = if distinct && a.unique_items {
                     items.get(i)?
+                } else if distinct {
+                    items.get(i % items.len().max(1))?
                 } else {
                     items.first()?
                 };

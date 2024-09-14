@@ -261,6 +261,18 @@ fn arrays() {
             r#"{"type":"array","maxItems":5}"#,
             Yes,
         ),
+        // Longer arrays than the item sampler has distinct values for are
+        // still found, by repeating items.
+        (
+            r#"{"type":"array","items":{"type":"string"},"maxItems":10}"#,
+            r#"{"type":"array","items":{"type":"string"},"maxItems":5}"#,
+            No,
+        ),
+        (
+            r#"{"type":"array","items":{"type":"boolean"},"maxItems":10}"#,
+            r#"{"type":"array","items":{"type":"boolean"},"maxItems":5}"#,
+            No,
+        ),
         (
             r#"{"type":"array","prefixItems":[{"type":"string"}],"items":false}"#,
             r#"{"type":"array","prefixItems":[{"type":"string","minLength":1}]}"#,
