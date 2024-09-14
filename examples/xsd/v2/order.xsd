@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:o="urn:example:orders"
+           targetNamespace="urn:example:orders"
+           elementFormDefault="qualified">
+
+  <xs:element name="order" type="o:Order"/>
+
+  <xs:complexType name="Order">
+    <xs:sequence>
+      <xs:element name="customer" type="o:CustomerId"/>
+      <xs:element name="line" type="o:Line" maxOccurs="100"/>
+      <xs:element name="note" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:long" use="required"/>
+    <xs:attribute name="currency" type="o:Currency" default="EUR"/>
+  </xs:complexType>
+
+  <xs:complexType name="Line">
+    <xs:sequence>
+      <xs:element name="sku" type="xs:token"/>
+      <xs:element name="quantity" type="xs:positiveInteger"/>
+      <xs:element name="price" type="xs:decimal"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:simpleType name="CustomerId">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="C[0-9]{6,8}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="Currency">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="EUR"/>
+      <xs:enumeration value="USD"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>

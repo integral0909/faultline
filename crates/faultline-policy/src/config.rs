@@ -106,6 +106,8 @@ pub enum ApiFormat {
     /// A Protobuf file's services as the HTTP/JSON API their
     /// `google.api.http` rules expose.
     ProtobufHttp,
+    /// XML Schema: the global elements, used in the schema's role.
+    Xsd,
 }
 
 impl ApiFormat {
@@ -119,6 +121,7 @@ impl ApiFormat {
             ApiFormat::Avro => "avro",
             ApiFormat::AsyncApi => "asyncapi",
             ApiFormat::ProtobufHttp => "protobuf-http",
+            ApiFormat::Xsd => "xsd",
         }
     }
 
@@ -131,6 +134,7 @@ impl ApiFormat {
             "avro" => Some(ApiFormat::Avro),
             "asyncapi" => Some(ApiFormat::AsyncApi),
             "protobuf-http" => Some(ApiFormat::ProtobufHttp),
+            "xsd" | "xml-schema" => Some(ApiFormat::Xsd),
             _ => None,
         }
     }

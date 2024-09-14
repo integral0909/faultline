@@ -23,6 +23,8 @@ pub(crate) enum Format {
     /// A `.proto` file's services as the HTTP/JSON API their
     /// `google.api.http` rules expose.
     ProtobufHttp,
+    /// XML Schema.
+    Xsd,
 }
 
 impl From<Format> for ApiFormat {
@@ -35,6 +37,7 @@ impl From<Format> for ApiFormat {
             Format::Avro => ApiFormat::Avro,
             Format::Asyncapi => ApiFormat::AsyncApi,
             Format::ProtobufHttp => ApiFormat::ProtobufHttp,
+            Format::Xsd => ApiFormat::Xsd,
         }
     }
 }

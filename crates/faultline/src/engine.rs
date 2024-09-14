@@ -287,11 +287,26 @@ impl Engine {
             workspace: loader,
             remote: self.remote.as_deref(),
         };
-        // Protobuf and GraphQL files are not JSON or YAML documents: they
+        // Protobuf, GraphQL and XML Schema files are not JSON or YAML: they
         // are read by their own front ends.
         let format = format.or_else(|| format_by_extension(&entry));
         if format == Some(ApiFormat::GraphQl) {
             let lowered = faultline_graphql::lower_graphql(&entry, loader, sources, name);
+            return Lowered {
+                api: lowered.api,
+                diagnostics: lowered.diagnostics,
+                missing_entry: false,
+            };
+        }
+        if format == Some(ApiFormat::Xsd) {
+            let lowered = faultline_xsd::lower_xsd(
+                &entry,
+                loader,
+                sources,
+                name,
+                ir_role(role),
+                self.limits.clone(),
+            );
             return Lowered {
                 api: lowered.api,
                 diagnostics: lowered.diagnostics,
@@ -347,7 +362,7 @@ impl Engine {
                 let lowered = faultline_avro::lower_avro(&entry, &mut store, name, ir_role(role));
                 (lowered.api, lowered.diagnostics)
             }
-            ApiFormat::Protobuf | ApiFormat::ProtobufHttp | ApiFormat::GraphQl => {
+            ApiFormat::Protobuf | ApiFormat::ProtobufHttp | ApiFormat::GraphQl | ApiFormat::Xsd => {
                 unreachable!("handled above")
             }
         };
@@ -554,10 +569,10 @@ fn describe(source: &Source) -> String {
     }
 }
 
-/// Formats recognized by the entry's file extension: `.proto` files and
-/// GraphQL schemas are not JSON or YAML documents, and are read by their own
-/// front ends; Avro schemas are JSON but cannot be told from JSON Schema by
-/// their content alone.
+/// Formats recognized by the entry's file extension: `.proto` files, XML
+/// Schemas and GraphQL schemas are not JSON or YAML documents, and are read
+/// by their own front ends; Avro schemas are JSON but cannot be told from
+/// JSON Schema by their content alone.
 pub fn format_by_extension(entry: &UriRef) -> Option<ApiFormat> {
     let extension = std::path::Path::new(entry.path())
         .extension()?
@@ -567,6 +582,7 @@ pub fn format_by_extension(entry: &UriRef) -> Option<ApiFormat> {
         "proto" => Some(ApiFormat::Protobuf),
         "graphql" | "graphqls" | "gql" => Some(ApiFormat::GraphQl),
         "avsc" => Some(ApiFormat::Avro),
+        "xsd" => Some(ApiFormat::Xsd),
         _ => None,
     }
 }

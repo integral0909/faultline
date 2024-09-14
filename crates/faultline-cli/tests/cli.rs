@@ -568,6 +568,41 @@ fn swagger_migrations_compare_cleanly() {
 }
 
 #[test]
+fn xml_schemas_are_compared() {
+    let dir = repo().join("examples/xsd");
+    let output = faultline(
+        &dir,
+        &[
+            "diff",
+            "v1/order.xsd",
+            "v2/order.xsd",
+            "--role",
+            "input",
+            "--output",
+            "json",
+        ],
+    );
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    let report: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+    let mut breaking: Vec<String> = report["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["severity"] == "breaking")
+        .map(|f| f["path"].as_str().unwrap().to_owned())
+        .collect();
+    breaking.sort();
+    assert_eq!(
+        breaking,
+        ["schema[order].@currency", "schema[order].line[]"]
+    );
+    assert_eq!(
+        report["findings"][0]["new_location"]["file"],
+        "v2/order.xsd"
+    );
+}
+
+#[test]
 fn declared_versions_are_checked_with_semver_versioning() {
     let dir = workspace();
     // Version 2 claims to be a minor release despite its breaking changes.
