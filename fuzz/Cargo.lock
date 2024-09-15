@@ -265,6 +265,7 @@ dependencies = [
  "faultline-rules",
  "faultline-source",
  "faultline-vcs",
+ "faultline-xsd",
 ]
 
 [[package]]
@@ -323,6 +324,7 @@ dependencies = [
  "faultline-registry",
  "faultline-source",
  "faultline-xml",
+ "faultline-xsd",
  "libfuzzer-sys",
  "serde_json",
 ]
@@ -459,6 +461,16 @@ name = "faultline-xml"
 version = "0.1.0"
 dependencies = [
  "faultline-source",
+]
+
+[[package]]
+name = "faultline-xsd"
+version = "0.1.0"
+dependencies = [
+ "faultline-doc",
+ "faultline-ir",
+ "faultline-source",
+ "faultline-xml",
 ]
 
 [[package]]
