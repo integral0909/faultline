@@ -1,0 +1,26 @@
+[package]
+name = "faultline-wsdl"
+description = "WSDL front end for Faultline"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+faultline-doc.workspace = true
+faultline-ir.workspace = true
+faultline-source.workspace = true
+faultline-xml.workspace = true
+faultline-xsd.workspace = true
+
+[dev-dependencies]
+faultline-diff.workspace = true
+faultline-rules.workspace = true
+
+[lints]
+workspace = true

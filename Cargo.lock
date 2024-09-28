@@ -690,6 +690,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "faultline-wsdl"
+version = "0.1.0"
+dependencies = [
+ "faultline-diff",
+ "faultline-doc",
+ "faultline-ir",
+ "faultline-rules",
+ "faultline-source",
+ "faultline-xml",
+ "faultline-xsd",
+]
+
+[[package]]
 name = "faultline-xml"
 version = "0.1.0"
 dependencies = [
