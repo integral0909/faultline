@@ -146,6 +146,21 @@ fill in defaults and match renamed fields through aliases, and the numeric
 promotions Avro allows are compatible. See [examples/avro](../examples/avro)
 and the [Avro internals](internals/avro.md).
 
+## XML Schema
+
+Files ending in `.xsd` are read as XML Schema, following `include` and
+`import`. Each global element is a schema root, used in the role given with
+`--role`:
+
+```sh
+faultline diff v1/order.xsd v2/order.xsd --role input
+```
+
+XML documents are compared as objects: child elements are members,
+attributes are `@`-prefixed members, repeated elements are arrays, and a
+`choice` is a group of members of which one is present. See
+[examples/xsd](../examples/xsd) and the [XML Schema internals](internals/xsd.md).
+
 ## AsyncAPI
 
 Documents with an `asyncapi` field are read as AsyncAPI 2.x or 3.0. Messages

@@ -166,6 +166,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   release archive for the runner, verified against the release checksums,
   or builds from source when there is none, and runs faultline with the
   given arguments; CI exercises it.
+- `faultline-xml`: an XML 1.0 reader with namespaces and spans that refuses
+  document type declarations, so entity expansion and external entities
+  cannot occur. Fuzzed (`parse_xml`).
+- `faultline-xsd` and `format = "xsd"`: XML Schema. Includes and imports are
+  followed inside the workspace; built-in datatypes, facets, lists, unions,
+  complex types (sequences, choices, groups, attributes, simple and mixed
+  content, extension and restriction) and element occurrences are lowered,
+  with global elements as schema roots. Fuzzed (`lower_xsd`).
+- Witnesses for array limits: long arrays are built by repeating items, and
+  a new or lowered `maxItems` is proven with an array one item too long.
 - Release pipeline: pushing a `vX.Y.Z` tag checks the version and release
   notes, packages every crate, builds the binary for Linux (x86-64 glibc
   and musl, AArch64), macOS and Windows with build provenance attestations,

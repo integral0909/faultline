@@ -52,6 +52,14 @@ connection uses exactly the checked addresses, DNS rebinding cannot redirect
 it. Proxies are not used, response size and time are capped, and bodies are
 requested without compression so the size cap applies to what is read.
 
+**XML.** The XML reader refuses document type declarations outright, so
+entity expansion ("billion laughs") and external entities, which read local
+files or make requests, cannot occur; only the predefined entities and
+character references are expanded. Elements are read without recursion,
+with the same depth and node limits as JSON and YAML. Schema `include` and
+`import` locations are resolved like any other reference, inside the
+workspace, and each document is read once.
+
 **Code execution.** Faultline never executes anything found in inputs: there
 are no templates, scripts or plugins. Custom rules are declarative data.
 

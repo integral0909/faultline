@@ -114,6 +114,8 @@ plugins in v1.
 | `faultline-graphql` | GraphQL SDL lexer, parser, validation, lowering |
 | `faultline-avro` | Avro schema parsing, name resolution, lowering |
 | `faultline-asyncapi` | AsyncAPI 2.6/3.0 lowering |
+| `faultline-xml` | Spanned, namespace-aware XML reader without DTD processing |
+| `faultline-xsd` | XML Schema reading (includes, imports) and lowering |
 | `faultline-diff` | Alignment, rename detection, comparison engine, change model |
 | `faultline-rules` | Rule catalog, classification, semver derivation |
 | `faultline-policy` | `faultline.toml`, overrides, waivers, baselines, verdicts |
