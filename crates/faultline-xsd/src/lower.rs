@@ -74,6 +74,12 @@ impl<'c> Lowerer<'c> {
         self.api.types.alloc(node)
     }
 
+    /// The global element `name`, for front ends whose messages name
+    /// elements (WSDL).
+    pub fn components_element(&self, name: &QName) -> Option<crate::model::ElementDecl> {
+        self.components.elements.get(name).cloned()
+    }
+
     pub(crate) fn any(&mut self) -> TypeId {
         self.alloc(TypeKind::Any, None)
     }
