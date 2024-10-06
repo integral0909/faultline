@@ -19,6 +19,7 @@ faultline-openapi = { path = "../crates/faultline-openapi" }
 faultline-protobuf = { path = "../crates/faultline-protobuf" }
 faultline-graphql = { path = "../crates/faultline-graphql" }
 faultline-avro = { path = "../crates/faultline-avro" }
+faultline-wsdl = { path = "../crates/faultline-wsdl" }
 faultline-xml = { path = "../crates/faultline-xml" }
 faultline-xsd = { path = "../crates/faultline-xsd" }
 faultline-asyncapi = { path = "../crates/faultline-asyncapi" }
@@ -118,6 +119,13 @@ bench = false
 [[bin]]
 name = "lower_xsd"
 path = "fuzz_targets/lower_xsd.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "lower_wsdl"
+path = "fuzz_targets/lower_wsdl.rs"
 test = false
 doc = false
 bench = false

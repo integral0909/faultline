@@ -265,6 +265,7 @@ dependencies = [
  "faultline-rules",
  "faultline-source",
  "faultline-vcs",
+ "faultline-wsdl",
  "faultline-xsd",
 ]
 
@@ -323,6 +324,7 @@ dependencies = [
  "faultline-regex",
  "faultline-registry",
  "faultline-source",
+ "faultline-wsdl",
  "faultline-xml",
  "faultline-xsd",
  "libfuzzer-sys",
@@ -454,6 +456,17 @@ dependencies = [
  "faultline-doc",
  "faultline-source",
  "gix",
+]
+
+[[package]]
+name = "faultline-wsdl"
+version = "0.1.0"
+dependencies = [
+ "faultline-doc",
+ "faultline-ir",
+ "faultline-source",
+ "faultline-xml",
+ "faultline-xsd",
 ]
 
 [[package]]
