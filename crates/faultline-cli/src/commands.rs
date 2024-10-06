@@ -25,6 +25,8 @@ pub(crate) enum Format {
     ProtobufHttp,
     /// XML Schema.
     Xsd,
+    /// WSDL 1.1.
+    Wsdl,
 }
 
 impl From<Format> for ApiFormat {
@@ -38,6 +40,7 @@ impl From<Format> for ApiFormat {
             Format::Asyncapi => ApiFormat::AsyncApi,
             Format::ProtobufHttp => ApiFormat::ProtobufHttp,
             Format::Xsd => ApiFormat::Xsd,
+            Format::Wsdl => ApiFormat::Wsdl,
         }
     }
 }

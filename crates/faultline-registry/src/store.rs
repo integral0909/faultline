@@ -541,7 +541,7 @@ mod tests {
             (json!({"entry": "a", "files": {"b": "x"}}), "not among"),
             (json!({"entry": "a", "files": {"a": 1}}), "must be a string"),
             (
-                json!({"entry": "a", "files": {"a": "x"}, "format": "wsdl"}),
+                json!({"entry": "a", "files": {"a": "x"}, "format": "wadl"}),
                 "unknown format",
             ),
             (

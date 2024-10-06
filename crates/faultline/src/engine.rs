@@ -287,46 +287,16 @@ impl Engine {
             workspace: loader,
             remote: self.remote.as_deref(),
         };
-        // Protobuf, GraphQL and XML Schema files are not JSON or YAML: they
+        // Protobuf, GraphQL, XML Schema and WSDL are not JSON or YAML: they
         // are read by their own front ends.
         let format = format.or_else(|| format_by_extension(&entry));
-        if format == Some(ApiFormat::GraphQl) {
-            let lowered = faultline_graphql::lower_graphql(&entry, loader, sources, name);
+        if let Some(format) = format
+            && let Some((api, diagnostics)) =
+                self.lower_other(format, loader, &entry, name, role, sources)
+        {
             return Lowered {
-                api: lowered.api,
-                diagnostics: lowered.diagnostics,
-                missing_entry: false,
-            };
-        }
-        if format == Some(ApiFormat::Xsd) {
-            let lowered = faultline_xsd::lower_xsd(
-                &entry,
-                loader,
-                sources,
-                name,
-                ir_role(role),
-                self.limits.clone(),
-            );
-            return Lowered {
-                api: lowered.api,
-                diagnostics: lowered.diagnostics,
-                missing_entry: false,
-            };
-        }
-        if format == Some(ApiFormat::ProtobufHttp) {
-            let lowered = faultline_protobuf::lower_protobuf_http(&entry, loader, sources, name);
-            return Lowered {
-                api: lowered.api,
-                diagnostics: lowered.diagnostics,
-                missing_entry: false,
-            };
-        }
-        if format == Some(ApiFormat::Protobuf) {
-            let lowered =
-                faultline_protobuf::lower_protobuf(&entry, loader, sources, name, ir_role(role));
-            return Lowered {
-                api: lowered.api,
-                diagnostics: lowered.diagnostics,
+                api,
+                diagnostics,
                 missing_entry: false,
             };
         }
@@ -362,7 +332,11 @@ impl Engine {
                 let lowered = faultline_avro::lower_avro(&entry, &mut store, name, ir_role(role));
                 (lowered.api, lowered.diagnostics)
             }
-            ApiFormat::Protobuf | ApiFormat::ProtobufHttp | ApiFormat::GraphQl | ApiFormat::Xsd => {
+            ApiFormat::Protobuf
+            | ApiFormat::ProtobufHttp
+            | ApiFormat::GraphQl
+            | ApiFormat::Xsd
+            | ApiFormat::Wsdl => {
                 unreachable!("handled above")
             }
         };
@@ -374,6 +348,48 @@ impl Engine {
             diagnostics,
             missing_entry: false,
         }
+    }
+
+    /// Lowers the formats that are not JSON or YAML documents, which read
+    /// their files themselves. `None` for the formats the document store
+    /// reads.
+    fn lower_other(
+        &self,
+        format: ApiFormat,
+        loader: &dyn Loader,
+        entry: &UriRef,
+        name: &str,
+        role: SchemaRole,
+        sources: &SourceMap,
+    ) -> Option<(Option<Api>, Diagnostics)> {
+        let limits = || self.limits.clone();
+        Some(match format {
+            ApiFormat::GraphQl => {
+                let l = faultline_graphql::lower_graphql(entry, loader, sources, name);
+                (l.api, l.diagnostics)
+            }
+            ApiFormat::Protobuf => {
+                let l =
+                    faultline_protobuf::lower_protobuf(entry, loader, sources, name, ir_role(role));
+                (l.api, l.diagnostics)
+            }
+            ApiFormat::ProtobufHttp => {
+                let l = faultline_protobuf::lower_protobuf_http(entry, loader, sources, name);
+                (l.api, l.diagnostics)
+            }
+            ApiFormat::Xsd => {
+                let l =
+                    faultline_xsd::lower_xsd(entry, loader, sources, name, ir_role(role), limits());
+                (l.api, l.diagnostics)
+            }
+            ApiFormat::Wsdl => {
+                let l = faultline_wsdl::lower_wsdl(entry, loader, sources, name, limits());
+                (l.api, l.diagnostics)
+            }
+            ApiFormat::OpenApi | ApiFormat::JsonSchema | ApiFormat::Avro | ApiFormat::AsyncApi => {
+                return None;
+            }
+        })
     }
 
     /// A loader for a source's workspace and the URI of its entry document.
@@ -570,8 +586,8 @@ fn describe(source: &Source) -> String {
 }
 
 /// Formats recognized by the entry's file extension: `.proto` files, XML
-/// Schemas and GraphQL schemas are not JSON or YAML documents, and are read
-/// by their own front ends; Avro schemas are JSON but cannot be told from
+/// Schemas, WSDL descriptions and GraphQL schemas are not JSON or YAML
+/// documents, and are read by their own front ends; Avro schemas are JSON but cannot be told from
 /// JSON Schema by their content alone.
 pub fn format_by_extension(entry: &UriRef) -> Option<ApiFormat> {
     let extension = std::path::Path::new(entry.path())
@@ -583,6 +599,7 @@ pub fn format_by_extension(entry: &UriRef) -> Option<ApiFormat> {
         "graphql" | "graphqls" | "gql" => Some(ApiFormat::GraphQl),
         "avsc" => Some(ApiFormat::Avro),
         "xsd" => Some(ApiFormat::Xsd),
+        "wsdl" => Some(ApiFormat::Wsdl),
         _ => None,
     }
 }

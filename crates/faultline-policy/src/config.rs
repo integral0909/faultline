@@ -108,9 +108,23 @@ pub enum ApiFormat {
     ProtobufHttp,
     /// XML Schema: the global elements, used in the schema's role.
     Xsd,
+    /// WSDL 1.1 services.
+    Wsdl,
 }
 
 impl ApiFormat {
+    pub const ALL: [ApiFormat; 9] = [
+        ApiFormat::OpenApi,
+        ApiFormat::AsyncApi,
+        ApiFormat::JsonSchema,
+        ApiFormat::Protobuf,
+        ApiFormat::ProtobufHttp,
+        ApiFormat::GraphQl,
+        ApiFormat::Avro,
+        ApiFormat::Xsd,
+        ApiFormat::Wsdl,
+    ];
+
     /// The name `parse` reads back.
     pub fn as_str(self) -> &'static str {
         match self {
@@ -122,6 +136,7 @@ impl ApiFormat {
             ApiFormat::AsyncApi => "asyncapi",
             ApiFormat::ProtobufHttp => "protobuf-http",
             ApiFormat::Xsd => "xsd",
+            ApiFormat::Wsdl => "wsdl",
         }
     }
 
@@ -135,6 +150,7 @@ impl ApiFormat {
             "asyncapi" => Some(ApiFormat::AsyncApi),
             "protobuf-http" => Some(ApiFormat::ProtobufHttp),
             "xsd" | "xml-schema" => Some(ApiFormat::Xsd),
+            "wsdl" => Some(ApiFormat::Wsdl),
             _ => None,
         }
     }
@@ -425,8 +441,13 @@ fn apis(raw: Vec<RawApi>, problems: &mut Vec<String>) -> Vec<ApiConfig> {
         }
         let format = api.format.as_deref().and_then(|text| {
             ApiFormat::parse(text).or_else(|| {
+                let names: Vec<String> = ApiFormat::ALL
+                    .iter()
+                    .map(|f| format!("\"{}\"", f.as_str()))
+                    .collect();
                 problems.push(format!(
-                    "{at}: format must be \"openapi\", \"jsonschema\", \"protobuf\", \"graphql\" or \"avro\", not \"{text}\""
+                    "{at}: format must be one of {}, not \"{text}\"",
+                    names.join(", ")
                 ));
                 None
             })

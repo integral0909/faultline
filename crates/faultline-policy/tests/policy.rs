@@ -81,7 +81,7 @@ fn problems_are_reported_together() {
 [[api]]
 name = "a"
 entry = "x"
-format = "wsdl"
+format = "wadl"
 
 [[api]]
 name = "a"
@@ -107,7 +107,8 @@ expires = "tomorrow"
     .unwrap_err();
     let text = error.to_string();
     for fragment in [
-        "format must be",
+        "format must be one of",
+        "\"wsdl\"",
         "another api has the same name",
         "fail_on must be",
         "unknown rule \"FL9999\"",
@@ -329,16 +330,7 @@ fn declared_versions_must_cover_the_changes() {
 #[test]
 fn names_round_trip() {
     use faultline_policy::{ApiFormat, FailOn, SchemaRole};
-    for format in [
-        ApiFormat::OpenApi,
-        ApiFormat::JsonSchema,
-        ApiFormat::Protobuf,
-        ApiFormat::GraphQl,
-        ApiFormat::Avro,
-        ApiFormat::AsyncApi,
-        ApiFormat::ProtobufHttp,
-        ApiFormat::Xsd,
-    ] {
+    for format in ApiFormat::ALL {
         assert_eq!(ApiFormat::parse(format.as_str()), Some(format));
     }
     for role in [SchemaRole::Input, SchemaRole::Output, SchemaRole::Both] {

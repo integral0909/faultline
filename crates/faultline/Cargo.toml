@@ -28,6 +28,7 @@ faultline-report.workspace = true
 faultline-rules.workspace = true
 faultline-source.workspace = true
 faultline-vcs.workspace = true
+faultline-wsdl.workspace = true
 faultline-xsd.workspace = true
 
 [dev-dependencies]

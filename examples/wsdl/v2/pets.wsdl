@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+                  xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+                  xmlns:soap12="http://schemas.xmlsoap.org/wsdl/soap12/"
+                  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                  xmlns:tns="urn:example:pets"
+                  targetNamespace="urn:example:pets">
+  <wsdl:types>
+    <xs:schema targetNamespace="urn:example:pets" elementFormDefault="qualified">
+      <xs:element name="GetPet">
+        <xs:complexType><xs:sequence><xs:element name="id" type="xs:long"/><xs:element name="locale" type="xs:language"/></xs:sequence></xs:complexType>
+      </xs:element>
+      <xs:element name="GetPetResponse">
+        <xs:complexType><xs:sequence><xs:element name="pet" type="tns:Pet"/></xs:sequence></xs:complexType>
+      </xs:element>
+      <xs:element name="NotFound">
+        <xs:complexType><xs:sequence><xs:element name="id" type="xs:long"/></xs:sequence></xs:complexType>
+      </xs:element>
+      <xs:element name="Auth" type="xs:string"/>
+      <xs:complexType name="Pet">
+        <xs:sequence>
+          <xs:element name="name" type="xs:string"/>
+          <xs:element name="status" type="tns:Status"/>
+        </xs:sequence>
+      </xs:complexType>
+      <xs:simpleType name="Status">
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="available"/>
+          <xs:enumeration value="sold"/>
+          <xs:enumeration value="adopted"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:schema>
+  </wsdl:types>
+
+  <wsdl:message name="GetPetRequest"><wsdl:part name="parameters" element="tns:GetPet"/></wsdl:message>
+  <wsdl:message name="GetPetResponse"><wsdl:part name="parameters" element="tns:GetPetResponse"/></wsdl:message>
+  <wsdl:message name="NotFoundFault"><wsdl:part name="fault" element="tns:NotFound"/></wsdl:message>
+  <wsdl:message name="AuthHeader"><wsdl:part name="auth" element="tns:Auth"/></wsdl:message>
+  <wsdl:message name="CountRequest"><wsdl:part name="species" type="xs:string"/><wsdl:part name="limit" type="xs:long"/></wsdl:message>
+  <wsdl:message name="CountResponse"><wsdl:part name="count" type="xs:int"/></wsdl:message>
+
+  <wsdl:portType name="PetPortType">
+    <wsdl:operation name="GetPet">
+      <wsdl:documentation>Returns one pet.</wsdl:documentation>
+      <wsdl:input message="tns:GetPetRequest"/>
+      <wsdl:output message="tns:GetPetResponse"/>
+      <wsdl:fault name="NotFound" message="tns:NotFoundFault"/>
+    </wsdl:operation>
+    <wsdl:operation name="CountPets">
+      <wsdl:input message="tns:CountRequest"/>
+      <wsdl:output message="tns:CountResponse"/>
+    </wsdl:operation>
+  </wsdl:portType>
+
+  <wsdl:binding name="PetSoap" type="tns:PetPortType">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <wsdl:operation name="GetPet">
+      <soap:operation soapAction="urn:example:pets/GetPet"/>
+      <wsdl:input>
+        <soap:body use="literal"/>
+        <soap:header message="tns:AuthHeader" part="auth" use="literal"/>
+      </wsdl:input>
+      <wsdl:output><soap:body use="literal"/></wsdl:output>
+      <wsdl:fault name="NotFound"><soap:fault name="NotFound" use="literal"/></wsdl:fault>
+    </wsdl:operation>
+    <wsdl:operation name="CountPets">
+      <soap:operation soapAction="urn:example:pets/v2/CountPets" style="rpc"/>
+      <wsdl:input><soap:body use="literal" namespace="urn:example:pets"/></wsdl:input>
+      <wsdl:output><soap:body use="literal" namespace="urn:example:pets"/></wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+
+  <wsdl:binding name="PetSoap12" type="tns:PetPortType">
+    <soap12:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <wsdl:operation name="GetPet">
+      <soap12:operation soapAction="urn:example:pets/GetPet"/>
+      <wsdl:input><soap12:body use="literal"/></wsdl:input>
+      <wsdl:output><soap12:body use="literal"/></wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="CountPets">
+      <soap12:operation soapAction="urn:example:pets/CountPets" style="rpc"/>
+      <wsdl:input><soap12:body use="literal"/></wsdl:input>
+      <wsdl:output><soap12:body use="literal"/></wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+
+  <wsdl:service name="PetService">
+    <wsdl:port name="PetPort" binding="tns:PetSoap">
+      <soap:address location="https://pets.example.com/soap"/>
+    </wsdl:port>
+    <wsdl:port name="PetPort12" binding="tns:PetSoap12">
+      <soap12:address location="https://pets.example.com/soap12"/>
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>
