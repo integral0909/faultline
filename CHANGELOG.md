@@ -174,6 +174,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   complex types (sequences, choices, groups, attributes, simple and mixed
   content, extension and restriction) and element occurrences are lowered,
   with global elements as schema roots. Fuzzed (`lower_xsd`).
+- `faultline-wsdl` and `format = "wsdl"`: WSDL 1.1 services with their
+  embedded and imported schemas. Operations of each port type are compared
+  with document- and RPC-style bodies, one media type per SOAP binding, the
+  SOAP action where each SOAP version sends it, SOAP headers and faults.
+  Fuzzed (`lower_wsdl`).
 - Witnesses for array limits: long arrays are built by repeating items, and
   a new or lowered `maxItems` is proven with an array one item too long.
 - Release pipeline: pushing a `vX.Y.Z` tag checks the version and release

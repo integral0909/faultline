@@ -161,6 +161,18 @@ attributes are `@`-prefixed members, repeated elements are arrays, and a
 `choice` is a group of members of which one is present. See
 [examples/xsd](../examples/xsd) and the [XML Schema internals](internals/xsd.md).
 
+## WSDL
+
+Files ending in `.wsdl` are read as WSDL 1.1 with the schemas they embed or
+import. Each operation of each port type is compared, with its SOAP bodies,
+actions, headers and faults:
+
+```sh
+faultline diff v1/pets.wsdl v2/pets.wsdl
+```
+
+See [examples/wsdl](../examples/wsdl) and the [WSDL internals](internals/wsdl.md).
+
 ## AsyncAPI
 
 Documents with an `asyncapi` field are read as AsyncAPI 2.x or 3.0. Messages
