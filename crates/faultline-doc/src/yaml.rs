@@ -39,7 +39,22 @@ pub(crate) fn load(
     limits: &Limits,
     diagnostics: &mut Diagnostics,
 ) -> Option<Node> {
+    load_keeping(text, source, limits, diagnostics, &[]).0
+}
+
+/// Loads `text`, keeping scalars tagged with one of the local tags in `keep`
+/// (such as RAML's `!include`) as strings and reporting where they are,
+/// instead of warning that the tags are unsupported.
+pub(crate) fn load_keeping(
+    text: &str,
+    source: SourceId,
+    limits: &Limits,
+    diagnostics: &mut Diagnostics,
+    keep: &[&str],
+) -> (Option<Node>, Vec<crate::LocalTag>) {
     let mut loader = Loader {
+        keep,
+        kept: Vec::new(),
         offsets: CharOffsets::new(text),
         source,
         stack: Vec::new(),
@@ -58,14 +73,13 @@ pub(crate) fn load(
             Err(error) => loader.scan_error(&error),
         };
         if result.is_err() {
-            return None;
+            return (None, loader.kept);
         }
     }
-    Some(
-        loader
-            .root
-            .unwrap_or_else(|| Node::new(Value::Null, Span::empty(source, 0))),
-    )
+    let root = loader
+        .root
+        .unwrap_or_else(|| Node::new(Value::Null, Span::empty(source, 0)));
+    (Some(root), loader.kept)
 }
 
 /// A fully built value on its way to its parent.
@@ -120,6 +134,9 @@ enum FrameKind {
 }
 
 struct Loader<'a> {
+    /// Local tags the caller keeps.
+    keep: &'a [&'a str],
+    kept: Vec<crate::LocalTag>,
     offsets: CharOffsets<'a>,
     source: SourceId,
     stack: Vec<Frame>,
@@ -378,6 +395,17 @@ impl Loader<'_> {
             None => Value::String(text.to_owned()),
             Some(tag) if is_non_specific(tag) => Value::String(text.to_owned()),
             Some(tag) if tag.is_yaml_core_schema() => self.resolve_tagged(text, &tag.suffix, span),
+            Some(tag)
+                if self
+                    .keep
+                    .contains(&format!("{}{}", tag.handle, tag.suffix).as_str()) =>
+            {
+                self.kept.push(crate::LocalTag {
+                    tag: format!("{}{}", tag.handle, tag.suffix),
+                    span,
+                });
+                Value::String(text.to_owned())
+            }
             Some(tag) => {
                 self.unsupported_tag(tag, span);
                 if plain {

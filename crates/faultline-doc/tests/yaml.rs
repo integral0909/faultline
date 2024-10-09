@@ -341,3 +341,40 @@ fn special_floats_are_preserved() {
     assert_eq!(items[1].value, Value::Number(Number::NegInfinity));
     assert_eq!(items[2].value, Value::Number(Number::NaN));
 }
+
+#[test]
+fn kept_local_tags_are_listed_not_warned_about() {
+    let map = faultline_source::SourceMap::new();
+    let text =
+        "types:\n  Pet: !include types/pet.raml\n  Owner: !custom 1\nexample: !include ex.json\n";
+    let file = map
+        .add(faultline_source::SourceName::Virtual("t".into()), text)
+        .unwrap();
+    let (parsed, kept) =
+        faultline_doc::parse_yaml_keeping(&file, &Limits::default(), &["!include"]);
+    let codes: Vec<&str> = parsed
+        .diagnostics
+        .iter()
+        .filter_map(|d| d.code.map(faultline_source::DiagnosticCode::as_str))
+        .collect();
+    assert_eq!(codes, ["FLE0205"], "only the unknown tag is reported");
+    let root = parsed.document.unwrap().root;
+    let pet = root.get("types").unwrap().get("Pet").unwrap();
+    assert_eq!(
+        pet.as_str(),
+        Some("types/pet.raml"),
+        "kept scalars are text"
+    );
+    let tagged: Vec<(&str, String)> = kept
+        .iter()
+        .map(|t| (t.tag.as_str(), map.slice(t.span).unwrap()))
+        .collect();
+    assert_eq!(
+        tagged,
+        [
+            ("!include", "types/pet.raml".to_owned()),
+            ("!include", "ex.json".to_owned())
+        ]
+    );
+    assert!(kept.iter().any(|t| t.span == pet.span), "matched by span");
+}

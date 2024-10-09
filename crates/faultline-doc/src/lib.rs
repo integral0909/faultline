@@ -100,6 +100,36 @@ pub struct Parsed {
     pub diagnostics: Diagnostics,
 }
 
+/// A scalar with a local tag the caller asked to keep, such as
+/// `!include pet.raml`: its value is the scalar's text.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LocalTag {
+    /// As written: `!include`.
+    pub tag: String,
+    /// The tagged scalar.
+    pub span: faultline_source::Span,
+}
+
+/// Parses `file` as YAML, keeping scalars tagged with one of the local tags
+/// in `keep` and listing them, for formats that define their own tags.
+pub fn parse_yaml_keeping(
+    file: &SourceFile,
+    limits: &Limits,
+    keep: &[&str],
+) -> (Parsed, Vec<LocalTag>) {
+    let mut diagnostics = Diagnostics::new();
+    let (root, kept) = yaml::load_keeping(file.text(), file.id(), limits, &mut diagnostics, keep);
+    let parsed = Parsed {
+        document: root.map(|root| Document {
+            root,
+            format: Format::Yaml,
+            source: file.id(),
+        }),
+        diagnostics,
+    };
+    (parsed, kept)
+}
+
 /// Parses `file` as `format`.
 pub fn parse(file: &SourceFile, format: Format, limits: &Limits) -> Parsed {
     let mut diagnostics = Diagnostics::new();
