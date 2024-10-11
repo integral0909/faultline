@@ -252,6 +252,14 @@ impl Object {
         self.members.iter().map(|(k, m)| (k.as_str(), &m.value))
     }
 
+    /// Members in document order, with mutable values, for front ends that
+    /// rewrite trees (expanding RAML includes).
+    pub fn iter_mut(&mut self) -> impl ExactSizeIterator<Item = (&str, &mut Node)> {
+        self.members
+            .iter_mut()
+            .map(|(k, m)| (k.as_str(), &mut m.value))
+    }
+
     pub fn members(&self) -> impl ExactSizeIterator<Item = (&str, &Member)> {
         self.members.iter().map(|(k, m)| (k.as_str(), m))
     }
