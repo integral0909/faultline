@@ -22,6 +22,7 @@ pub enum ApiFormat {
     AsyncApi3,
     XmlSchema,
     Wsdl,
+    Raml,
 }
 
 impl ApiFormat {
@@ -38,6 +39,7 @@ impl ApiFormat {
             ApiFormat::AsyncApi3 => "asyncapi-3",
             ApiFormat::XmlSchema => "xsd",
             ApiFormat::Wsdl => "wsdl",
+            ApiFormat::Raml => "raml-1.0",
         }
     }
 }

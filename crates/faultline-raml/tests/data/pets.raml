@@ -1,0 +1,50 @@
+#%RAML 1.0
+title: Pets
+version: v1
+mediaType: application/json
+securedBy: [oauth]
+types:
+  Pet:
+    properties:
+      id: integer
+      name:
+        type: string
+        maxLength: 64
+      tag?: string
+  NewPet:
+    properties:
+      name: string
+      tag?: string
+/pets:
+  get:
+    queryParameters:
+      limit?:
+        type: integer
+        maximum: 100
+      species:
+        type: string
+        required: false
+    responses:
+      200:
+        body: Pet[]
+  post:
+    body: NewPet
+    responses:
+      201:
+        headers:
+          Location: string
+        body: Pet
+  /{petId}:
+    uriParameters:
+      petId:
+        type: integer
+    get:
+      securedBy: [null, oauth]
+      responses:
+        200:
+          body:
+            application/json: Pet
+            application/xml: Pet
+    delete:
+      responses:
+        204:
