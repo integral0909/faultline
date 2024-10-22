@@ -231,7 +231,7 @@ impl<'a> RamlLoader<'a> {
 
     /// Resolves a path against the including document, inside the
     /// workspace.
-    pub(crate) fn resolve(&mut self, path: &str, base: &UriRef, span: Span) -> Option<UriRef> {
+    pub fn resolve(&mut self, path: &str, base: &UriRef, span: Span) -> Option<UriRef> {
         let Ok(reference) = UriRef::parse(path) else {
             self.error(
                 codes::INCLUDE,

@@ -62,12 +62,25 @@ impl Scope {
     }
 
     /// The scope and declaration a possibly qualified name refers to.
+    /// An unqualified name this scope does not declare is looked up in its
+    /// libraries: templates borrowed from a library name the library's
+    /// types without qualifying them.
     fn lookup<'s>(&'s self, name: &str) -> Option<(&'s Scope, &'s Node, String)> {
+        self.qualified(name).or_else(|| {
+            let mut libraries: Vec<&String> = self.libraries.keys().collect();
+            libraries.sort();
+            libraries
+                .into_iter()
+                .find_map(|library| self.libraries[library].lookup(name))
+        })
+    }
+
+    fn qualified<'s>(&'s self, name: &str) -> Option<(&'s Scope, &'s Node, String)> {
         if let Some(node) = self.types.get(name) {
             return Some((self, node, format!("{}{name}", self.prefix)));
         }
         let (library, rest) = name.split_once('.')?;
-        self.libraries.get(library)?.lookup(rest)
+        self.libraries.get(library)?.qualified(rest)
     }
 }
 

@@ -63,6 +63,10 @@ pub fn lower_raml(
 ) -> Lowered {
     let mut raml = RamlLoader::new(loader, sources, limits);
     let document = raml.document(entry, None);
+    let libraries = document
+        .as_ref()
+        .filter(|d| d.kind.is_empty())
+        .map(|d| crate::libraries::scope_of(&mut raml, d, ""));
     let mut diagnostics = std::mem::take(&mut raml.diagnostics);
     let Some(document) = document.filter(|_| !diagnostics.has_errors()) else {
         diagnostics.sort();
@@ -90,8 +94,8 @@ pub fn lower_raml(
         Value::String(s) => s.clone(),
         _ => faultline_ir::Literal::from(v).to_string(),
     });
-    let scope = Scope::of(root, "");
-    let templates = Templates::of(root);
+    let (scope, templates) =
+        libraries.unwrap_or_else(|| (Scope::of(root, ""), Templates::of(root)));
     let mut lowering = Lowering {
         types: TypeLowerer::new(&mut api),
         templates: Expander::new(&templates),

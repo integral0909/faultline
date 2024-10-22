@@ -7,6 +7,7 @@
 
 pub mod codes;
 pub mod expr;
+mod libraries;
 pub mod load;
 mod lower;
 pub mod templates;

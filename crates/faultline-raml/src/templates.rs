@@ -27,11 +27,12 @@ const MAX_TYPE_DEPTH: usize = 16;
 /// The HTTP methods a resource may declare.
 const METHOD_KEYS: [&str; 7] = ["get", "put", "post", "delete", "options", "head", "patch"];
 
-/// The templates a document declares.
+/// The templates a document declares, and those of the libraries it uses.
 #[derive(Clone, Debug, Default)]
 pub struct Templates {
     pub resource_types: HashMap<String, Node>,
     pub traits: HashMap<String, Node>,
+    pub libraries: HashMap<String, Templates>,
 }
 
 impl Templates {
@@ -46,7 +47,23 @@ impl Templates {
         Templates {
             resource_types: collect("resourceTypes"),
             traits: collect("traits"),
+            libraries: HashMap::new(),
         }
+    }
+
+    /// The resource type or trait (`traits` picks which) a possibly
+    /// qualified name (`lib.paged`) refers to.
+    fn find(&self, name: &str, traits: bool) -> Option<&Node> {
+        let own = if traits {
+            &self.traits
+        } else {
+            &self.resource_types
+        };
+        if let Some(template) = own.get(name) {
+            return Some(template);
+        }
+        let (library, rest) = name.split_once('.')?;
+        self.libraries.get(library)?.find(rest, traits)
     }
 }
 
@@ -93,9 +110,7 @@ impl<'t> Expander<'t> {
                 );
                 break;
             }
-            let Some((template, parameters)) =
-                self.lookup(&reference, &self.templates.resource_types, "resource type")
-            else {
+            let Some((template, parameters)) = self.lookup(&reference, false) else {
                 break;
             };
             let mut parameters = parameters;
@@ -131,9 +146,7 @@ impl<'t> Expander<'t> {
             _ => vec![list.clone()],
         };
         for reference in &references {
-            let Some((template, mut parameters)) =
-                self.lookup(reference, &self.templates.traits, "trait")
-            else {
+            let Some((template, mut parameters)) = self.lookup(reference, true) else {
                 continue;
             };
             parameters.extend(builtins.clone());
@@ -146,9 +159,9 @@ impl<'t> Expander<'t> {
     fn lookup(
         &mut self,
         reference: &Node,
-        templates: &HashMap<String, Node>,
-        what: &str,
+        traits: bool,
     ) -> Option<(Node, HashMap<String, String>)> {
+        let what = if traits { "trait" } else { "resource type" };
         let (name, parameters) = match &reference.value {
             Value::String(name) => (name.clone(), HashMap::new()),
             Value::Object(object) if object.len() == 1 => {
@@ -171,7 +184,7 @@ impl<'t> Expander<'t> {
                 return None;
             }
         };
-        if let Some(template) = templates.get(&name) {
+        if let Some(template) = self.templates.find(&name, traits) {
             return Some((template.clone(), parameters));
         }
         self.error(format!("{what} {name} is not declared"), reference.span);
