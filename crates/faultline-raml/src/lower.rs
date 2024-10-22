@@ -27,6 +27,7 @@ use faultline_source::{Diagnostic, Diagnostics, Limits, SourceMap, Span};
 
 use crate::codes;
 use crate::load::RamlLoader;
+use crate::templates::{Expander, Templates};
 use crate::types::{Scope, TypeLowerer};
 
 /// The media type bodies have when the API names none.
@@ -90,8 +91,10 @@ pub fn lower_raml(
         _ => faultline_ir::Literal::from(v).to_string(),
     });
     let scope = Scope::of(root, "");
+    let templates = Templates::of(root);
     let mut lowering = Lowering {
         types: TypeLowerer::new(&mut api),
+        templates: Expander::new(&templates),
         media_types: media_types(root),
         security: root.get("securedBy").map(security),
         diagnostics: Diagnostics::new(),
@@ -106,6 +109,7 @@ pub fn lower_raml(
         }
     }
     diagnostics.extend(lowering.diagnostics);
+    diagnostics.extend(lowering.templates.diagnostics);
     diagnostics.extend(std::mem::take(&mut lowering.types.diagnostics));
     diagnostics.sort();
     let api = (!diagnostics.has_errors()).then_some(api);
@@ -167,6 +171,7 @@ fn security(node: &Node) -> Vec<SecurityRequirement> {
 
 struct Lowering<'a> {
     types: TypeLowerer<'a>,
+    templates: Expander<'a>,
     media_types: Vec<String>,
     security: Option<Vec<SecurityRequirement>>,
     diagnostics: Diagnostics,
@@ -180,6 +185,8 @@ impl Lowering<'_> {
         inherited: &BTreeMap<String, Parameter>,
         scope: &Scope,
     ) {
+        let expanded = self.templates.resource(path, node);
+        let node = &expanded;
         let mut uri_parameters = inherited.clone();
         if let Some(declared) = node.get("uriParameters").and_then(Node::as_object) {
             for (name, declaration) in declared.iter() {

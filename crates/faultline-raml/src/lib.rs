@@ -9,6 +9,7 @@ pub mod codes;
 pub mod expr;
 pub mod load;
 mod lower;
+pub mod templates;
 pub mod types;
 
 pub use load::{Document, RamlLoader};
