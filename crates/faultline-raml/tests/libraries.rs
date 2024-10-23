@@ -20,6 +20,7 @@ traits:
 resourceTypes:
   collection:
     get?:
+      is: [paged]
       responses:
         200:
           body: <<item>>[]
@@ -67,6 +68,28 @@ fn library_declarations_are_qualified() {
         Some("common.Pet"),
         "a library's types are named with the library's name"
     );
+}
+
+#[test]
+fn library_templates_name_their_own_templates() {
+    // `collection` names `paged` unqualified: the library's trait.
+    let api = "#%RAML 1.0\ntitle: T\nuses:\n  common: common.raml\ntraits:\n  paged:\n    headers:\n      X-Wrong: string\n/pets:\n  type: { common.collection: { item: common.Tag } }\n  get:\n";
+    let (api, codes) = lowered(api, &[("file:///common.raml", COMMON)]);
+    assert!(codes.is_empty(), "{codes:?}");
+    let names: Vec<String> = api.unwrap().operations[0]
+        .parameters
+        .iter()
+        .map(|p| p.name.clone())
+        .collect();
+    assert_eq!(names, ["limit"]);
+}
+
+#[test]
+fn operations_point_at_their_methods() {
+    let api = "#%RAML 1.0\ntitle: T\n/pets:\n  delete:\n";
+    let (api, _) = lowered(api, &[]);
+    let origin = api.unwrap().operations[0].origin.unwrap();
+    assert_eq!((origin.start(), origin.end()), (29, 35), "the `delete` key");
 }
 
 #[test]

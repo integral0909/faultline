@@ -75,6 +75,7 @@ fn add_uses(
             &mut library_scope,
             &mut library_templates,
         );
+        library_templates.qualify(&format!("{name}."));
         scope.libraries.insert(name.to_owned(), library_scope);
         templates
             .libraries

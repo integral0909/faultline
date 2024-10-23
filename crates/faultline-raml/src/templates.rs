@@ -51,6 +51,38 @@ impl Templates {
         }
     }
 
+    /// Qualifies the template references in this library's own templates
+    /// with `prefix` (the library's name and a dot), so that they still
+    /// name the library's templates once borrowed by a document that
+    /// names them differently.
+    pub fn qualify(&mut self, prefix: &str) {
+        let known = self.clone();
+        let qualify = |node: &mut Node, traits: bool| {
+            qualify_references(node, traits, prefix, &known);
+        };
+        for template in self.resource_types.values_mut() {
+            let Value::Object(object) = &mut template.value else {
+                continue;
+            };
+            for (key, member) in object.iter_mut() {
+                match key {
+                    "type" => qualify(member, false),
+                    "is" => qualify(member, true),
+                    _ if METHOD_KEYS.contains(&key.trim_end_matches('?')) => {
+                        if let Value::Object(method) = &mut member.value {
+                            for (key, traits) in method.iter_mut() {
+                                if key == "is" {
+                                    qualify(traits, true);
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
     /// The resource type or trait (`traits` picks which) a possibly
     /// qualified name (`lib.paged`) refers to.
     fn find(&self, name: &str, traits: bool) -> Option<&Node> {
@@ -189,6 +221,36 @@ impl<'t> Expander<'t> {
         }
         self.error(format!("{what} {name} is not declared"), reference.span);
         None
+    }
+}
+
+/// Prefixes the names in a template reference (or list of them, for `is`)
+/// that `known` declares.
+fn qualify_references(node: &mut Node, traits: bool, prefix: &str, known: &Templates) {
+    match &mut node.value {
+        Value::Array(items) => {
+            for item in items {
+                qualify_references(item, traits, prefix, known);
+            }
+        }
+        Value::String(name) => {
+            if known.find(name, traits).is_some() {
+                *name = format!("{prefix}{name}");
+            }
+        }
+        Value::Object(object) if object.len() == 1 => {
+            let (name, member) = object.members().next().expect("one member");
+            if known.find(name, traits).is_some() {
+                let mut renamed = Object::new();
+                renamed.insert(
+                    format!("{prefix}{name}"),
+                    member.key_span,
+                    member.value.clone(),
+                );
+                *object = renamed;
+            }
+        }
+        _ => {}
     }
 }
 

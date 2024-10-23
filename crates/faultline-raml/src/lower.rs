@@ -202,8 +202,11 @@ impl Lowering<'_> {
         let template = PathTemplate::parse(path);
         for method in METHODS {
             let key = method.as_str().to_ascii_lowercase();
-            if let Some(declaration) = node.get(&key) {
-                let op = self.method(method, &template, declaration, &uri_parameters, scope);
+            if let Some(member) = node.as_object().and_then(|o| o.member(&key)) {
+                let mut op = self.method(method, &template, &member.value, &uri_parameters, scope);
+                // The method's key: its value may be empty, or only what
+                // traits and resource types gave it.
+                op.origin = Some(member.key_span);
                 self.types.api.operations.push(op);
             }
         }
@@ -230,7 +233,6 @@ impl Lowering<'_> {
             method,
             path: template.clone(),
         });
-        op.origin = Some(node.span);
         op.meta = meta(node);
         // Every variable of the template is a path parameter, declared or
         // not.
