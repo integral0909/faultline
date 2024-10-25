@@ -27,6 +27,8 @@ pub(crate) enum Format {
     Xsd,
     /// WSDL 1.1.
     Wsdl,
+    /// RAML 1.0.
+    Raml,
 }
 
 impl From<Format> for ApiFormat {
@@ -41,6 +43,7 @@ impl From<Format> for ApiFormat {
             Format::ProtobufHttp => ApiFormat::ProtobufHttp,
             Format::Xsd => ApiFormat::Xsd,
             Format::Wsdl => ApiFormat::Wsdl,
+            Format::Raml => ApiFormat::Raml,
         }
     }
 }

@@ -1,0 +1,30 @@
+#%RAML 1.0
+title: Pets
+version: v2
+mediaType: application/json
+uses:
+  common: lib/common.raml
+types:
+  Pet:
+    properties:
+      id: integer
+      name:
+        type: string
+        maxLength: 64
+      status: common.Status
+      tag?: string
+      owner?: string
+/pets:
+  type: { common.collection: { item: Pet } }
+  get:
+    queryParameters:
+      species: string
+  post:
+  /{petId}:
+    uriParameters:
+      petId: integer
+    get:
+      responses:
+        200:
+          body: Pet
+        404:

@@ -629,6 +629,42 @@ fn wsdl_services_are_compared() {
 }
 
 #[test]
+fn raml_apis_are_compared() {
+    let dir = repo().join("examples/raml");
+    let output = faultline(
+        &dir,
+        &["diff", "v1/pets.raml", "v2/pets.raml", "--output", "json"],
+    );
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    let report: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+    let mut breaking: Vec<(String, String)> = report["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["severity"] == "breaking")
+        .map(|f| {
+            let file = f["old_location"]["file"].as_str().unwrap_or_default();
+            (f["path"].as_str().unwrap().to_owned(), file.to_owned())
+        })
+        .collect();
+    breaking.sort();
+    assert_eq!(
+        breaking,
+        [
+            ("op[DELETE /pets/{}]".into(), "v1/pets.raml".into()),
+            (
+                "op[GET /pets]/param[query:limit]".into(),
+                "v1/lib/common.raml".into()
+            ),
+            (
+                "op[GET /pets]/param[query:species]".into(),
+                "v1/pets.raml".into()
+            ),
+        ]
+    );
+}
+
+#[test]
 fn declared_versions_are_checked_with_semver_versioning() {
     let dir = workspace();
     // Version 2 claims to be a minor release despite its breaking changes.

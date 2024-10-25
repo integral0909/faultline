@@ -336,7 +336,8 @@ impl Engine {
             | ApiFormat::ProtobufHttp
             | ApiFormat::GraphQl
             | ApiFormat::Xsd
-            | ApiFormat::Wsdl => {
+            | ApiFormat::Wsdl
+            | ApiFormat::Raml => {
                 unreachable!("handled above")
             }
         };
@@ -384,6 +385,10 @@ impl Engine {
             }
             ApiFormat::Wsdl => {
                 let l = faultline_wsdl::lower_wsdl(entry, loader, sources, name, limits());
+                (l.api, l.diagnostics)
+            }
+            ApiFormat::Raml => {
+                let l = faultline_raml::lower_raml(entry, loader, sources, name, limits());
                 (l.api, l.diagnostics)
             }
             ApiFormat::OpenApi | ApiFormat::JsonSchema | ApiFormat::Avro | ApiFormat::AsyncApi => {
@@ -587,7 +592,8 @@ fn describe(source: &Source) -> String {
 
 /// Formats recognized by the entry's file extension: `.proto` files, XML
 /// Schemas, WSDL descriptions and GraphQL schemas are not JSON or YAML
-/// documents, and are read by their own front ends; Avro schemas are JSON but cannot be told from
+/// documents, and are read by their own front ends; RAML is YAML with its
+/// own tags and includes; Avro schemas are JSON but cannot be told from
 /// JSON Schema by their content alone.
 pub fn format_by_extension(entry: &UriRef) -> Option<ApiFormat> {
     let extension = std::path::Path::new(entry.path())
@@ -600,6 +606,7 @@ pub fn format_by_extension(entry: &UriRef) -> Option<ApiFormat> {
         "avsc" => Some(ApiFormat::Avro),
         "xsd" => Some(ApiFormat::Xsd),
         "wsdl" => Some(ApiFormat::Wsdl),
+        "raml" => Some(ApiFormat::Raml),
         _ => None,
     }
 }

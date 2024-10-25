@@ -110,10 +110,12 @@ pub enum ApiFormat {
     Xsd,
     /// WSDL 1.1 services.
     Wsdl,
+    /// RAML 1.0 APIs.
+    Raml,
 }
 
 impl ApiFormat {
-    pub const ALL: [ApiFormat; 9] = [
+    pub const ALL: [ApiFormat; 10] = [
         ApiFormat::OpenApi,
         ApiFormat::AsyncApi,
         ApiFormat::JsonSchema,
@@ -123,6 +125,7 @@ impl ApiFormat {
         ApiFormat::Avro,
         ApiFormat::Xsd,
         ApiFormat::Wsdl,
+        ApiFormat::Raml,
     ];
 
     /// The name `parse` reads back.
@@ -137,6 +140,7 @@ impl ApiFormat {
             ApiFormat::ProtobufHttp => "protobuf-http",
             ApiFormat::Xsd => "xsd",
             ApiFormat::Wsdl => "wsdl",
+            ApiFormat::Raml => "raml",
         }
     }
 
@@ -151,6 +155,7 @@ impl ApiFormat {
             "protobuf-http" => Some(ApiFormat::ProtobufHttp),
             "xsd" | "xml-schema" => Some(ApiFormat::Xsd),
             "wsdl" => Some(ApiFormat::Wsdl),
+            "raml" => Some(ApiFormat::Raml),
             _ => None,
         }
     }

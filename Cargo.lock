@@ -431,6 +431,7 @@ dependencies = [
  "faultline-openapi",
  "faultline-policy",
  "faultline-protobuf",
+ "faultline-raml",
  "faultline-report",
  "faultline-rules",
  "faultline-source",
