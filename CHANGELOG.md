@@ -179,6 +179,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with document- and RPC-style bodies, one media type per SOAP binding, the
   SOAP action where each SOAP version sends it, SOAP headers and faults.
   Fuzzed (`lower_wsdl`).
+- `faultline-raml` and `format = "raml"`: RAML 1.0 APIs. `!include`s are
+  expanded inside the workspace and libraries are loaded from `uses`.
+  Resource types and traits are applied with their parameters and
+  transforms. Resources, methods, parameters, bodies, responses, security
+  and RAML's type system are lowered. Fuzzed (`lower_raml`).
+- The YAML loader can keep local tags such as `!include` for a front end to
+  interpret, instead of rejecting them.
 - Witnesses for array limits: long arrays are built by repeating items, and
   a new or lowered `maxItems` is proven with an array one item too long.
 - Release pipeline: pushing a `vX.Y.Z` tag checks the version and release

@@ -173,6 +173,20 @@ faultline diff v1/pets.wsdl v2/pets.wsdl
 
 See [examples/wsdl](../examples/wsdl) and the [WSDL internals](internals/wsdl.md).
 
+## RAML
+
+Files ending in `.raml` are read as RAML 1.0, with `!include`s expanded and
+libraries loaded from `uses`. Resource types and traits are applied first,
+so each operation is compared as if it had been written out in full:
+
+```sh
+faultline diff v1/pets.raml v2/pets.raml
+```
+
+A change to a trait or to a type in a library is reported at each operation
+that uses it, pointing into the library. See [examples/raml](../examples/raml)
+and the [RAML internals](internals/raml.md).
+
 ## AsyncAPI
 
 Documents with an `asyncapi` field are read as AsyncAPI 2.x or 3.0. Messages

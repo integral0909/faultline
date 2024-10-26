@@ -13,7 +13,7 @@ root = "."
 [[api]]
 name = "public"                 # used in reports and finding ids
 entry = "api/openapi.yaml"
-# format = "openapi"            # or "asyncapi", "jsonschema", "protobuf", "protobuf-http", "graphql", "avro", "xsd", "wsdl"; detected when omitted
+# format = "openapi"            # or "asyncapi", "jsonschema", "protobuf", "protobuf-http", "graphql", "avro", "xsd", "wsdl", "raml"; detected when omitted
 # role = "input"                # schemas without operations: input | output | both
 
 [policy]
