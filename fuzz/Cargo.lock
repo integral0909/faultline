@@ -261,6 +261,7 @@ dependencies = [
  "faultline-openapi",
  "faultline-policy",
  "faultline-protobuf",
+ "faultline-raml",
  "faultline-report",
  "faultline-rules",
  "faultline-source",
@@ -321,6 +322,7 @@ dependencies = [
  "faultline-jsonschema",
  "faultline-openapi",
  "faultline-protobuf",
+ "faultline-raml",
  "faultline-regex",
  "faultline-registry",
  "faultline-source",
@@ -392,6 +394,15 @@ dependencies = [
 
 [[package]]
 name = "faultline-protobuf"
+version = "0.1.0"
+dependencies = [
+ "faultline-doc",
+ "faultline-ir",
+ "faultline-source",
+]
+
+[[package]]
+name = "faultline-raml"
 version = "0.1.0"
 dependencies = [
  "faultline-doc",
