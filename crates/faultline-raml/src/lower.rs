@@ -61,7 +61,7 @@ pub fn lower_raml(
     name: &str,
     limits: Limits,
 ) -> Lowered {
-    let mut raml = RamlLoader::new(loader, sources, limits);
+    let mut raml = RamlLoader::new(loader, sources, limits.clone());
     let document = raml.document(entry, None);
     let libraries = document
         .as_ref()
@@ -96,8 +96,10 @@ pub fn lower_raml(
     });
     let (scope, templates) =
         libraries.unwrap_or_else(|| (Scope::of(root, ""), Templates::of(root)));
+    let mut types = TypeLowerer::new(&mut api);
+    types.json_includes = std::mem::take(&mut raml.json_includes);
     let mut lowering = Lowering {
-        types: TypeLowerer::new(&mut api),
+        types,
         templates: Expander::new(&templates),
         media_types: media_types(root),
         security: root.get("securedBy").map(security),
@@ -115,6 +117,10 @@ pub fn lower_raml(
     diagnostics.extend(lowering.diagnostics);
     diagnostics.extend(lowering.templates.diagnostics);
     diagnostics.extend(std::mem::take(&mut lowering.types.diagnostics));
+    let pending = std::mem::take(&mut lowering.types.pending);
+    diagnostics.extend(crate::jsonschema::lower_schemas(
+        &mut api, &pending, entry, loader, sources, limits,
+    ));
     diagnostics.sort();
     let api = (!diagnostics.has_errors()).then_some(api);
     Lowered { api, diagnostics }

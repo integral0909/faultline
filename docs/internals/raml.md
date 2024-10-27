@@ -95,6 +95,18 @@ are open unless they declare `additionalProperties: false`. A type that names
 other types in `type` inherits from them: an object gets their properties,
 with its own properties taking precedence, and a scalar gets their facets.
 
+A type can also be a JSON Schema, included from a `.json` file
+(`Pet: !include schemas/pet.json`) or written inline as JSON text. JSON
+Schema's rules apply to it, not RAML's: a property is optional unless
+`required` lists it, and objects are open. The RAML lowering leaves a
+placeholder for each schema. Afterwards the JSON Schema front end
+([json-schema.md](json-schema.md)) lowers the schemas, draft-04 unless they
+declare `$schema`, into a type graph that is grafted onto the API's. Each
+placeholder then refers to its schema. `$ref`s resolve against the schema's
+own file, or against the API's file for inline schemas. A file used in
+several places is one type. Because RAML allows no facets on a JSON Schema
+type, a type based on one is that schema.
+
 Named types keep their names. A type used as a request body and as a
 response is one type in the IR, and its polarity comes from where it is used
 (see [ir.md](ir.md)).
@@ -106,14 +118,14 @@ response is one type in the IR, and its polarity comes from where it is used
 | `FLE7601` | not a RAML document |
 | `FLE7602` | a RAML version other than 1.0 |
 | `FLE7603` | an include cannot be loaded, is outside the workspace, or includes itself |
-| `FLE7604` | a malformed declaration; also a warning for inline JSON or XML schemas |
+| `FLE7604` | a malformed declaration, including a JSON Schema combined with other types; also a warning for inline XML schemas |
 | `FLE7605` | an unknown type, trait, resource type or library, or a resource type inheriting too deeply |
 | `FLE7606` | a type expression that cannot be parsed |
 
 ## Not modelled
 
-* JSON and XML schemas written inline as text are compared as accepting any
-  value, with a warning (`FLE7604`).
+* XML schemas used as types are compared as accepting any value, with a
+  warning (`FLE7604`).
 * `baseUri`, `protocols` and the security schemes' own settings: these are
   deployment details, not message shapes.
 * Annotations, examples, `discriminator` and overlays and extensions.

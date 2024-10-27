@@ -18,10 +18,14 @@
 //! Objects are open unless `additionalProperties: false`. A type that
 //! names others in `type` inherits from them: an object gets their
 //! properties (its own override them), a scalar their facets.
+//!
+//! A JSON Schema used as a type, included from a `.json` file or written
+//! inline as JSON text, gets a placeholder that
+//! [`crate::jsonschema`] later fills in with the JSON Schema front end.
 
 use std::collections::HashMap;
 
-use faultline_doc::{Decimal, Node, Number, Value};
+use faultline_doc::{Decimal, Node, Number, UriRef, Value};
 use faultline_ir::{
     Api, ArrayType, Bound, EnumType, EnumValue, Field, Literal, NumericType, ObjectType, QualName,
     Retired, StringType, TypeId, TypeKind, TypeNode, UnionMode, UnionType,
@@ -84,11 +88,31 @@ impl Scope {
     }
 }
 
+/// A JSON Schema used as a type, to be lowered once the RAML types are.
+#[derive(Clone, Debug)]
+pub struct PendingSchema {
+    /// The placeholder the schema's type replaces.
+    pub id: TypeId,
+    pub source: SchemaSource,
+}
+
+#[derive(Clone, Debug)]
+pub enum SchemaSource {
+    /// A JSON document included with `!include`.
+    File(UriRef),
+    /// JSON text written in the RAML document, at `span`.
+    Text { text: String, span: Span },
+}
+
 /// Lowers RAML types into an API's type graph.
 pub struct TypeLowerer<'a> {
     pub api: &'a mut Api,
     /// Declared types lowered so far, by qualified name.
     ids: HashMap<String, TypeId>,
+    /// The root spans of included JSON documents, from the loader.
+    pub json_includes: HashMap<Span, UriRef>,
+    /// JSON Schemas met so far, in order.
+    pub pending: Vec<PendingSchema>,
     pub diagnostics: Diagnostics,
 }
 
@@ -103,8 +127,37 @@ impl<'a> TypeLowerer<'a> {
         Self {
             api,
             ids: HashMap::new(),
+            json_includes: HashMap::new(),
+            pending: Vec::new(),
             diagnostics: Diagnostics::new(),
         }
+    }
+
+    /// A placeholder for a JSON Schema, one per included document.
+    fn pending_schema(&mut self, source: SchemaSource, span: Span) -> TypeId {
+        if let SchemaSource::File(uri) = &source
+            && let Some(existing) = self
+                .pending
+                .iter()
+                .find(|p| matches!(&p.source, SchemaSource::File(u) if u == uri))
+        {
+            return existing.id;
+        }
+        let id = self.api.types.reserve();
+        // Defined for now, so the arena is complete even if the schema is
+        // never lowered.
+        self.api
+            .types
+            .define(id, TypeNode::new(TypeKind::Any).with_origin(span));
+        self.pending.push(PendingSchema { id, source });
+        id
+    }
+
+    /// The placeholder for `node` if it is the root of an included JSON
+    /// document.
+    fn included_schema(&mut self, node: &Node) -> Option<TypeId> {
+        let uri = self.json_includes.get(&node.span)?.clone();
+        Some(self.pending_schema(SchemaSource::File(uri), node.span))
     }
 
     fn error(&mut self, code: faultline_source::DiagnosticCode, message: String, span: Span) {
@@ -121,6 +174,9 @@ impl<'a> TypeLowerer<'a> {
 
     /// The type of a declaration: a type expression, or a map of facets.
     pub fn declaration(&mut self, node: &Node, scope: &Scope) -> TypeId {
+        if let Some(id) = self.included_schema(node) {
+            return id;
+        }
         match &node.value {
             Value::String(text) => self.expression_text(text, node.span, scope),
             Value::Object(_) => {
@@ -148,11 +204,18 @@ impl<'a> TypeLowerer<'a> {
 
     fn expression_text(&mut self, text: &str, span: Span, scope: &Scope) -> TypeId {
         let trimmed = text.trim_start();
-        // A JSON Schema or XML Schema written inline is not a RAML type.
-        if trimmed.starts_with('{') || trimmed.starts_with('<') {
+        if trimmed.starts_with('{') {
+            let source = SchemaSource::Text {
+                text: text.to_owned(),
+                span,
+            };
+            return self.pending_schema(source, span);
+        }
+        // An XML Schema written inline is not a RAML type.
+        if trimmed.starts_with('<') {
             self.diagnostics.push(
                 Diagnostic::warning(
-                    "inline JSON and XML schemas are compared as accepting any value".to_owned(),
+                    "inline XML schemas are compared as accepting any value".to_owned(),
                 )
                 .with_code(codes::INVALID)
                 .with_primary(span, ""),
@@ -227,6 +290,12 @@ impl<'a> TypeLowerer<'a> {
         self.api.named.insert(QualName::new(&qualified), id);
         let (found, declaration) = (found.clone(), declaration.clone());
         let kind = match &declaration.value {
+            _ if self.json_includes.contains_key(&declaration.span) => {
+                TypeKind::Ref(self.declaration(&declaration, &found))
+            }
+            Value::String(text) if text.trim_start().starts_with('{') => {
+                TypeKind::Ref(self.expression_text(text, declaration.span, &found))
+            }
             Value::String(text) => match expr::parse(text) {
                 Ok(expr) => TypeKind::Ref(self.expression(&expr, declaration.span, &found)),
                 Err(message) => {
@@ -320,9 +389,38 @@ impl<'a> TypeLowerer<'a> {
                 })
                 .collect(),
         };
+        // A JSON Schema's type is only known once it is lowered: a type
+        // based on one is that schema, as RAML allows no facets on it.
+        let schemas = base_ids.iter().filter(|&&id| self.is_schema(id)).count();
+        if schemas > 0 {
+            if base_ids.len() > 1 {
+                self.error(
+                    codes::INVALID,
+                    "a JSON Schema cannot be combined with other types".into(),
+                    node.span,
+                );
+                return TypeKind::Any;
+            }
+            return TypeKind::Ref(base_ids[0]);
+        }
         let mut kind = self.merged_base(&base_ids, node.span);
         self.apply_facets(&mut kind, node, scope);
         kind
+    }
+
+    /// Whether `id` is, or refers to, a JSON Schema's placeholder.
+    fn is_schema(&self, mut id: TypeId) -> bool {
+        // `resolve` would stop at a named type still being defined.
+        for _ in 0..self.api.types.len() {
+            if self.pending.iter().any(|p| p.id == id) {
+                return true;
+            }
+            match self.api.types.try_get(id).map(|n| &n.kind) {
+                Some(TypeKind::Ref(target)) => id = *target,
+                _ => return false,
+            }
+        }
+        false
     }
 
     /// The kind several bases describe together: their object members

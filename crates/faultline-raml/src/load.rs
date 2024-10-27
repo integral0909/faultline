@@ -9,7 +9,7 @@
 //! the front end sees one tree whose nodes keep the spans of the files they
 //! came from.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use faultline_doc::loader::Loader;
 use faultline_doc::{Format, Node, UriRef, Value};
@@ -43,6 +43,9 @@ pub struct RamlLoader<'a> {
     /// Documents being expanded, to report include cycles.
     stack: Vec<String>,
     includes: usize,
+    /// The root spans of included JSON documents and where they came from,
+    /// so that a JSON Schema used as a type can be lowered as one.
+    pub json_includes: HashMap<Span, UriRef>,
     pub diagnostics: Diagnostics,
 }
 
@@ -62,6 +65,7 @@ impl<'a> RamlLoader<'a> {
             limits,
             stack: Vec::new(),
             includes: 0,
+            json_includes: HashMap::new(),
             diagnostics: Diagnostics::new(),
         }
     }
@@ -220,7 +224,9 @@ impl<'a> RamlLoader<'a> {
             "json" => {
                 let parsed = faultline_doc::parse(&file, Format::Json, &self.limits);
                 self.diagnostics.extend(parsed.diagnostics);
-                parsed.document.map(|d| d.root)
+                let root = parsed.document.map(|d| d.root)?;
+                self.json_includes.insert(root.span, target);
+                Some(root)
             }
             _ => Some(Node::new(
                 Value::String(file.text().to_owned()),

@@ -609,6 +609,7 @@ dependencies = [
  "faultline-diff",
  "faultline-doc",
  "faultline-ir",
+ "faultline-jsonschema",
  "faultline-rules",
  "faultline-source",
 ]
