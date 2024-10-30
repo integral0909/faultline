@@ -19,6 +19,10 @@
 //! names others in `type` inherits from them: an object gets their
 //! properties (its own override them), a scalar their facets.
 //!
+//! An object type with a `discriminator` (its own, or inherited) has the
+//! property it names fixed to its `discriminatorValue`, its name unless
+//! given. A union of such types is discriminated by that property.
+//!
 //! A JSON Schema used as a type, included from a `.json` file or written
 //! inline as JSON text, gets a placeholder that
 //! [`crate::jsonschema`] later fills in with the JSON Schema front end.
@@ -27,8 +31,8 @@ use std::collections::HashMap;
 
 use faultline_doc::{Decimal, Node, Number, UriRef, Value};
 use faultline_ir::{
-    Api, ArrayType, Bound, EnumType, EnumValue, Field, Literal, NumericType, ObjectType, QualName,
-    Retired, StringType, TypeId, TypeKind, TypeNode, UnionMode, UnionType,
+    Api, ArrayType, Bound, Discriminator, EnumType, EnumValue, Field, Literal, NumericType,
+    ObjectType, QualName, Retired, StringType, TypeId, TypeKind, TypeNode, UnionMode, UnionType,
 };
 use faultline_source::{Diagnostic, Diagnostics, Span};
 
@@ -113,6 +117,8 @@ pub struct TypeLowerer<'a> {
     pub json_includes: HashMap<Span, UriRef>,
     /// JSON Schemas met so far, in order.
     pub pending: Vec<PendingSchema>,
+    /// Discriminated object types: their discriminator property and value.
+    discriminated: HashMap<TypeId, (String, String)>,
     pub diagnostics: Diagnostics,
 }
 
@@ -129,6 +135,7 @@ impl<'a> TypeLowerer<'a> {
             ids: HashMap::new(),
             json_includes: HashMap::new(),
             pending: Vec::new(),
+            discriminated: HashMap::new(),
             diagnostics: Diagnostics::new(),
         }
     }
@@ -180,13 +187,21 @@ impl<'a> TypeLowerer<'a> {
         match &node.value {
             Value::String(text) => self.expression_text(text, node.span, scope),
             Value::Object(_) => {
-                let kind = self.declared_kind(node, scope);
+                let (kind, discriminator) = self.declared_kind(node, scope);
                 let mut type_node = TypeNode::new(kind).with_origin(node.span);
                 type_node.meta.description = node
                     .get("description")
                     .and_then(Node::as_str)
                     .map(str::to_owned);
-                self.api.types.alloc(type_node)
+                let id = self.api.types.alloc(type_node);
+                // An anonymous type has no name to default the value to.
+                if let Some(property) = discriminator
+                    && let Some(value) = node.get("discriminatorValue")
+                {
+                    let value = scalar_text(value);
+                    self.discriminate(id, property, value, node.span);
+                }
+                id
             }
             // `type: [A, B]` at the top of a declaration is handled by
             // declared_kind; elsewhere an array is malformed.
@@ -239,15 +254,16 @@ impl<'a> TypeLowerer<'a> {
                 self.alloc(TypeKind::Array(ArrayType::of(item)), span)
             }
             TypeExpr::Union(members) => {
-                let variants = members
+                let variants: Vec<TypeId> = members
                     .iter()
                     .map(|m| self.expression(m, span, scope))
                     .collect();
+                let discriminator = self.union_discriminator(&variants);
                 self.alloc(
                     TypeKind::Union(UnionType {
                         mode: UnionMode::Any,
                         variants,
-                        discriminator: None,
+                        discriminator,
                     }),
                     span,
                 )
@@ -289,6 +305,7 @@ impl<'a> TypeLowerer<'a> {
         self.ids.insert(qualified.clone(), id);
         self.api.named.insert(QualName::new(&qualified), id);
         let (found, declaration) = (found.clone(), declaration.clone());
+        let mut discriminated = None;
         let kind = match &declaration.value {
             _ if self.json_includes.contains_key(&declaration.span) => {
                 TypeKind::Ref(self.declaration(&declaration, &found))
@@ -303,7 +320,17 @@ impl<'a> TypeLowerer<'a> {
                     TypeKind::Any
                 }
             },
-            _ => self.declared_kind(&declaration, &found),
+            _ => {
+                let (kind, discriminator) = self.declared_kind(&declaration, &found);
+                if let Some(property) = discriminator {
+                    let declared = qualified.strip_prefix(&found.prefix).unwrap_or(&qualified);
+                    let value = declaration
+                        .get("discriminatorValue")
+                        .map_or_else(|| declared.to_owned(), scalar_text);
+                    discriminated = Some((property, value));
+                }
+                kind
+            }
         };
         let mut node = TypeNode::new(kind).with_origin(declaration.span);
         node.meta.description = declaration
@@ -313,7 +340,88 @@ impl<'a> TypeLowerer<'a> {
         self.api
             .types
             .define(id, node.with_name(QualName::new(&qualified)));
+        if let Some((property, value)) = discriminated {
+            self.discriminate(id, property, value, declaration.span);
+        }
         id
+    }
+
+    /// Fixes the discriminator `property` of the object type `id` to
+    /// `value`.
+    fn discriminate(&mut self, id: TypeId, property: String, value: String, span: Span) {
+        let node = self.api.types.get(id);
+        let Some(field_ty) = (match &node.kind {
+            TypeKind::Object(object) => object.field(&property).map(|f| f.ty),
+            _ => None,
+        }) else {
+            self.error(
+                codes::INVALID,
+                format!("the discriminator {property} is not a property of the type"),
+                span,
+            );
+            return;
+        };
+        let origin = self.api.types.get(field_ty).origin;
+        let mut constant = EnumValue::new(Literal::string(value.clone()));
+        constant.origin = origin;
+        let mut fixed = TypeNode::new(TypeKind::Enum(EnumType {
+            values: vec![constant],
+            open: false,
+            retired: Retired::default(),
+            writer_exact: false,
+        }));
+        fixed.origin = origin;
+        let fixed = self.api.types.alloc(fixed);
+        if let TypeKind::Object(object) = &mut self.api.types.get_mut(id).kind
+            && let Some(field) = object.fields.iter_mut().find(|f| f.name == property)
+        {
+            field.ty = fixed;
+            field.required = true;
+        }
+        self.discriminated.insert(id, (property, value));
+    }
+
+    /// The discriminator of a union whose variants are all discriminated
+    /// by the same property.
+    fn union_discriminator(&self, variants: &[TypeId]) -> Option<Discriminator> {
+        let mut property: Option<&str> = None;
+        let mut mapping = Vec::with_capacity(variants.len());
+        for &variant in variants {
+            let (p, value) = self.discriminated_by(variant)?;
+            if property.is_some_and(|q| q != p) {
+                return None;
+            }
+            property = Some(p);
+            mapping.push((value.clone(), variant));
+        }
+        Some(Discriminator {
+            property: property?.to_owned(),
+            mapping,
+        })
+    }
+
+    /// The discriminator property and value of `id`, following references.
+    fn discriminated_by(&self, mut id: TypeId) -> Option<(&str, &String)> {
+        for _ in 0..=self.api.types.len() {
+            if let Some((property, value)) = self.discriminated.get(&id) {
+                return Some((property, value));
+            }
+            match &self.api.types.try_get(id)?.kind {
+                TypeKind::Ref(target) => id = *target,
+                _ => return None,
+            }
+        }
+        None
+    }
+
+    /// The discriminator property `node` declares or inherits from `bases`.
+    fn discriminator_property(&self, node: &Node, bases: &[TypeId]) -> Option<String> {
+        if let Some(own) = node.get("discriminator").and_then(Node::as_str) {
+            return Some(own.to_owned());
+        }
+        bases
+            .iter()
+            .find_map(|&base| self.discriminated_by(base).map(|(p, _)| p.to_owned()))
     }
 
     fn built_in(&mut self, name: &str, span: Span) -> Option<TypeKind> {
@@ -348,7 +456,9 @@ impl<'a> TypeLowerer<'a> {
     }
 
     /// The kind a declaration with facets describes.
-    fn declared_kind(&mut self, node: &Node, scope: &Scope) -> TypeKind {
+    /// The kind a map of facets declares, and the discriminator property
+    /// it declares or inherits.
+    fn declared_kind(&mut self, node: &Node, scope: &Scope) -> (TypeKind, Option<String>) {
         let bases: Vec<&Node> = match node.get("type").or_else(|| node.get("schema")) {
             Some(Node {
                 value: Value::Array(items),
@@ -399,13 +509,18 @@ impl<'a> TypeLowerer<'a> {
                     "a JSON Schema cannot be combined with other types".into(),
                     node.span,
                 );
-                return TypeKind::Any;
+                return (TypeKind::Any, None);
             }
-            return TypeKind::Ref(base_ids[0]);
+            return (TypeKind::Ref(base_ids[0]), None);
         }
         let mut kind = self.merged_base(&base_ids, node.span);
         self.apply_facets(&mut kind, node, scope);
-        kind
+        let discriminator = if matches!(kind, TypeKind::Object(_)) {
+            self.discriminator_property(node, &base_ids)
+        } else {
+            None
+        };
+        (kind, discriminator)
     }
 
     /// Whether `id` is, or refers to, a JSON Schema's placeholder.
@@ -613,5 +728,13 @@ fn apply_format(numeric: &mut NumericType, format: &str) {
     }
     if numeric.maximum.is_none() {
         numeric.maximum = Some(Bound::inclusive(Decimal::from_i128(max)));
+    }
+}
+
+/// The text of a scalar, such as a `discriminatorValue`.
+fn scalar_text(node: &Node) -> String {
+    match &node.value {
+        Value::String(s) => s.clone(),
+        _ => Literal::from(node).to_string(),
     }
 }

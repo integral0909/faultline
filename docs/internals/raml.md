@@ -95,6 +95,12 @@ are open unless they declare `additionalProperties: false`. A type that names
 other types in `type` inherits from them: an object gets their properties,
 with its own properties taking precedence, and a scalar gets their facets.
 
+An object type with a `discriminator`, declared or inherited, has the
+property it names fixed to its `discriminatorValue` (the type's name unless
+given) and required. A union of such types, `Cat | Dog`, is discriminated by
+that property: its variants are matched by value. Changing a type's value
+breaks requests that send the old one, and in responses a new value is risky.
+
 A type can also be a JSON Schema, included from a `.json` file
 (`Pet: !include schemas/pet.json`) or written inline as JSON text. JSON
 Schema's rules apply to it, not RAML's: a property is optional unless
@@ -128,4 +134,4 @@ response is one type in the IR, and its polarity comes from where it is used
   warning (`FLE7604`).
 * `baseUri`, `protocols` and the security schemes' own settings: these are
   deployment details, not message shapes.
-* Annotations, examples, `discriminator` and overlays and extensions.
+* Annotations, examples, overlays and extensions.

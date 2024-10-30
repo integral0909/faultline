@@ -190,3 +190,77 @@ fn problems_are_reported() {
         ["FLE7604"]
     );
 }
+
+const PETS: &str = "  Pet:
+    discriminator: kind
+    properties:
+      kind: string
+      name: string
+  Cat:
+    type: Pet
+    properties:
+      indoor: boolean
+  Dog:
+    type: Pet
+    discriminatorValue: dog
+  T: Cat | Dog
+";
+
+fn discriminator_values(api: &Api, ty: faultline_ir::TypeId) -> Vec<String> {
+    let TypeKind::Object(object) = &api.types.get(api.types.resolve(ty)).kind else {
+        panic!()
+    };
+    let kind = object.field("kind").unwrap();
+    assert!(kind.required);
+    let TypeKind::Enum(values) = &api.types.get(kind.ty).kind else {
+        panic!()
+    };
+    values.values.iter().map(|v| v.value.to_string()).collect()
+}
+
+#[test]
+fn discriminators_fix_their_property() {
+    let (api, kind) = kind(PETS, "T");
+    let TypeKind::Union(union) = kind else {
+        panic!("{kind:?}")
+    };
+    let discriminator = union.discriminator.as_ref().unwrap();
+    assert_eq!(discriminator.property, "kind");
+    let values: Vec<&str> = discriminator
+        .mapping
+        .iter()
+        .map(|(v, _)| v.as_str())
+        .collect();
+    assert_eq!(values, ["Cat", "dog"], "the type's name unless given");
+    assert_eq!(discriminator_values(&api, union.variants[0]), ["\"Cat\""]);
+    assert_eq!(discriminator_values(&api, union.variants[1]), ["\"dog\""]);
+    let pet = api.named[&faultline_ir::QualName::new("Pet")];
+    assert_eq!(discriminator_values(&api, pet), ["\"Pet\""]);
+}
+
+#[test]
+fn discriminator_changes_are_found() {
+    let renamed = PETS.replace("discriminatorValue: dog", "discriminatorValue: hound");
+    assert_eq!(
+        worst(PETS, &renamed, Role::Input),
+        Severity::Breaking,
+        "requests with the old value are rejected"
+    );
+    assert_eq!(
+        worst(PETS, &renamed, Role::Output),
+        Severity::Risky,
+        "clients may not know the new value"
+    );
+    let fewer = PETS.replace("T: Cat | Dog", "T: Cat");
+    assert_eq!(worst(PETS, &fewer, Role::Input), Severity::Breaking);
+}
+
+#[test]
+fn discriminators_name_a_property() {
+    let (_, codes) = lowered(
+        "  T:\n    discriminator: kind\n    properties:\n      name: string\n",
+        "T",
+        Role::Both,
+    );
+    assert_eq!(codes, ["FLE7604"]);
+}
