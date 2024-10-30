@@ -7,6 +7,7 @@
 
 pub mod codes;
 pub mod expr;
+mod extend;
 mod jsonschema;
 mod libraries;
 pub mod load;

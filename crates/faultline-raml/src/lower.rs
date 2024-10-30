@@ -62,7 +62,9 @@ pub fn lower_raml(
     limits: Limits,
 ) -> Lowered {
     let mut raml = RamlLoader::new(loader, sources, limits.clone());
-    let document = raml.document(entry, None);
+    let document = raml
+        .document(entry, None)
+        .and_then(|d| crate::extend::apply(&mut raml, d));
     let libraries = document
         .as_ref()
         .filter(|d| d.kind.is_empty())

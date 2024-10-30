@@ -16,6 +16,26 @@ that includes itself, directly or indirectly, is reported (`FLE7603`).
 Included nodes keep the spans of the files they came from, so findings point
 into the included file.
 
+## Overlays and extensions
+
+An overlay (`#%RAML 1.0 Overlay`) or extension (`#%RAML 1.0 Extension`) is
+compared as the API it names in `extends`, with the overlay or extension
+merged into it. Merging works as follows:
+
+* a member only one side has is kept;
+* maps on both sides are merged member by member;
+* arrays gain the values they lack;
+* any other value from the extension replaces the master's.
+
+An extension may change anything. An overlay may only change documentation:
+titles, descriptions, display names, `documentation`, `usage`, examples and
+annotations. Any other change it makes is an error (`FLE7604`). Overlays
+and extensions can extend each other, up to 16 levels deep. Library paths
+in an extension's `uses` resolve against the extension's own file.
+
+To check an extension against its previous version, compare the extension
+files: `faultline diff v1/admin.raml v2/admin.raml`.
+
 ## Libraries
 
 `uses: {common: lib/common.raml}` loads a library. Its types, traits and
@@ -134,4 +154,4 @@ response is one type in the IR, and its polarity comes from where it is used
   warning (`FLE7604`).
 * `baseUri`, `protocols` and the security schemes' own settings: these are
   deployment details, not message shapes.
-* Annotations, examples, overlays and extensions.
+* Annotations and examples.
