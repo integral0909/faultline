@@ -257,3 +257,5 @@ The milestones the project was built in, in order. The
 | M16 Registry | Registry server with compatibility enforcement |
 | M17 AsyncAPI and cross-format | AsyncAPI, Protobuf ↔ OpenAPI consistency |
 | M18 Hardening | Continuous fuzzing, security review, release pipeline |
+| M19 XML services | XML reader, XML Schema, WSDL 1.1 with SOAP bindings |
+| M20 RAML | RAML 1.0 includes, libraries, templates, types, embedded JSON Schema |
