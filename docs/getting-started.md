@@ -72,8 +72,8 @@ reports.
 ## Output formats
 
 `--output` selects `text` (default), `json`, `sarif`, `markdown` (for pull
-request comments), `github` (workflow annotations), `junit`, or
-`changelog`. The last is release notes in Markdown, grouped into breaking
+request comments), `github` (workflow annotations), `junit`, `gitlab`
+(GitLab Code Quality, shown in merge requests), or `changelog`. The last is release notes in Markdown, grouped into breaking
 changes, deprecations, additions and other changes.
 
 The JSON format is versioned by its `schema_version` field; see

@@ -168,6 +168,29 @@ fn markdown_github_and_junit() {
 }
 
 #[test]
+fn gitlab_code_quality() {
+    let dir = workspace();
+    let output = faultline(dir.path(), &[&DIFF[..], &["--output", "gitlab"]].concat());
+    let issues: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+    let issues = issues.as_array().unwrap();
+    let removed = issues
+        .iter()
+        .find(|i| i["check_name"] == "FL2001")
+        .expect("the removed operation");
+    assert_eq!(removed["severity"], "critical");
+    assert_eq!(removed["location"]["path"], "v1/openapi.yaml");
+    assert!(removed["location"]["lines"]["begin"].as_u64().unwrap() > 1);
+    assert_eq!(removed["fingerprint"].as_str().unwrap().len(), 12);
+    let mut fingerprints: Vec<&str> = issues
+        .iter()
+        .map(|i| i["fingerprint"].as_str().unwrap())
+        .collect();
+    fingerprints.sort_unstable();
+    fingerprints.dedup();
+    assert_eq!(fingerprints.len(), issues.len(), "fingerprints are unique");
+}
+
+#[test]
 fn baselines_accept_existing_findings() {
     let dir = workspace();
     let write = faultline(

@@ -186,6 +186,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and RAML's type system are lowered. JSON Schemas used as types, included
   or inline, are lowered by the JSON Schema front end. Fuzzed
   (`lower_raml`).
+- `--output gitlab`: GitLab Code Quality reports, with finding ids as
+  fingerprints so merge requests show which findings are new.
 - The YAML loader can keep local tags such as `!include` for a front end to
   interpret, instead of rejecting them.
 - Witnesses for array limits: long arrays are built by repeating items, and

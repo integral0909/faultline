@@ -60,7 +60,7 @@ See [getting started](docs/getting-started.md) and
   silently *safe*.
 * **Built for CI.** Reads git revisions straight from the object database, has
   stable finding ids for waivers (which must expire), and emits SARIF, JSON,
-  Markdown and GitHub annotations.
+  Markdown, JUnit, GitHub annotations and GitLab Code Quality reports.
 * **Beyond CI.** A language server shows findings in the editor before a
   change is committed, and a schema registry refuses breaking versions at
   publication time.

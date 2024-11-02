@@ -7,6 +7,7 @@
 
 mod changelog;
 mod github;
+mod gitlab;
 mod json;
 mod junit;
 mod location;
@@ -59,18 +60,21 @@ pub enum OutputFormat {
     Markdown,
     Github,
     Junit,
+    /// GitLab Code Quality.
+    Gitlab,
     /// Release notes in Markdown.
     Changelog,
 }
 
 impl OutputFormat {
-    pub const ALL: [OutputFormat; 7] = [
+    pub const ALL: [OutputFormat; 8] = [
         OutputFormat::Text,
         OutputFormat::Json,
         OutputFormat::Sarif,
         OutputFormat::Markdown,
         OutputFormat::Github,
         OutputFormat::Junit,
+        OutputFormat::Gitlab,
         OutputFormat::Changelog,
     ];
 
@@ -82,6 +86,7 @@ impl OutputFormat {
             OutputFormat::Markdown => "markdown",
             OutputFormat::Github => "github",
             OutputFormat::Junit => "junit",
+            OutputFormat::Gitlab => "gitlab",
             OutputFormat::Changelog => "changelog",
         }
     }
@@ -106,6 +111,7 @@ pub fn render(report: &Report<'_>, format: OutputFormat) -> String {
         OutputFormat::Markdown => markdown::render(report),
         OutputFormat::Github => github::render(report),
         OutputFormat::Junit => junit::render(report),
+        OutputFormat::Gitlab => gitlab::render(report),
         OutputFormat::Changelog => changelog::render(report),
     }
 }
