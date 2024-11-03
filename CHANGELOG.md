@@ -188,6 +188,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`lower_raml`).
 - `--output gitlab`: GitLab Code Quality reports, with finding ids as
   fingerprints so merge requests show which findings are new.
+- `check` takes its base from GitLab merge request pipelines
+  (`CI_MERGE_REQUEST_DIFF_BASE_SHA`), and `examples/ci/gitlab-ci.yml` shows a
+  job that reports to the merge request.
 - The YAML loader can keep local tags such as `!include` for a front end to
   interpret, instead of rejecting them.
 - Witnesses for array limits: long arrays are built by repeating items, and

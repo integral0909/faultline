@@ -159,8 +159,8 @@ pub(crate) struct DiffArgs {
 
 #[derive(Debug, Args)]
 pub(crate) struct CheckArgs {
-    /// The revision to compare with, such as origin/main (default:
-    /// `origin/$GITHUB_BASE_REF` when that is set).
+    /// The revision to compare with, such as origin/main (default: the
+    /// pull or merge request's base in GitHub Actions and GitLab CI).
     #[arg(long, value_name = "REV")]
     base: Option<String>,
     /// Compare this revision instead of the working tree.
@@ -353,20 +353,24 @@ fn diff(args: &DiffArgs) -> Result<i32, String> {
     gate(config, &root, &args.gate, &[target(&args.compare, &root)])
 }
 
+/// The base of the pull or merge request being built, from the CI
+/// environment: the target branch in GitHub Actions, and in GitLab CI the
+/// commit the merge request's diff starts from (or, failing that, the
+/// target branch).
+fn ci_base() -> Option<String> {
+    let var = |name: &str| std::env::var(name).ok().filter(|v| !v.is_empty());
+    var("GITHUB_BASE_REF")
+        .map(|branch| format!("origin/{branch}"))
+        .or_else(|| var("CI_MERGE_REQUEST_DIFF_BASE_SHA"))
+        .or_else(|| var("CI_MERGE_REQUEST_TARGET_BRANCH_NAME").map(|b| format!("origin/{b}")))
+}
+
 /// Compares every configured API between a base revision and the working
 /// tree (or a head revision).
 fn check(args: &CheckArgs) -> Result<i32, String> {
     let (config, root) = setup(&args.workspace)?;
-    let base = match &args.base {
-        Some(base) => base.clone(),
-        None => match std::env::var("GITHUB_BASE_REF") {
-            Ok(branch) if !branch.is_empty() => format!("origin/{branch}"),
-            _ => {
-                return Err(
-                    "no base revision; pass --base (for example --base origin/main)".to_owned(),
-                );
-            }
-        },
+    let Some(base) = args.base.clone().or_else(ci_base) else {
+        return Err("no base revision; pass --base (for example --base origin/main)".to_owned());
     };
     let old_revision = if args.no_merge_base {
         Revision::Named(base)

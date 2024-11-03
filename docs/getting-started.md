@@ -247,7 +247,10 @@ Locations in the old version carry the revision (`3f9a2c1b7d4e:api/openapi.yaml`
 An API that does not exist in the base yet is reported as new and not
 compared. `--api NAME` checks only the named APIs. In GitHub Actions pull
 request builds, `--base` defaults to `origin/$GITHUB_BASE_REF`; the checkout
-needs enough history to contain the merge base (`fetch-depth: 0`).
+needs enough history to contain the merge base (`fetch-depth: 0`). In GitLab
+merge request pipelines it defaults to `$CI_MERGE_REQUEST_DIFF_BASE_SHA`,
+the commit the merge request's diff starts from (set `GIT_DEPTH: 0` so it
+is fetched).
 
 The repository is also a GitHub Action, which installs the release for the
 runner (verified against its checksums) and runs faultline:
@@ -262,7 +265,9 @@ runner (verified against its checksums) and runs faultline:
 ```
 
 Its `exit-code` output holds faultline's exit code. See
-[examples/ci/github-actions.yml](../examples/ci/github-actions.yml).
+[examples/ci/github-actions.yml](../examples/ci/github-actions.yml), and
+[examples/ci/gitlab-ci.yml](../examples/ci/gitlab-ci.yml) for a GitLab job
+whose findings appear in the merge request's Code Quality report.
 
 `diff` can read either side from a revision too. The new path defaults to the
 old one:

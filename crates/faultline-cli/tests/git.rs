@@ -71,9 +71,11 @@ fn faultline(dir: &Path, args: &[&str]) -> Output {
         .args(args)
         .current_dir(dir)
         .env("FAULTLINE_TODAY", "2026-09-28")
-        // Pull request builds on GitHub set this; the tests choose for
+        // Pull and merge request builds set these; the tests choose for
         // themselves.
         .env_remove("GITHUB_BASE_REF")
+        .env_remove("CI_MERGE_REQUEST_DIFF_BASE_SHA")
+        .env_remove("CI_MERGE_REQUEST_TARGET_BRANCH_NAME")
         .output()
         .unwrap()
 }
@@ -224,6 +226,26 @@ fn github_base_ref_supplies_the_default_base() {
         .arg("check")
         .current_dir(dir.path())
         .env("GITHUB_BASE_REF", "main")
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+
+    // GitLab merge request pipelines name the diff's base commit.
+    let sha = String::from_utf8(
+        Command::new("git")
+            .args(["rev-parse", "main"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap()
+            .stdout,
+    )
+    .unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_faultline"))
+        .arg("check")
+        .current_dir(dir.path())
+        .env_remove("GITHUB_BASE_REF")
+        .env("CI_MERGE_REQUEST_DIFF_BASE_SHA", sha.trim())
+        .env("CI_MERGE_REQUEST_TARGET_BRANCH_NAME", "does-not-exist")
         .output()
         .unwrap();
     assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
