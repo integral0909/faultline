@@ -681,6 +681,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "faultline-thrift"
+version = "0.1.0"
+dependencies = [
+ "faultline-diff",
+ "faultline-doc",
+ "faultline-ir",
+ "faultline-rules",
+ "faultline-source",
+]
+
+[[package]]
 name = "faultline-usage"
 version = "0.1.0"
 dependencies = [
