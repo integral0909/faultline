@@ -6,4 +6,6 @@
 pub mod ast;
 pub mod codes;
 pub mod lexer;
+pub mod linker;
+pub mod load;
 pub mod parser;
