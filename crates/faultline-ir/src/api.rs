@@ -23,6 +23,7 @@ pub enum ApiFormat {
     XmlSchema,
     Wsdl,
     Raml,
+    Thrift,
 }
 
 impl ApiFormat {
@@ -40,6 +41,7 @@ impl ApiFormat {
             ApiFormat::XmlSchema => "xsd",
             ApiFormat::Wsdl => "wsdl",
             ApiFormat::Raml => "raml-1.0",
+            ApiFormat::Thrift => "thrift",
         }
     }
 }
