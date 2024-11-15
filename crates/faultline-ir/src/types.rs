@@ -212,6 +212,10 @@ pub struct Retired {
     /// Inclusive ranges.
     pub ranges: Vec<(i64, i64)>,
     pub names: Vec<String>,
+    /// Whether the format can retire numbers at all (Protobuf `reserved`).
+    /// Where it cannot, a removed number is not reported as left
+    /// unretired, as nothing could be done about it.
+    pub declarable: bool,
 }
 
 impl Retired {
@@ -443,6 +447,7 @@ mod tests {
         let retired = Retired {
             ranges: vec![(10, 20), (1, 4), (5, 9), (100, i64::MAX)],
             names: vec!["old".into()],
+            declarable: true,
         };
         assert!(retired.covers(1, 20), "adjacent ranges join");
         assert!(retired.covers(3, 3));

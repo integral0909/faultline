@@ -243,7 +243,11 @@ fn enum_api(values: &[(&str, i64)]) -> Api {
     let ty = api.types.alloc_kind(TypeKind::Enum(EnumType {
         values,
         open: true,
-        retired: faultline_ir::Retired::default(),
+        // Numbered like Protobuf's, which can reserve numbers.
+        retired: faultline_ir::Retired {
+            declarable: true,
+            ..faultline_ir::Retired::default()
+        },
         writer_exact: false,
     }));
     api.schemas.push(SchemaRoot {
@@ -349,4 +353,23 @@ fn streaming_changes_per_direction() {
     });
     assert_eq!(diff(&server, &both).len(), 1);
     assert!(diff(&both, &both).is_empty());
+}
+
+#[test]
+fn numbers_are_only_retired_where_the_format_can() {
+    let old = enum_api(&[("UNKNOWN", 0), ("CAT", 1), ("DOG", 2)]);
+    let mut new = enum_api(&[("UNKNOWN", 0), ("DOG", 2)]);
+    for id in new.types.ids().collect::<Vec<_>>() {
+        if let TypeKind::Enum(e) = &mut new.types.get_mut(id).kind {
+            e.retired.declarable = false;
+        }
+    }
+    let changes = diff(&old, &new).changes;
+    assert!(
+        !kinds(&changes)
+            .iter()
+            .any(|k| k.starts_with("number-not-retired")),
+        "{:?}",
+        kinds(&changes)
+    );
 }

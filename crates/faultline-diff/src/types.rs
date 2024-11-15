@@ -621,6 +621,7 @@ fn retired_fields(a: &ObjectType, b: &ObjectType, shape: &mut Shape) {
         match pair {
             Pair::Removed(of) => {
                 if let Some(tag) = of.tag
+                    && b.retired.declarable
                     && !b.retired.contains_number(i64::from(tag))
                 {
                     shape.push(ChangeKind::NumberNotRetired {
@@ -849,6 +850,7 @@ fn enums(a: &EnumType, b: &EnumType, local: &mut Local, shape: &mut Shape) {
     for value in &a.values {
         if let (Some(name), Some(number)) = (&value.name, value.number)
             && !b.values.iter().any(|v| v.number == Some(number))
+            && b.retired.declarable
             && !b.retired.contains_number(number)
         {
             shape.push(ChangeKind::NumberNotRetired {

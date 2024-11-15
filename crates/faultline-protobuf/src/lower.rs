@@ -316,6 +316,7 @@ fn retired(reserved: &[ast::Reserved]) -> Retired {
             .iter()
             .flat_map(|r| r.names.iter().cloned())
             .collect(),
+        declarable: true,
     }
 }
 
