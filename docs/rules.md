@@ -39,7 +39,7 @@ at the change, and on the evidence found (see
 | [FL1028](#fl1028) | `field-group-changed` | wire | A field's oneof membership changed |
 | [FL1029](#fl1029) | `enum-value-renumbered` | wire | An enum value's number changed |
 | [FL1030](#fl1030) | `enum-value-renamed` | source | An enum value was renamed |
-| [FL1031](#fl1031) | `encoding-changed` | wire | A number's wire encoding changed |
+| [FL1031](#fl1031) | `encoding-changed` | wire | A value's wire encoding changed |
 | [FL1032](#fl1032) | `number-not-reserved` | wire | A removed field's number was not reserved |
 | [FL1033](#fl1033) | `reserved-number-reused` | wire | A reserved number was reused |
 | [FL1034](#fl1034) | `reservation-removed` | wire | A reservation was removed |
@@ -267,11 +267,11 @@ An enum number is now spelled differently. Binary data is unaffected, but genera
 
 ## FL1031
 
-**encoding-changed** — A number's wire encoding changed
+**encoding-changed** — A value's wire encoding changed
 
-The encoding of a number changed between incompatible representations, for example Protobuf `int32` to `sint32` (zigzag) or `fixed64` to `uint64` (varint). The binary data of one is misread by the other even when the values would fit.
+The encoding of a number or collection changed between incompatible representations, for example Protobuf `int32` to `sint32` (zigzag) or `fixed64` to `uint64` (varint), a Thrift `i32` to `i64`, or a Thrift `list` to `set`. The binary data of one is misread or skipped by the other even when the values would fit.
 
-Keep the encoding; changes between `int32`, `uint32`, `int64`, `uint64` and `bool` are compatible on the wire, as are `sint32`/`sint64`, `fixed32`/`sfixed32` and `fixed64`/`sfixed64`, subject to the value ranges, which Faultline checks separately.
+Keep the encoding. In Protobuf, changes between `int32`, `uint32`, `int64`, `uint64` and `bool` are compatible on the wire, as are `sint32`/`sint64`, `fixed32`/`sfixed32` and `fixed64`/`sfixed64`, subject to the value ranges, which Faultline checks separately. In Thrift every integer width, and each kind of collection, is its own wire type: add a new field instead.
 
 ## FL1032
 

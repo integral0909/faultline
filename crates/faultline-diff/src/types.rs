@@ -74,6 +74,12 @@ impl Differ<'_> {
             }
             (TypeKind::Array(a), TypeKind::Array(b)) => {
                 self.arrays(a, b, path, polarity, &mut local);
+                if a.encoding != b.encoding {
+                    shape.push(ChangeKind::EncodingChanged {
+                        old: a.encoding.clone(),
+                        new: b.encoding.clone(),
+                    });
+                }
             }
             (TypeKind::Map(a), TypeKind::Map(b)) => {
                 let (ak, av, bk, bv) = (a.key, a.value, b.key, b.value);

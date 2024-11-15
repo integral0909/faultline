@@ -382,6 +382,10 @@ pub struct ArrayType {
     pub max_items: Option<u64>,
     pub unique_items: bool,
     pub contains: Option<Contains>,
+    /// How the collection is written where formats distinguish kinds of
+    /// collection on the wire (Thrift `list` and `set`). A reader expecting
+    /// one encoding cannot read another.
+    pub encoding: Option<String>,
 }
 
 impl ArrayType {
@@ -393,6 +397,7 @@ impl ArrayType {
             max_items: None,
             unique_items: false,
             contains: None,
+            encoding: None,
         }
     }
 }

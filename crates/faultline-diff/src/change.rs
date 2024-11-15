@@ -272,8 +272,9 @@ pub enum ChangeKind {
         /// `number 7`, `numbers 8 to 11`, ``name `legacy` ``.
         what: String,
     },
-    /// The wire encoding of a number changed (Protobuf `int32` to
-    /// `sint32`): data written one way is misread the other way.
+    /// The wire encoding of a number or collection changed (Protobuf
+    /// `int32` to `sint32`, Thrift `list` to `set`): data written one way
+    /// is misread the other way.
     EncodingChanged {
         old: Option<String>,
         new: Option<String>,

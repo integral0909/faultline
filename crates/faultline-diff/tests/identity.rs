@@ -373,3 +373,27 @@ fn numbers_are_only_retired_where_the_format_can() {
         kinds(&changes)
     );
 }
+
+#[test]
+fn collection_encodings_are_compared() {
+    let api = |encoding: &str| {
+        let mut api = Api::new("t", ApiFormat::Thrift);
+        let item = api.types.alloc_kind(TypeKind::Boolean);
+        let ty = api
+            .types
+            .alloc_kind(TypeKind::Array(faultline_ir::ArrayType {
+                encoding: Some(encoding.into()),
+                ..faultline_ir::ArrayType::of(item)
+            }));
+        api.schemas.push(SchemaRoot {
+            name: "a".into(),
+            ty,
+            role: faultline_ir::Role::Both,
+            origin: None,
+        });
+        api
+    };
+    let changes = diff(&api("list"), &api("set")).changes;
+    assert_eq!(kinds(&changes), ["encoding-changed schema[a]"]);
+    assert!(diff(&api("list"), &api("list")).changes.is_empty());
+}

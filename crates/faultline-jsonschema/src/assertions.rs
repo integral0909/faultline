@@ -403,6 +403,7 @@ impl Lowerer<'_, '_> {
             max_items: self.read_u64(ctx, "maxItems"),
             unique_items: self.read_bool(ctx, "uniqueItems").unwrap_or(false),
             contains,
+            encoding: None,
         }
     }
 
