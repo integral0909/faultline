@@ -133,6 +133,8 @@ impl Lowering<'_> {
         });
         op.origin = Some(operation.span);
         op.meta.description.clone_from(&operation.documentation);
+        // An input without an output: the service sends nothing back.
+        op.one_way = operation.input.is_some() && operation.output.is_none();
 
         let bound: Vec<_> = bindings
             .iter()

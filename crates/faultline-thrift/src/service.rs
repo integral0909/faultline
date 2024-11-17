@@ -13,7 +13,8 @@
 //!   field it does not know, such as a new exception, fails the call, so
 //!   a new exception is a risk for clients.
 //!
-//! A `oneway` function has no reply.
+//! A `oneway` function has no reply, and is marked as one-way: changing
+//! whether a function is `oneway` breaks its callers either way.
 
 use std::collections::HashSet;
 
@@ -103,6 +104,7 @@ impl Lowerer<'_> {
                 origin: Some(function.return_span),
             });
         }
+        op.one_way = function.oneway;
         op.meta = meta(function.doc.as_ref(), &function.annotations);
         op.meta.deprecated |= meta(None, &owner.annotations).deprecated;
         op.origin = Some(function.name.span);

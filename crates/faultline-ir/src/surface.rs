@@ -387,6 +387,9 @@ pub struct Operation {
     /// For RPC operations: which directions carry a stream of messages
     /// rather than one.
     pub streaming: Option<Streaming>,
+    /// For RPC operations: the caller sends the request and expects no
+    /// reply at all (Thrift `oneway`, WSDL one-way operations).
+    pub one_way: bool,
     pub meta: Meta,
     pub origin: Option<Span>,
 }
@@ -409,6 +412,7 @@ impl Operation {
             callbacks: Vec::new(),
             security: None,
             streaming: None,
+            one_way: false,
             meta: Meta::default(),
             origin: None,
         }

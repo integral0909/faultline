@@ -232,6 +232,7 @@ fn surface_pair(kind: &ChangeKind) -> Option<Surface> {
         | K::EnumValueRenumbered { .. }
         | K::EncodingChanged { .. }
         | K::StreamingChanged { .. }
+        | K::OneWayChanged { .. }
         | K::RetiredNumberReused { .. } => Value(same(Breaking)),
         K::NumberNotRetired { .. } | K::RetirementRemoved { .. } => Value(same(Risky)),
         K::FieldAliasesChanged { removed, .. } => {
@@ -604,6 +605,15 @@ fn describe(kind: &ChangeKind) -> (&'static Rule, String, String) {
             format!("wire encoding changed from {} to {}", show(old), show(new)),
             none(),
         ),
+        K::OneWayChanged { one_way } => (
+            &c::ONE_WAY_CHANGED,
+            if *one_way {
+                "the call no longer has a reply".to_owned()
+            } else {
+                "the call now has a reply".to_owned()
+            },
+            none(),
+        ),
         K::StreamingChanged { side, streaming } => (
             &c::STREAMING_CHANGED,
             format!(
@@ -838,6 +848,11 @@ mod tests {
                     streaming: true,
                 },
                 "FL3001",
+                Breaking,
+            ),
+            (
+                ChangeKind::OneWayChanged { one_way: true },
+                "FL3002",
                 Breaking,
             ),
         ];

@@ -219,3 +219,24 @@ fn unresolved_references_are_errors() {
     assert_eq!(codes(&missing_element), ["FLE7403"]);
     assert!(lowered(&missing_element).api.is_none());
 }
+
+#[test]
+fn one_way_operations_are_marked() {
+    let one_way = PETS.replace(r#"<wsdl:output message="tns:CountResponse"/>"#, "");
+    let api = api(&one_way);
+    let count = api
+        .operations
+        .iter()
+        .find(|o| o.key.to_string() == "PetPortType/CountPets")
+        .unwrap();
+    assert!(count.one_way);
+    assert!(count.responses.is_empty());
+    let found = findings(&one_way);
+    assert!(
+        summary(&found)
+            .iter()
+            .any(|s| s == "breaking one-way-changed op[PetPortType/CountPets]"),
+        "{:?}",
+        summary(&found)
+    );
+}

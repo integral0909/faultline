@@ -67,6 +67,12 @@ pub fn dump(api: &Api) -> String {
             };
             Some(format!("op[{}] streams {sides}", op.key.identity()))
         })
+        .chain(
+            api.operations
+                .iter()
+                .filter(|op| op.one_way)
+                .map(|op| format!("op[{}] is one-way", op.key.identity())),
+        )
         .collect();
     if !streams.is_empty() {
         out.push('\n');

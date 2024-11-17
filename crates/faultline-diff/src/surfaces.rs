@@ -161,6 +161,12 @@ impl<'a> Differ<'a> {
                 self.surface(kind, path, polarity, spans);
             }
         }
+        if old.one_way != new.one_way {
+            let kind = ChangeKind::OneWayChanged {
+                one_way: new.one_way,
+            };
+            self.surface(kind, path, request, spans);
+        }
         self.parameters(&old.parameters, &new.parameters, path, request);
         let messages = old.key.is_message() && new.key.is_message();
         self.request_bodies(

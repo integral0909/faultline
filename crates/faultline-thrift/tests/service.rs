@@ -159,6 +159,12 @@ fn function_changes_are_classified() {
         worst(PETS, &PETS.replace("list<Pet> list", "set<Pet> list")),
         Severity::Breaking
     );
+    // A oneway function that gains a reply leaves it unread.
+    let changed = findings(PETS, &PETS.replace("oneway void forget", "void forget"));
+    assert!(
+        changed.contains(&(Severity::Breaking, "FL3002 op[Pets/forget]".into())),
+        "{changed:?}"
+    );
     // Removing a function breaks its callers, also an inherited one.
     assert_eq!(
         worst(

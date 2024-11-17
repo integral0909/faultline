@@ -285,6 +285,10 @@ pub enum ChangeKind {
         side: String,
         streaming: bool,
     },
+    /// An RPC changed between expecting a reply and not (`oneway`).
+    OneWayChanged {
+        one_way: bool,
+    },
     /// A bound or step changed; `None` means absent.
     BoundChanged {
         facet: Facet,
@@ -398,6 +402,7 @@ impl ChangeKind {
             ChangeKind::RetirementRemoved { .. } => "retirement-removed",
             ChangeKind::EncodingChanged { .. } => "encoding-changed",
             ChangeKind::StreamingChanged { .. } => "streaming-changed",
+            ChangeKind::OneWayChanged { .. } => "one-way-changed",
             ChangeKind::BoundChanged { .. } => "bound-changed",
             ChangeKind::NumericKindChanged { .. } => "numeric-kind-changed",
             ChangeKind::PatternChanged { .. } => "pattern-changed",

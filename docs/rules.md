@@ -70,6 +70,7 @@ at the change, and on the evidence found (see
 | [FL2080](#fl2080) | `message-added` | wire | A message type was added |
 | [FL2081](#fl2081) | `message-removed` | wire | A message type was removed |
 | [FL3001](#fl3001) | `streaming-changed` | wire | An RPC changed between unary and streaming |
+| [FL3002](#fl3002) | `one-way-changed` | wire | An RPC changed between one-way and request-reply |
 
 ## FL1001
 
@@ -460,5 +461,13 @@ An operation no longer carries a kind of message. Producers still sending it to 
 **streaming-changed** — An RPC changed between unary and streaming
 
 A request or response of a remote procedure became a stream of messages, or stopped being one. Clients and servers disagree on the call's shape, and every call fails.
+
+Add a new method with the new shape and deprecate the old one.
+
+## FL3002
+
+**one-way-changed** — An RPC changed between one-way and request-reply
+
+A remote procedure stopped or started expecting a reply (Thrift `oneway`, a WSDL operation gaining or losing its output). Clients that wait for a reply the server no longer sends hang until they time out; replies that clients do not read are left on the connection, where they are mistaken for the reply to the next call.
 
 Add a new method with the new shape and deprecate the old one.
