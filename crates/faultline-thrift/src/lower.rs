@@ -14,9 +14,10 @@
 //! | `union` | object whose fields exclude each other, one of them set |
 //! | `typedef` | the type it names |
 //!
-//! Numbers carry their wire type as their encoding, so that changing a
-//! field from `i32` to `i64`, which readers of the old type skip, is
-//! reported even though the range only grows.
+//! Numbers and collections carry their wire type as their encoding, so
+//! that changing a field from `i32` to `i64`, or from `list` to `set`,
+//! which readers of the old type skip, is reported even though the values
+//! would still fit.
 //!
 //! `required` fields are required. Optional fields and fields with the
 //! default requiredness are not, as readers accept them missing; writers
@@ -88,6 +89,7 @@ impl<'a> Lowerer<'a> {
                 Definition::Const(_) | Definition::Typedef(_) | Definition::Service(_) => {}
             }
         }
+        self.services();
         self.drain();
         self.api
     }
@@ -149,10 +151,7 @@ impl<'a> Lowerer<'a> {
             let ty = self.field_type(file, &field.ty);
             let required = field.requiredness == crate::ast::Requiredness::Required;
             let mut lowered = Field::new(field.name.text.clone(), ty, required);
-            lowered.tag = field
-                .id
-                .and_then(|(id, _)| u32::try_from(id).ok())
-                .filter(|&id| id > 0);
+            lowered.tag = tag(field.id);
             lowered.meta = meta(field.doc.as_ref(), &field.annotations);
             lowered.meta.default = field.default.as_ref().and_then(literal);
             lowered.origin = Some(field.span);
@@ -183,14 +182,15 @@ impl<'a> Lowerer<'a> {
                     .expect("the linker resolved every type");
                 return self.named(id);
             }
-            FieldTypeKind::List(item) => {
-                TypeKind::Array(ArrayType::of(self.field_type(file, item)))
-            }
-            FieldTypeKind::Set(item) => {
-                let mut array = ArrayType::of(self.field_type(file, item));
-                array.unique_items = true;
-                TypeKind::Array(array)
-            }
+            FieldTypeKind::List(item) => TypeKind::Array(ArrayType {
+                encoding: Some("list".to_owned()),
+                ..ArrayType::of(self.field_type(file, item))
+            }),
+            FieldTypeKind::Set(item) => TypeKind::Array(ArrayType {
+                unique_items: true,
+                encoding: Some("set".to_owned()),
+                ..ArrayType::of(self.field_type(file, item))
+            }),
             FieldTypeKind::Map(key, value) => TypeKind::Map(MapType {
                 key: self.field_type(file, key),
                 value: self.field_type(file, value),
@@ -261,6 +261,13 @@ fn enumeration(e: &Enum) -> TypeNode {
     .with_origin(e.name.span);
     node.meta = meta(e.doc.as_ref(), &e.annotations);
     node
+}
+
+/// A field's tag: its explicit id. Implicit ids are left out, as they
+/// change when fields are added or reordered.
+pub(crate) fn tag(id: Option<(i64, faultline_source::Span)>) -> Option<u32> {
+    id.and_then(|(id, _)| u32::try_from(id).ok())
+        .filter(|&id| id > 0)
 }
 
 /// Documentation, and deprecation from a `deprecated` annotation.

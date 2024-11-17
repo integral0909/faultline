@@ -2,7 +2,8 @@
 //!
 //! [`load`] reads a `.thrift` file and the files it includes, which
 //! [`parser`] turns into syntax trees; [`linker`] resolves names across
-//! them, and [`lower_thrift`] lowers the result into the IR.
+//! them, and [`lower_thrift`] lowers the result into the IR: types, and
+//! services as RPC operations.
 
 pub mod ast;
 pub mod codes;
@@ -11,6 +12,9 @@ pub mod linker;
 pub mod load;
 mod lower;
 pub mod parser;
+mod service;
+
+pub use service::THRIFT_MEDIA_TYPE;
 
 use faultline_doc::UriRef;
 use faultline_doc::loader::Loader;
