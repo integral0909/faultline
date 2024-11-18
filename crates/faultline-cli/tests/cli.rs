@@ -688,6 +688,46 @@ fn raml_apis_are_compared() {
 }
 
 #[test]
+fn thrift_services_are_compared() {
+    let dir = repo().join("examples/thrift");
+    let output = faultline(
+        &dir,
+        &[
+            "diff",
+            "v1/pets.thrift",
+            "v2/pets.thrift",
+            "--output",
+            "json",
+        ],
+    );
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    let report: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+    let mut breaking: Vec<String> = report["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["severity"] == "breaking")
+        .map(|f| {
+            format!(
+                "{} {}",
+                f["rule"].as_str().unwrap(),
+                f["path"].as_str().unwrap()
+            )
+        })
+        .collect();
+    breaking.sort();
+    assert_eq!(
+        breaking,
+        [
+            "FL1026 op[Pets/search]/request[application/x-thrift].limit",
+            "FL1031 op[Pets/get]/response[default]/body[application/x-thrift].success.age",
+            "FL1031 op[Pets/get]/response[default]/body[application/x-thrift].success.tags",
+            "FL3002 op[Pets/refresh]",
+        ]
+    );
+}
+
+#[test]
 fn declared_versions_are_checked_with_semver_versioning() {
     let dir = workspace();
     // Version 2 claims to be a minor release despite its breaking changes.

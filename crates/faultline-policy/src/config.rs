@@ -112,10 +112,12 @@ pub enum ApiFormat {
     Wsdl,
     /// RAML 1.0 APIs.
     Raml,
+    /// Apache Thrift services and types.
+    Thrift,
 }
 
 impl ApiFormat {
-    pub const ALL: [ApiFormat; 10] = [
+    pub const ALL: [ApiFormat; 11] = [
         ApiFormat::OpenApi,
         ApiFormat::AsyncApi,
         ApiFormat::JsonSchema,
@@ -126,6 +128,7 @@ impl ApiFormat {
         ApiFormat::Xsd,
         ApiFormat::Wsdl,
         ApiFormat::Raml,
+        ApiFormat::Thrift,
     ];
 
     /// The name `parse` reads back.
@@ -141,6 +144,7 @@ impl ApiFormat {
             ApiFormat::Xsd => "xsd",
             ApiFormat::Wsdl => "wsdl",
             ApiFormat::Raml => "raml",
+            ApiFormat::Thrift => "thrift",
         }
     }
 
@@ -156,6 +160,7 @@ impl ApiFormat {
             "xsd" | "xml-schema" => Some(ApiFormat::Xsd),
             "wsdl" => Some(ApiFormat::Wsdl),
             "raml" => Some(ApiFormat::Raml),
+            "thrift" => Some(ApiFormat::Thrift),
             _ => None,
         }
     }

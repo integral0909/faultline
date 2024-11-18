@@ -29,6 +29,8 @@ pub(crate) enum Format {
     Wsdl,
     /// RAML 1.0.
     Raml,
+    /// Apache Thrift IDL.
+    Thrift,
 }
 
 impl From<Format> for ApiFormat {
@@ -44,6 +46,7 @@ impl From<Format> for ApiFormat {
             Format::Xsd => ApiFormat::Xsd,
             Format::Wsdl => ApiFormat::Wsdl,
             Format::Raml => ApiFormat::Raml,
+            Format::Thrift => ApiFormat::Thrift,
         }
     }
 }

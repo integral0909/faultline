@@ -79,7 +79,7 @@ impl Lowerer<'_> {
             service: service.to_owned(),
             method: function.name.text.clone(),
         });
-        let arguments = self.arguments(file, &function.arguments);
+        let arguments = self.arguments(file, function);
         op.request_body = Some(RequestBody {
             required: true,
             content: vec![Content {
@@ -113,10 +113,10 @@ impl Lowerer<'_> {
 
     /// The arguments struct: open, as servers skip arguments they do not
     /// know.
-    fn arguments(&mut self, file: usize, arguments: &[crate::ast::Field]) -> TypeId {
+    fn arguments(&mut self, file: usize, function: &Function) -> TypeId {
         let any = self.api.types.alloc(TypeNode::new(TypeKind::Any));
         let mut object = ObjectType::new(any);
-        for argument in arguments {
+        for argument in &function.arguments {
             let ty = self.field_type(file, &argument.ty);
             let mut field = Field::new(
                 argument.name.text.clone(),
@@ -128,9 +128,8 @@ impl Lowerer<'_> {
             field.origin = Some(argument.span);
             object.fields.push(field);
         }
-        self.api
-            .types
-            .alloc(TypeNode::new(TypeKind::Object(object)))
+        let node = TypeNode::new(TypeKind::Object(object)).with_origin(function.name.span);
+        self.api.types.alloc(node)
     }
 
     /// The result struct: `success` or one exception, and nothing else.
@@ -163,8 +162,14 @@ impl Lowerer<'_> {
                 origin: None,
             });
         }
-        self.api
-            .types
-            .alloc(TypeNode::new(TypeKind::Object(object)))
+        // Changes to the result as a whole, such as a new exception, point
+        // at the function's declaration of what it returns and throws.
+        let span = function
+            .throws
+            .last()
+            .and_then(|t| function.return_span.join(t.span))
+            .unwrap_or(function.return_span);
+        let node = TypeNode::new(TypeKind::Object(object)).with_origin(span);
+        self.api.types.alloc(node)
     }
 }
