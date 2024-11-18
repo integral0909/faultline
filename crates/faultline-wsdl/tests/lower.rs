@@ -232,11 +232,9 @@ fn one_way_operations_are_marked() {
     assert!(count.one_way);
     assert!(count.responses.is_empty());
     let found = findings(&one_way);
-    assert!(
-        summary(&found)
-            .iter()
-            .any(|s| s == "breaking one-way-changed op[PetPortType/CountPets]"),
-        "{:?}",
-        summary(&found)
+    assert_eq!(
+        summary(&found),
+        ["breaking one-way-changed op[PetPortType/CountPets]"],
+        "the removed response is part of the change"
     );
 }

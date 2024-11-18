@@ -161,7 +161,8 @@ impl<'a> Differ<'a> {
                 self.surface(kind, path, polarity, spans);
             }
         }
-        if old.one_way != new.one_way {
+        let one_way_changed = old.one_way != new.one_way;
+        if one_way_changed {
             let kind = ChangeKind::OneWayChanged {
                 one_way: new.one_way,
             };
@@ -176,7 +177,11 @@ impl<'a> Differ<'a> {
             request,
             messages,
         );
-        self.responses(&old.responses, &new.responses, path, response, messages);
+        // A reply that appears or goes away with the call's shape is part
+        // of that change, not a finding of its own.
+        if !one_way_changed {
+            self.responses(&old.responses, &new.responses, path, response, messages);
+        }
 
         for cb in &old.callbacks {
             let at = path.join(Segment::Callback(cb.name.clone()));
