@@ -100,6 +100,11 @@ fn problems_are_reported() {
         ("struct T {}\nservice S extends T {}", &["FLE8006"]),
         ("service S extends Missing {}", &["FLE8003"]),
         ("include \"missing.thrift\"\n", &["FLE8002"]),
+        ("enum E { A, B, A }", &["FLE8004"]),
+        ("enum E { A = 2147483648 }", &["FLE8005"]),
+        ("enum E { A = 1, B = 1 }", &["FLE8005"]),
+        ("enum E { A = 1, B = 0, C }", &["FLE8005"]),
+        ("service S { void f(), i32 f() }", &["FLE8004"]),
     ];
     for (text, expected) in cases {
         let (mut codes, _) = check(&[("file:///main.thrift", text)]);

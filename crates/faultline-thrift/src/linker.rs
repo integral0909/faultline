@@ -110,7 +110,7 @@ impl Linker<'_> {
                     self.check_type(file, &t.ty);
                     self.check_typedef_cycle(DefId { file, index }, t.name.span);
                 }
-                Definition::Enum(_) => {}
+                Definition::Enum(e) => self.check_enum(e),
                 Definition::Struct(s) => {
                     let what = s.kind.keyword();
                     self.check_fields(file, &s.fields, &format!("{what} {}", s.name.text));
@@ -119,7 +119,18 @@ impl Linker<'_> {
                     if let Some(parent) = &service.extends {
                         self.check_extends(file, index, parent.text.as_str(), parent.span);
                     }
+                    let mut names = HashSet::new();
                     for function in &service.functions {
+                        if !names.insert(function.name.text.as_str()) {
+                            self.error(
+                                codes::DUPLICATE_DEFINITION,
+                                format!(
+                                    "function {} is defined twice in service {}",
+                                    function.name.text, service.name.text
+                                ),
+                                function.name.span,
+                            );
+                        }
                         if let Some(returns) = &function.returns {
                             self.check_type(file, returns);
                         }
@@ -146,6 +157,46 @@ impl Linker<'_> {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    /// Value names are unique and numbers fit in an `i32`. A repeated
+    /// number is allowed, but warned about: the two names cannot be told
+    /// apart on the wire.
+    fn check_enum(&mut self, e: &crate::ast::Enum) {
+        let mut names = HashSet::new();
+        let mut numbers = HashMap::new();
+        let mut next = 0i64;
+        for value in &e.values {
+            let number = value.value.map_or(next, |(n, _)| n);
+            next = number.saturating_add(1);
+            let span = value.value.map_or(value.name.span, |(_, span)| span);
+            if !names.insert(value.name.text.as_str()) {
+                self.error(
+                    codes::DUPLICATE_DEFINITION,
+                    format!(
+                        "{} is defined twice in enum {}",
+                        value.name.text, e.name.text
+                    ),
+                    value.name.span,
+                );
+            }
+            if i32::try_from(number).is_err() {
+                self.error(
+                    codes::INVALID_FIELD,
+                    format!("enum value {number} does not fit in an i32"),
+                    span,
+                );
+            } else if let Some(first) = numbers.insert(number, value.name.text.as_str()) {
+                self.linked.diagnostics.push(
+                    Diagnostic::warning(format!(
+                        "{} has the same number, {number}, as {first}",
+                        value.name.text
+                    ))
+                    .with_code(codes::INVALID_FIELD)
+                    .with_primary(span, ""),
+                );
             }
         }
     }
