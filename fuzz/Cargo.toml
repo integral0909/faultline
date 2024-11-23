@@ -21,6 +21,7 @@ faultline-graphql = { path = "../crates/faultline-graphql" }
 faultline-avro = { path = "../crates/faultline-avro" }
 faultline-wsdl = { path = "../crates/faultline-wsdl" }
 faultline-raml = { path = "../crates/faultline-raml" }
+faultline-thrift = { path = "../crates/faultline-thrift" }
 faultline-xml = { path = "../crates/faultline-xml" }
 faultline-xsd = { path = "../crates/faultline-xsd" }
 faultline-asyncapi = { path = "../crates/faultline-asyncapi" }
@@ -134,6 +135,13 @@ bench = false
 [[bin]]
 name = "lower_raml"
 path = "fuzz_targets/lower_raml.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "lower_thrift"
+path = "fuzz_targets/lower_thrift.rs"
 test = false
 doc = false
 bench = false

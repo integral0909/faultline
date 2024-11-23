@@ -265,6 +265,7 @@ dependencies = [
  "faultline-report",
  "faultline-rules",
  "faultline-source",
+ "faultline-thrift",
  "faultline-vcs",
  "faultline-wsdl",
  "faultline-xsd",
@@ -326,6 +327,7 @@ dependencies = [
  "faultline-regex",
  "faultline-registry",
  "faultline-source",
+ "faultline-thrift",
  "faultline-wsdl",
  "faultline-xml",
  "faultline-xsd",
@@ -459,6 +461,15 @@ dependencies = [
  "faultline-doc",
  "faultline-ir",
  "faultline-regex",
+]
+
+[[package]]
+name = "faultline-thrift"
+version = "0.1.0"
+dependencies = [
+ "faultline-doc",
+ "faultline-ir",
+ "faultline-source",
 ]
 
 [[package]]
