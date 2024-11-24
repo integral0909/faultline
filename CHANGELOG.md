@@ -186,6 +186,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and RAML's type system are lowered. JSON Schemas used as types, included
   or inline, are lowered by the JSON Schema front end. Fuzzed
   (`lower_raml`).
+- `faultline-thrift` and `format = "thrift"`: Thrift IDL with its includes.
+  Types are compared by field id, integer widths and collection kinds as
+  wire types, and services as RPC operations whose replies hold the result
+  or a declared exception. Fuzzed (`lower_thrift`).
+- FL3002 `one-way-changed`: an RPC that starts or stops expecting a reply
+  (Thrift `oneway`, WSDL operations without an output).
+- FL1031 covers collections whose wire encoding changes, and a removed
+  field's number is only reported as unreserved where the format can
+  reserve numbers.
 - `--output gitlab`: GitLab Code Quality reports, with finding ids as
   fingerprints so merge requests show which findings are new.
 - `check` takes its base from GitLab merge request pipelines

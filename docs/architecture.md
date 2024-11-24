@@ -118,6 +118,7 @@ plugins in v1.
 | `faultline-xsd` | XML Schema reading (includes, imports) and lowering |
 | `faultline-wsdl` | WSDL 1.1 reading, SOAP bindings, lowering |
 | `faultline-raml` | RAML 1.0 includes, libraries, resource types and traits, lowering |
+| `faultline-thrift` | Thrift IDL lexer, parser, include loading, linker, lowering |
 | `faultline-diff` | Alignment, rename detection, comparison engine, change model |
 | `faultline-rules` | Rule catalog, classification, semver derivation |
 | `faultline-policy` | `faultline.toml`, overrides, waivers, baselines, verdicts |
@@ -184,7 +185,7 @@ Every witness is validated against both schemas before it is reported.
 
 Change kinds form a closed enum and classification is a single exhaustive
 match, so the compiler rejects an unclassified change. Rule codes are grouped by
-area: `FL1xxx` structural, `FL2xxx` HTTP, `FL3xxx` Protobuf, `FL4xxx` GraphQL,
+area: `FL1xxx` structural, `FL2xxx` HTTP, `FL3xxx` RPC, `FL4xxx` GraphQL,
 `FL5xxx` Avro, `FL6xxx` AsyncAPI. Each rule carries default severities per
 polarity and dimension plus embedded documentation used by `explain`.
 
@@ -259,3 +260,4 @@ The milestones the project was built in, in order. The
 | M18 Hardening | Continuous fuzzing, security review, release pipeline |
 | M19 XML services | XML reader, XML Schema, WSDL 1.1 with SOAP bindings |
 | M20 RAML | RAML 1.0 includes, libraries, templates, types, embedded JSON Schema |
+| M21 Thrift | Thrift IDL, services, wire types, one-way calls |

@@ -114,6 +114,22 @@ only breaks JSON encodings and generated code. See
 [examples/grpc](../examples/grpc) and the
 [Protobuf internals](internals/protobuf.md).
 
+## Thrift
+
+Files ending in `.thrift` are read as Thrift IDL with the files they
+include. Each function of each service is compared, and arguments and
+results are compared field by field, by id:
+
+```sh
+faultline diff v1/pets.thrift v2/pets.thrift
+```
+
+Integer widths and kinds of collection are separate wire types in Thrift,
+so changing `i32` to `i64`, or `list` to `set`, is reported as breaking.
+A file without services is compared as its structs, used in the role
+given with `--role`. See [examples/thrift](../examples/thrift) and the
+[Thrift internals](internals/thrift.md).
+
 ## GraphQL
 
 Schema files ending in `.graphql`, `.graphqls` or `.gql` are read as GraphQL
