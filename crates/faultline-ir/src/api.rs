@@ -24,6 +24,7 @@ pub enum ApiFormat {
     Wsdl,
     Raml,
     Thrift,
+    JsonTypeDefinition,
 }
 
 impl ApiFormat {
@@ -42,6 +43,7 @@ impl ApiFormat {
             ApiFormat::Wsdl => "wsdl",
             ApiFormat::Raml => "raml-1.0",
             ApiFormat::Thrift => "thrift",
+            ApiFormat::JsonTypeDefinition => "jtd",
         }
     }
 }
