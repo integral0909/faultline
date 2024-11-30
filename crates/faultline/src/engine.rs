@@ -332,6 +332,10 @@ impl Engine {
                 let lowered = faultline_avro::lower_avro(&entry, &mut store, name, ir_role(role));
                 (lowered.api, lowered.diagnostics)
             }
+            ApiFormat::Jtd => {
+                let lowered = faultline_jtd::lower_jtd(&entry, &mut store, name, ir_role(role));
+                (lowered.api, lowered.diagnostics)
+            }
             ApiFormat::Protobuf
             | ApiFormat::ProtobufHttp
             | ApiFormat::GraphQl
@@ -396,7 +400,11 @@ impl Engine {
                 let l = faultline_thrift::lower_thrift(entry, loader, sources, name, ir_role(role));
                 (l.api, l.diagnostics)
             }
-            ApiFormat::OpenApi | ApiFormat::JsonSchema | ApiFormat::Avro | ApiFormat::AsyncApi => {
+            ApiFormat::OpenApi
+            | ApiFormat::JsonSchema
+            | ApiFormat::Avro
+            | ApiFormat::AsyncApi
+            | ApiFormat::Jtd => {
                 return None;
             }
         })
@@ -598,13 +606,18 @@ fn describe(source: &Source) -> String {
 /// Formats recognized by the entry's file extension: `.proto` and
 /// `.thrift` files, XML Schemas, WSDL descriptions and GraphQL schemas are not JSON or YAML
 /// documents, and are read by their own front ends; RAML is YAML with its
-/// own tags and includes; Avro schemas are JSON but cannot be told from
-/// JSON Schema by their content alone.
+/// own tags and includes; Avro schemas and JSON Type Definitions
+/// (`.jtd.json`) are JSON but cannot be told from JSON Schema by their
+/// content alone.
 pub fn format_by_extension(entry: &UriRef) -> Option<ApiFormat> {
-    let extension = std::path::Path::new(entry.path())
+    let path = entry.path().to_ascii_lowercase();
+    if path.ends_with(".jtd.json") {
+        return Some(ApiFormat::Jtd);
+    }
+    let extension = std::path::Path::new(&path)
         .extension()?
         .to_str()?
-        .to_ascii_lowercase();
+        .to_owned();
     match extension.as_str() {
         "proto" => Some(ApiFormat::Protobuf),
         "graphql" | "graphqls" | "gql" => Some(ApiFormat::GraphQl),
@@ -640,10 +653,19 @@ fn ir_role(role: SchemaRole) -> Role {
     }
 }
 
-/// The API name used when none is configured: the entry file's stem.
+/// The API name used when none is configured: the entry file's stem,
+/// without the `.jtd` of a compound `.jtd.json` extension.
 pub fn default_api_name(path: &Path) -> String {
-    path.file_stem()
-        .map_or_else(|| "api".to_owned(), |s| s.to_string_lossy().into_owned())
+    let stem = path
+        .file_stem()
+        .map_or_else(|| "api".to_owned(), |s| s.to_string_lossy().into_owned());
+    let end = stem.len().saturating_sub(4);
+    match (stem.get(..end), stem.get(end..)) {
+        (Some(name), Some(suffix)) if !name.is_empty() && suffix.eq_ignore_ascii_case(".jtd") => {
+            name.to_owned()
+        }
+        _ => stem,
+    }
 }
 
 #[cfg(test)]
@@ -655,5 +677,8 @@ mod tests {
     fn stems() {
         assert_eq!(stem(Path::new("api/openapi.yaml")), "openapi");
         assert_eq!(stem(Path::new("/")), "api");
+        assert_eq!(stem(Path::new("schemas/user.jtd.json")), "user");
+        assert_eq!(stem(Path::new(".jtd.json")), ".jtd");
+        assert_eq!(stem(Path::new("ééa.json")), "ééa");
     }
 }

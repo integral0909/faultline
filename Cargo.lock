@@ -427,6 +427,7 @@ dependencies = [
  "faultline-graphql",
  "faultline-ir",
  "faultline-jsonschema",
+ "faultline-jtd",
  "faultline-net",
  "faultline-openapi",
  "faultline-policy",

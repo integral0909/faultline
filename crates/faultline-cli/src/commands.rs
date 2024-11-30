@@ -31,6 +31,8 @@ pub(crate) enum Format {
     Raml,
     /// Apache Thrift IDL.
     Thrift,
+    /// JSON Type Definition (RFC 8927).
+    Jtd,
 }
 
 impl From<Format> for ApiFormat {
@@ -47,6 +49,7 @@ impl From<Format> for ApiFormat {
             Format::Wsdl => ApiFormat::Wsdl,
             Format::Raml => ApiFormat::Raml,
             Format::Thrift => ApiFormat::Thrift,
+            Format::Jtd => ApiFormat::Jtd,
         }
     }
 }

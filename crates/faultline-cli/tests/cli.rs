@@ -728,6 +728,36 @@ fn thrift_services_are_compared() {
 }
 
 #[test]
+fn json_type_definitions_are_compared() {
+    let dir = repo().join("examples/jtd");
+    let output = faultline(
+        &dir,
+        &[
+            "diff",
+            "v1/event.jtd.json",
+            "v2/event.jtd.json",
+            "--role",
+            "output",
+            "--output",
+            "json",
+        ],
+    );
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    let report: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+    let findings = report["findings"].as_array().unwrap();
+    assert!(
+        findings.iter().all(|f| f["api"] == "event"),
+        "named without .jtd"
+    );
+    let breaking: Vec<&str> = findings
+        .iter()
+        .filter(|f| f["severity"] == "breaking")
+        .map(|f| f["path"].as_str().unwrap())
+        .collect();
+    assert_eq!(breaking, ["schema[event].change"]);
+}
+
+#[test]
 fn declared_versions_are_checked_with_semver_versioning() {
     let dir = workspace();
     // Version 2 claims to be a minor release despite its breaking changes.

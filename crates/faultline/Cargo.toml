@@ -31,6 +31,7 @@ faultline-vcs.workspace = true
 faultline-wsdl.workspace = true
 faultline-raml.workspace = true
 faultline-thrift.workspace = true
+faultline-jtd.workspace = true
 faultline-xsd.workspace = true
 
 [dev-dependencies]

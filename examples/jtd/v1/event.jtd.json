@@ -1,0 +1,27 @@
+{
+  "metadata": {"description": "An event published when a user's account changes."},
+  "definitions": {
+    "address": {
+      "properties": {
+        "street": {"type": "string"},
+        "city": {"type": "string"}
+      },
+      "optionalProperties": {
+        "postcode": {"type": "string"}
+      }
+    }
+  },
+  "properties": {
+    "id": {"type": "string"},
+    "at": {"type": "timestamp"},
+    "attempts": {"type": "uint8"},
+    "change": {
+      "discriminator": "kind",
+      "mapping": {
+        "created": {"properties": {"email": {"type": "string"}}},
+        "moved": {"properties": {"address": {"ref": "address"}}},
+        "closed": {"properties": {"reason": {"enum": ["USER", "FRAUD"]}}}
+      }
+    }
+  }
+}

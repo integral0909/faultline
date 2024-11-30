@@ -114,10 +114,12 @@ pub enum ApiFormat {
     Raml,
     /// Apache Thrift services and types.
     Thrift,
+    /// JSON Type Definition schemas.
+    Jtd,
 }
 
 impl ApiFormat {
-    pub const ALL: [ApiFormat; 11] = [
+    pub const ALL: [ApiFormat; 12] = [
         ApiFormat::OpenApi,
         ApiFormat::AsyncApi,
         ApiFormat::JsonSchema,
@@ -129,6 +131,7 @@ impl ApiFormat {
         ApiFormat::Wsdl,
         ApiFormat::Raml,
         ApiFormat::Thrift,
+        ApiFormat::Jtd,
     ];
 
     /// The name `parse` reads back.
@@ -145,6 +148,7 @@ impl ApiFormat {
             ApiFormat::Wsdl => "wsdl",
             ApiFormat::Raml => "raml",
             ApiFormat::Thrift => "thrift",
+            ApiFormat::Jtd => "jtd",
         }
     }
 
@@ -161,6 +165,7 @@ impl ApiFormat {
             "wsdl" => Some(ApiFormat::Wsdl),
             "raml" => Some(ApiFormat::Raml),
             "thrift" => Some(ApiFormat::Thrift),
+            "jtd" | "json-type-definition" => Some(ApiFormat::Jtd),
             _ => None,
         }
     }
