@@ -257,6 +257,7 @@ dependencies = [
  "faultline-graphql",
  "faultline-ir",
  "faultline-jsonschema",
+ "faultline-jtd",
  "faultline-net",
  "faultline-openapi",
  "faultline-policy",
@@ -321,6 +322,7 @@ dependencies = [
  "faultline-graphql",
  "faultline-ir",
  "faultline-jsonschema",
+ "faultline-jtd",
  "faultline-openapi",
  "faultline-protobuf",
  "faultline-raml",
@@ -361,6 +363,15 @@ dependencies = [
  "faultline-ir",
  "faultline-source",
  "indexmap",
+]
+
+[[package]]
+name = "faultline-jtd"
+version = "0.1.0"
+dependencies = [
+ "faultline-doc",
+ "faultline-ir",
+ "faultline-source",
 ]
 
 [[package]]
