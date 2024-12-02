@@ -190,6 +190,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Types are compared by field id, integer widths and collection kinds as
   wire types, and services as RPC operations whose replies hold the result
   or a declared exception. Fuzzed (`lower_thrift`).
+- `faultline-jtd` and `format = "jtd"`: JSON Type Definition (RFC 8927)
+  schemas, checked as strictly as the RFC requires, with closed objects,
+  tagged unions and named definitions. `.jtd.json` files are recognized.
+  Fuzzed (`lower_jtd`).
 - FL3002 `one-way-changed`: an RPC that starts or stops expecting a reply
   (Thrift `oneway`, WSDL operations without an output).
 - FL1031 covers collections whose wire encoding changes, and a removed

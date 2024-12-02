@@ -119,6 +119,7 @@ plugins in v1.
 | `faultline-wsdl` | WSDL 1.1 reading, SOAP bindings, lowering |
 | `faultline-raml` | RAML 1.0 includes, libraries, resource types and traits, lowering |
 | `faultline-thrift` | Thrift IDL lexer, parser, include loading, linker, lowering |
+| `faultline-jtd` | JSON Type Definition (RFC 8927) checking and lowering |
 | `faultline-diff` | Alignment, rename detection, comparison engine, change model |
 | `faultline-rules` | Rule catalog, classification, semver derivation |
 | `faultline-policy` | `faultline.toml`, overrides, waivers, baselines, verdicts |
@@ -261,3 +262,4 @@ The milestones the project was built in, in order. The
 | M19 XML services | XML reader, XML Schema, WSDL 1.1 with SOAP bindings |
 | M20 RAML | RAML 1.0 includes, libraries, templates, types, embedded JSON Schema |
 | M21 Thrift | Thrift IDL, services, wire types, one-way calls |
+| M22 JSON Type Definition | RFC 8927 schemas |

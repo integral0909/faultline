@@ -91,6 +91,20 @@ faultline diff old/config.json new/config.json --role input  # others write thes
 With `--role both` (the default) any change to the accepted values is
 breaking.
 
+## JSON Type Definition
+
+Files ending in `.jtd.json` are read as JSON Type Definitions (RFC 8927),
+used in the role given with `--role`:
+
+```sh
+faultline diff v1/event.jtd.json v2/event.jtd.json --role output
+```
+
+JTD objects are closed, so consumers that validate data reject properties
+they do not know, and new properties in output are reported as risky. See
+[examples/jtd](../examples/jtd) and the
+[JSON Type Definition internals](internals/jtd.md).
+
 ## Protobuf and gRPC
 
 `.proto` files are recognized by their extension:
