@@ -1,0 +1,20 @@
+[package]
+name = "faultline-jsonpath"
+description = "JSONPath (RFC 9535) queries over Faultline document trees"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+faultline-doc.workspace = true
+faultline-regex.workspace = true
+
+[dev-dependencies]
+faultline-source.workspace = true
+
+[lints]
+workspace = true

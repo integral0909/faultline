@@ -534,6 +534,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "faultline-jsonpath"
+version = "0.1.0"
+dependencies = [
+ "faultline-doc",
+ "faultline-regex",
+ "faultline-source",
+]
+
+[[package]]
 name = "faultline-jsonschema"
 version = "0.1.0"
 dependencies = [

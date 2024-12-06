@@ -1,2 +1,2 @@
 # Product and format names that appear in prose, not code.
-doc-valid-idents = ["OpenAPI", "GraphQL", "AsyncAPI", "gRPC", "Protobuf", "JUnit", ".."]
+doc-valid-idents = ["OpenAPI", "GraphQL", "AsyncAPI", "gRPC", "Protobuf", "JUnit", "JSONPath", ".."]
