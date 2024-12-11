@@ -231,6 +231,15 @@ impl Object {
         self.members.get(key).map(|m| &m.value)
     }
 
+    pub fn get_mut(&mut self, key: &str) -> Option<&mut Node> {
+        self.members.get_mut(key).map(|m| &mut m.value)
+    }
+
+    /// Removes a member, keeping the others in document order.
+    pub fn remove(&mut self, key: &str) -> Option<Member> {
+        self.members.shift_remove(key)
+    }
+
     pub fn member(&self, key: &str) -> Option<&Member> {
         self.members.get(key)
     }
@@ -310,6 +319,19 @@ mod tests {
         assert_eq!(old.key_span, span(0));
         assert_eq!(o.keys().collect::<Vec<_>>(), ["a", "b"]);
         assert!(o.get("a").unwrap().same_value(&num("3")));
+    }
+
+    #[test]
+    fn removal_keeps_the_order_of_the_rest() {
+        let mut o = Object::new();
+        for (i, key) in ["a", "b", "c"].into_iter().enumerate() {
+            o.insert(key.into(), span(i as u32), num("1"));
+        }
+        assert_eq!(o.remove("b").unwrap().key_span, span(1));
+        assert!(o.remove("b").is_none());
+        assert_eq!(o.keys().collect::<Vec<_>>(), ["a", "c"]);
+        *o.get_mut("c").unwrap() = num("2");
+        assert!(o.get("c").unwrap().same_value(&num("2")));
     }
 
     #[test]

@@ -600,6 +600,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "faultline-overlay"
+version = "0.1.0"
+dependencies = [
+ "faultline-doc",
+ "faultline-jsonpath",
+ "faultline-source",
+]
+
+[[package]]
 name = "faultline-policy"
 version = "0.1.0"
 dependencies = [
