@@ -484,13 +484,11 @@ impl Parser<'_> {
                     ("false", Literal::Bool(false)),
                     ("null", Literal::Null),
                 ] {
-                    let follows = self.rest()[word.len().min(self.rest().len())..]
-                        .chars()
-                        .next();
-                    if self.rest().starts_with(word)
-                        && !follows
-                            .is_some_and(|c| c.is_ascii_alphanumeric() || c == '_' || c == '(')
-                    {
+                    let Some(after) = self.rest().strip_prefix(word) else {
+                        continue;
+                    };
+                    let follows = after.chars().next();
+                    if !follows.is_some_and(|c| c.is_ascii_alphanumeric() || c == '_' || c == '(') {
                         self.pos += word.len();
                         return Ok(Operand::Literal(literal));
                     }

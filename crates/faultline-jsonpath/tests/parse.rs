@@ -80,6 +80,8 @@ fn invalid_queries() {
         "$[?@.a == 01]",
         "$[?@.a == 1.]",
         "$[1,]",
+        "$[?leng\u{508}gth(@) == 1]",
+        "$[?fals\u{e9} == 1]",
     ] {
         assert!(
             parse(query).is_err(),
