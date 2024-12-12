@@ -1,0 +1,42 @@
+openapi: 3.1.0
+info:
+  title: Pet Store
+  version: 1.0.0
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      parameters:
+        - name: limit
+          in: query
+          schema: {type: integer, maximum: 100}
+      responses:
+        "200":
+          description: The pets.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: "#/components/schemas/Pet"}
+  /internal/reindex:
+    post:
+      operationId: reindex
+      x-internal: true
+      responses:
+        "204": {description: Reindexed.}
+  /internal/pets/{id}:
+    delete:
+      operationId: purgePet
+      x-internal: true
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      responses:
+        "204": {description: Purged.}
+components:
+  schemas:
+    Pet:
+      type: object
+      required: [id, name]
+      properties:
+        id: {type: string}
+        name: {type: string}

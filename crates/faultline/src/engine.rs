@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use faultline_doc::loader::{FsLoader, LoadError, Loader, SchemeRouter, workspace_uri};
-use faultline_doc::{DocumentStore, UriRef};
+use faultline_doc::{DocumentStore, StoreError, UriRef};
 use faultline_ir::{Api, Role};
 use faultline_jsonschema::Options;
 use faultline_net::{HostPattern, NetworkPolicy, RemoteLoader};
@@ -30,6 +30,9 @@ pub struct Source {
     pub entry: PathBuf,
     /// Read the files from this revision instead of the working tree.
     pub revision: Option<Revision>,
+    /// Overlays applied to the entry document before it is lowered, in
+    /// order; paths like `entry`.
+    pub overlays: Vec<PathBuf>,
 }
 
 impl Source {
@@ -38,7 +41,15 @@ impl Source {
             root: root.into(),
             entry: entry.into(),
             revision: None,
+            overlays: Vec::new(),
         }
+    }
+
+    /// The same files, with `overlays` applied to the entry document.
+    #[must_use]
+    pub fn with_overlays(mut self, overlays: Vec<PathBuf>) -> Self {
+        self.overlays = overlays;
+        self
     }
 
     /// The same files, read from `revision`.
@@ -255,7 +266,7 @@ impl Engine {
         role: SchemaRole,
         sources: &SourceMap,
     ) -> Lowered {
-        let (loader, entry) = match self.open(source) {
+        let opened = match self.open(source) {
             Ok(opened) => opened,
             Err(failure) => {
                 return Lowered {
@@ -267,7 +278,17 @@ impl Engine {
                 };
             }
         };
-        self.lower_entry(loader.as_ref(), &entry, name, format, role, sources)
+        let mut lowered = self.lower_overlaid(
+            opened.loader.as_ref(),
+            &opened.entry,
+            &opened.overlays,
+            name,
+            format,
+            role,
+            sources,
+        );
+        lowered.diagnostics.extend(opened.notes);
+        lowered
     }
 
     /// Lowers the API whose entry document is `entry`, read through
@@ -282,6 +303,22 @@ impl Engine {
         role: SchemaRole,
         sources: &SourceMap,
     ) -> Lowered {
+        self.lower_overlaid(loader, entry, &[], name, format, role, sources)
+    }
+
+    /// Lowers the API at `entry` with `overlays` applied to its entry
+    /// document first.
+    #[allow(clippy::too_many_arguments)]
+    fn lower_overlaid(
+        &self,
+        loader: &dyn Loader,
+        entry: &UriRef,
+        overlays: &[UriRef],
+        name: &str,
+        format: Option<ApiFormat>,
+        role: SchemaRole,
+        sources: &SourceMap,
+    ) -> Lowered {
         let entry = entry.clone();
         let router = SchemeRouter {
             workspace: loader,
@@ -290,6 +327,22 @@ impl Engine {
         // Protobuf, GraphQL, XML Schema and WSDL are not JSON or YAML: they
         // are read by their own front ends.
         let format = format.or_else(|| format_by_extension(&entry));
+        if let Some(format) = format
+            && !overlays.is_empty()
+            && !reads_documents(format)
+        {
+            let message = format!(
+                "overlays apply to JSON and YAML descriptions, not to {}",
+                format.as_str()
+            );
+            return Lowered {
+                api: None,
+                diagnostics: [Diagnostic::error(message).with_code(codes::OVERLAY)]
+                    .into_iter()
+                    .collect(),
+                missing_entry: false,
+            };
+        }
         if let Some(format) = format
             && let Some((api, diagnostics)) =
                 self.lower_other(format, loader, &entry, name, role, sources)
@@ -302,6 +355,16 @@ impl Engine {
         }
         let mut store = DocumentStore::new(&router, sources, self.limits.clone());
         store.allow_remote(self.remote.is_some());
+        let overlaid = apply_overlays(&mut store, &entry, overlays);
+        if overlaid.has_errors() {
+            let mut diagnostics = store.take_diagnostics();
+            diagnostics.extend(overlaid);
+            return Lowered {
+                api: None,
+                diagnostics,
+                missing_entry: false,
+            };
+        }
         let format = match format {
             Some(format) => format,
             None => match detect_format(&mut store, &entry) {
@@ -310,7 +373,7 @@ impl Engine {
                 None => ApiFormat::JsonSchema,
             },
         };
-        let (mut api, diagnostics) = match format {
+        let (mut api, mut diagnostics) = match format {
             ApiFormat::OpenApi => {
                 let lowered = faultline_openapi::lower_openapi(&entry, &mut store, name);
                 (lowered.api, lowered.diagnostics)
@@ -349,6 +412,7 @@ impl Engine {
         if let Some(api) = &mut api {
             name.clone_into(&mut api.name);
         }
+        diagnostics.extend(overlaid);
         Lowered {
             api,
             diagnostics,
@@ -410,15 +474,16 @@ impl Engine {
         })
     }
 
-    /// A loader for a source's workspace and the URI of its entry document.
-    fn open(&self, source: &Source) -> Result<(Box<dyn Loader>, UriRef), Failure> {
+    /// A loader for a source's workspace, the URI of its entry document and
+    /// of its overlays.
+    fn open(&self, source: &Source) -> Result<Opened, Failure> {
         match &source.revision {
             None => self.open_worktree(source),
             Some(revision) => self.open_revision(source, revision),
         }
     }
 
-    fn open_worktree(&self, source: &Source) -> Result<(Box<dyn Loader>, UriRef), Failure> {
+    fn open_worktree(&self, source: &Source) -> Result<Opened, Failure> {
         let loader = FsLoader::new(&source.root, self.limits.clone()).map_err(|e| {
             Failure::new(
                 codes::INVALID_ROOT,
@@ -436,14 +501,31 @@ impl Engine {
                 format!("cannot read {}: {e}", source.entry.display()),
             ),
         })?;
-        Ok((Box::new(loader), entry))
+        let overlays = source
+            .overlays
+            .iter()
+            .map(|path| {
+                loader.uri_for(path).map_err(|e| {
+                    let problem = match e {
+                        LoadError::OutsideRoot => "it is outside the workspace root".to_owned(),
+                        e => e.to_string(),
+                    };
+                    Failure::new(
+                        codes::OVERLAY,
+                        format!("cannot read the overlay {}: {problem}", path.display()),
+                    )
+                })
+            })
+            .collect::<Result<_, _>>()?;
+        Ok(Opened {
+            loader: Box::new(loader),
+            entry,
+            overlays,
+            notes: Vec::new(),
+        })
     }
 
-    fn open_revision(
-        &self,
-        source: &Source,
-        revision: &Revision,
-    ) -> Result<(Box<dyn Loader>, UriRef), Failure> {
+    fn open_revision(&self, source: &Source, revision: &Revision) -> Result<Opened, Failure> {
         let root = source.root.canonicalize().map_err(|e| {
             Failure::new(
                 codes::INVALID_ROOT,
@@ -472,25 +554,111 @@ impl Engine {
             }
         };
         let root_in_repo = repo.repo_path(&root).map_err(git)?;
-        // The entry need not exist on disk: it may have been renamed or
+        // Files need not exist on disk: they may have been renamed or
         // deleted since the revision.
-        // As in `FsLoader::uri_for`, rebuild the entry from its components so
-        // it joins correctly onto a verbatim canonical root.
-        let entry_in_repo = repo
-            .repo_path(&root.join(source.entry.components().collect::<PathBuf>()))
-            .map_err(|_| outside_root(source))?;
-        let relative: PathBuf = entry_in_repo
-            .strip_prefix(root_in_repo.as_slice())
-            .ok_or_else(|| outside_root(source))?
-            .iter()
-            .collect();
-        let entry = workspace_uri(&relative);
-        let loader = repo.loader(&resolved, root_in_repo, self.limits.clone());
+        // As in `FsLoader::uri_for`, rebuild paths from their components so
+        // they join correctly onto a verbatim canonical root.
+        let in_workspace = |path: &Path| -> Option<UriRef> {
+            let in_repo = repo
+                .repo_path(&root.join(path.components().collect::<PathBuf>()))
+                .ok()?;
+            let relative: PathBuf = in_repo
+                .strip_prefix(root_in_repo.as_slice())?
+                .iter()
+                .collect();
+            Some(workspace_uri(&relative))
+        };
+        let entry = in_workspace(&source.entry).ok_or_else(|| outside_root(source))?;
+        let mut overlays = Vec::new();
+        let mut notes = Vec::new();
+        let loader = repo.loader(&resolved, root_in_repo.clone(), self.limits.clone());
+        for path in &source.overlays {
+            let Some(uri) = in_workspace(path) else {
+                return Err(Failure::new(
+                    codes::OVERLAY,
+                    format!(
+                        "the overlay {} is outside the workspace root {}",
+                        path.display(),
+                        source.root.display()
+                    ),
+                ));
+            };
+            // An overlay added since the revision did not apply to it.
+            if loader.load(&uri) == Err(LoadError::NotFound) {
+                notes.push(
+                    Diagnostic::note(format!(
+                        "the overlay {} does not exist in {}, which is compared without it",
+                        path.display(),
+                        describe(source)
+                    ))
+                    .with_code(codes::OVERLAY),
+                );
+                continue;
+            }
+            overlays.push(uri);
+        }
         if loader.load(&entry) == Err(LoadError::NotFound) {
             return Err(missing(source));
         }
-        Ok((Box::new(loader), entry))
+        Ok(Opened {
+            loader: Box::new(loader),
+            entry,
+            overlays,
+            notes,
+        })
     }
+}
+
+/// Whether a format's descriptions are JSON or YAML documents, which
+/// overlays can change.
+fn reads_documents(format: ApiFormat) -> bool {
+    matches!(
+        format,
+        ApiFormat::OpenApi
+            | ApiFormat::AsyncApi
+            | ApiFormat::JsonSchema
+            | ApiFormat::Avro
+            | ApiFormat::Jtd
+    )
+}
+
+/// Applies `overlays` to the entry document held by `store`, which later
+/// reads then see. Problems with the entry itself are left to lowering.
+fn apply_overlays(
+    store: &mut DocumentStore<'_>,
+    entry: &UriRef,
+    overlays: &[UriRef],
+) -> Diagnostics {
+    let mut diagnostics = Diagnostics::new();
+    if overlays.is_empty() {
+        return diagnostics;
+    }
+    let Ok(document) = store.get(entry) else {
+        return diagnostics;
+    };
+    let mut root = document.document.root.clone();
+    for uri in overlays {
+        match store.get(uri) {
+            Ok(overlay) => {
+                if let Some(overlay) =
+                    faultline_overlay::read(&overlay.document.root, &mut diagnostics)
+                {
+                    faultline_overlay::apply(&overlay, &mut root, &mut diagnostics);
+                }
+            }
+            Err(StoreError::Load(e)) => diagnostics.push(
+                Diagnostic::error(format!("cannot read the overlay {uri}: {e}"))
+                    .with_code(codes::OVERLAY),
+            ),
+            // The parse errors are among the store's diagnostics.
+            Err(StoreError::Parse) => diagnostics.push(
+                Diagnostic::error(format!("the overlay {uri} does not parse"))
+                    .with_code(codes::OVERLAY),
+            ),
+        }
+    }
+    let _ = store.replace_root(entry, root);
+    diagnostics
 }
 
 /// Compares two lowered versions of the API `name`, classifying every
@@ -553,6 +721,15 @@ fn spawn<'scope, 'env, T: Send + 'scope>(
 }
 
 /// Why a source could not be opened.
+/// A version's files, ready to be read.
+struct Opened {
+    loader: Box<dyn Loader>,
+    entry: UriRef,
+    overlays: Vec<UriRef>,
+    /// Things to know about how the version is read.
+    notes: Vec<Diagnostic>,
+}
+
 struct Failure {
     code: DiagnosticCode,
     message: String,

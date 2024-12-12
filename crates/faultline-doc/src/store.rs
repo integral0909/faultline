@@ -107,6 +107,27 @@ impl<'a> DocumentStore<'a> {
         result
     }
 
+    /// Replaces the tree of the document at `uri`, loading it first, for
+    /// callers that change a document before it is read (applying
+    /// overlays). Later reads see the new tree.
+    pub fn replace_root(&mut self, uri: &UriRef, root: crate::Node) -> Result<(), StoreError> {
+        let stored = self.get(uri)?;
+        let key = uri.without_fragment().normalized();
+        let document = Document {
+            root,
+            format: stored.document.format,
+            source: stored.document.source,
+        };
+        self.documents.insert(
+            key,
+            Ok(Arc::new(StoredDocument {
+                uri: stored.uri.clone(),
+                document,
+            })),
+        );
+        Ok(())
+    }
+
     /// Diagnostics raised while parsing documents so far.
     pub fn take_diagnostics(&mut self) -> Diagnostics {
         std::mem::take(&mut self.diagnostics)

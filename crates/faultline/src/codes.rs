@@ -13,3 +13,7 @@ pub const UNKNOWN_REVISION: DiagnosticCode = DiagnosticCode::new("FLE0904");
 /// A configured API does not exist in the old version (a note, not an
 /// error).
 pub const NEW_API: DiagnosticCode = DiagnosticCode::new("FLE0905");
+/// An overlay cannot be read or applied, or is given for a format that is
+/// not JSON or YAML. An overlay missing from a revision is a note: the
+/// version is compared without it.
+pub const OVERLAY: DiagnosticCode = DiagnosticCode::new("FLE0906");

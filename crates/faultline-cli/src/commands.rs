@@ -137,6 +137,10 @@ pub(crate) struct CompareArgs {
     /// compatibility, `output` FORWARD and `both` FULL.
     #[arg(long, value_enum, default_value = "both")]
     role: Role,
+    /// An overlay to apply to both versions before comparing them; may be
+    /// repeated, and the overlays apply in order.
+    #[arg(long = "overlay", value_name = "FILE")]
+    overlays: Vec<PathBuf>,
     #[command(flatten)]
     workspace: WorkspaceArgs,
 }
@@ -319,11 +323,11 @@ fn setup(args: &WorkspaceArgs) -> Result<(Config, PathBuf), String> {
 
 fn target(args: &CompareArgs, root: &Path) -> Target {
     let new = args.new.as_ref().unwrap_or(&args.old);
-    let mut old_source = Source::new(root, &args.old);
+    let mut old_source = Source::new(root, &args.old).with_overlays(args.overlays.clone());
     if let Some(rev) = &args.old_rev {
         old_source = old_source.at(Revision::Named(rev.clone()));
     }
-    let mut new_source = Source::new(root, new);
+    let mut new_source = Source::new(root, new).with_overlays(args.overlays.clone());
     if let Some(rev) = &args.new_rev {
         new_source = new_source.at(Revision::Named(rev.clone()));
     }
@@ -403,8 +407,10 @@ fn check(args: &CheckArgs) -> Result<i32, String> {
         .iter()
         .filter(|api| args.apis.is_empty() || args.apis.contains(&api.name))
         .map(|api| {
-            let old = Source::new(&root, &api.entry).at(old_revision.clone());
-            let mut new = Source::new(&root, &api.entry);
+            let old = Source::new(&root, &api.entry)
+                .at(old_revision.clone())
+                .with_overlays(api.overlays.clone());
+            let mut new = Source::new(&root, &api.entry).with_overlays(api.overlays.clone());
             if let Some(head) = &args.head {
                 new = new.at(Revision::Named(head.clone()));
             }

@@ -1,0 +1,11 @@
+overlay: 1.0.0
+info:
+  title: The public API
+  version: 1.0.0
+actions:
+  # Operations for the operations team only.
+  - target: $.paths.*[?@['x-internal'] == true]
+    remove: true
+  # Paths left without operations.
+  - target: $.paths[?length(@) == 0]
+    remove: true

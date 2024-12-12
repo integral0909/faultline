@@ -63,6 +63,8 @@ struct RawApi {
     entry: PathBuf,
     format: Option<String>,
     role: Option<String>,
+    #[serde(default)]
+    overlays: Vec<PathBuf>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -207,6 +209,9 @@ pub struct ApiConfig {
     /// Detected from the document when absent.
     pub format: Option<ApiFormat>,
     pub role: SchemaRole,
+    /// Overlays applied to the entry document of both versions, in order;
+    /// relative to the workspace root.
+    pub overlays: Vec<PathBuf>,
 }
 
 /// How declared API versions are checked against the changes.
@@ -480,6 +485,7 @@ fn apis(raw: Vec<RawApi>, problems: &mut Vec<String>) -> Vec<ApiConfig> {
             entry: api.entry,
             format,
             role,
+            overlays: api.overlays,
         });
     }
     apis

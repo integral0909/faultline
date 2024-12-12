@@ -15,6 +15,7 @@ name = "public"                 # used in reports and finding ids
 entry = "api/openapi.yaml"
 # format = "openapi"            # or "asyncapi", "jsonschema", "protobuf", "protobuf-http", "graphql", "avro", "xsd", "wsdl", "raml", "thrift", "jtd"; detected when omitted
 # role = "input"                # schemas without operations: input | output | both
+# overlays = ["api/public.yaml"] # OpenAPI Overlays applied to both versions, in order
 
 [policy]
 fail_on = "breaking"            # breaking | risky | never
@@ -66,6 +67,22 @@ error: petstore declares 1.0.0 -> 1.1.0, a minor release, but its changes need a
 
 APIs whose versions are not both semantic versions (`2024-06`, a format
 without a version) are not checked.
+
+## Overlays
+
+`overlays` lists OpenAPI Overlay 1.0 documents to apply to an API's entry
+document before it is lowered, in order, for both versions. Use this when
+what clients see is the description with an overlay applied, for example
+with internal operations removed. `diff --overlay FILE` does the same for a
+single comparison.
+
+Overlays apply to JSON and YAML descriptions (OpenAPI, AsyncAPI, JSON
+Schema, Avro, JSON Type Definition). When a version is read from a git
+revision, each overlay is read from that revision too. An overlay that did
+not exist yet in that revision is noted, and the version is compared
+without it. An action whose target selects nothing is warned about
+(`FLE1203`), since it usually means the overlay no longer matches the
+description.
 
 ## Overrides
 

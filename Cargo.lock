@@ -430,6 +430,7 @@ dependencies = [
  "faultline-jtd",
  "faultline-net",
  "faultline-openapi",
+ "faultline-overlay",
  "faultline-policy",
  "faultline-protobuf",
  "faultline-raml",

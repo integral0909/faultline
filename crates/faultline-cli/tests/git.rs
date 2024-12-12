@@ -311,3 +311,30 @@ fn revision_errors_exit_with_2() {
     assert_eq!(output.status.code(), Some(2));
     assert!(stdout(&output).contains("[FLE0903]"), "{}", stdout(&output));
 }
+
+#[test]
+fn overlays_missing_from_the_base_are_noted() {
+    let dir = repository();
+    git(
+        dir.path(),
+        &["update-ref", "refs/remotes/origin/main", "main"],
+    );
+    // The overlay and its configuration are new on the branch.
+    write(
+        dir.path(),
+        "faultline.toml",
+        &format!("{CONFIG}overlays = [\"api/public.yaml\"]\n"),
+    );
+    write(
+        dir.path(),
+        "api/public.yaml",
+        "overlay: 1.0.0\ninfo: {title: Public, version: 1.0.0}\nactions:\n  - target: $.info\n    update: {description: The public API.}\n",
+    );
+    let output = faultline(dir.path(), &["check", "--base", "origin/main"]);
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    let text = stdout(&output);
+    assert!(
+        text.contains("the overlay api/public.yaml does not exist in the merge base of origin/main and HEAD, which is compared without it"),
+        "{text}"
+    );
+}

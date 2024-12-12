@@ -758,6 +758,59 @@ fn json_type_definitions_are_compared() {
 }
 
 #[test]
+fn overlays_apply_before_comparing() {
+    let dir = repo().join("examples/overlay");
+    let without = faultline(&dir, &["diff", "v1/openapi.yaml", "v2/openapi.yaml"]);
+    assert_eq!(without.status.code(), Some(1), "{}", stdout(&without));
+    let with = faultline(
+        &dir,
+        &[
+            "diff",
+            "v1/openapi.yaml",
+            "v2/openapi.yaml",
+            "--overlay",
+            "public.yaml",
+        ],
+    );
+    assert_eq!(with.status.code(), Some(0), "{}", stdout(&with));
+    assert!(stdout(&with).contains("0 breaking, 0 risky, 1 compatible"));
+
+    let missing = faultline(
+        &dir,
+        &[
+            "diff",
+            "v1/openapi.yaml",
+            "v2/openapi.yaml",
+            "--overlay",
+            "none.yaml",
+        ],
+    );
+    assert_eq!(missing.status.code(), Some(2));
+    assert!(stdout(&missing).contains("FLE0906"), "{}", stdout(&missing));
+}
+
+#[test]
+fn overlays_only_apply_to_documents() {
+    let dir = repo().join("examples/thrift");
+    let output = faultline(
+        &dir,
+        &[
+            "diff",
+            "v1/pets.thrift",
+            "v2/pets.thrift",
+            "--overlay",
+            "v1/shared.thrift",
+        ],
+    );
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        stdout(&output).contains("overlays apply to JSON and YAML descriptions, not to thrift"),
+        "{}",
+        stdout(&output)
+    );
+}
+
+#[test]
 fn declared_versions_are_checked_with_semver_versioning() {
     let dir = workspace();
     // Version 2 claims to be a minor release despite its breaking changes.
