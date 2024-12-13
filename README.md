@@ -59,6 +59,8 @@ See [getting started](docs/getting-started.md) and
 * **Honest about uncertainty.** When a question cannot be decided (for
   example a regular expression with look-around), the result is *unknown*, never
   silently *safe*.
+* **Compares what clients see.** OpenAPI Overlays are applied before
+  comparing, so internal operations an overlay removes do not count.
 * **Built for CI.** Reads git revisions straight from the object database, has
   stable finding ids for waivers (which must expire), and emits SARIF, JSON,
   Markdown, JUnit, GitHub annotations and GitLab Code Quality reports.

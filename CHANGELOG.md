@@ -190,6 +190,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Types are compared by field id, integer widths and collection kinds as
   wire types, and services as RPC operations whose replies hold the result
   or a declared exception. Fuzzed (`lower_thrift`).
+- Overlays: `overlays` in `[[api]]` and `diff --overlay` apply OpenAPI
+  Overlay 1.0 documents to the entry document of both versions before
+  comparing. Each version reads its own overlays; one missing from a
+  revision is noted. Built on `faultline-jsonpath`, an RFC 9535 JSONPath
+  implementation with filters and the standard functions. Fuzzed
+  (`jsonpath`, `apply_overlay`).
 - `faultline-jtd` and `format = "jtd"`: JSON Type Definition (RFC 8927)
   schemas, checked as strictly as the RFC requires, with closed objects,
   tagged unions and named definitions. `.jtd.json` files are recognized.

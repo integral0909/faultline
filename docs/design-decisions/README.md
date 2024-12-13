@@ -21,3 +21,4 @@ New records start from [template.md](template.md) and take the next number.
 | [0010](0010-writer-and-reader-views.md) | Writer and reader views of a type | Accepted |
 | [0011](0011-a-bounded-http-server-for-the-registry.md) | A small, bounded HTTP server for the registry | Accepted |
 | [0012](0012-xml-documents-as-objects.md) | XML documents compared as objects | Accepted |
+| [0013](0013-overlays-applied-to-document-trees.md) | Overlays applied to document trees, per version | Accepted |

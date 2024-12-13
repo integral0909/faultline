@@ -322,6 +322,21 @@ An operation whose path or name changed while everything else stayed the
 same is reported as moved (FL2004), not as a removal and an unrelated
 addition.
 
+## Overlays
+
+When clients see a description with an overlay applied (OpenAPI Overlay
+1.0), compare it that way. Here the overlay removes the operations marked
+`x-internal`:
+
+```sh
+faultline diff v1/openapi.yaml v2/openapi.yaml --overlay public.yaml
+```
+
+For `check`, list the overlays of an API in `faultline.toml`
+(`overlays = ["public.yaml"]`). Each version is read with its own copy of
+the overlays. See [examples/overlay](../examples/overlay) and
+[configuration.md](configuration.md#overlays).
+
 ## Taking usage into account
 
 A usage index built from access logs or client queries softens findings

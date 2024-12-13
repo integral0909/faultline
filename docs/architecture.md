@@ -120,6 +120,8 @@ plugins in v1.
 | `faultline-raml` | RAML 1.0 includes, libraries, resource types and traits, lowering |
 | `faultline-thrift` | Thrift IDL lexer, parser, include loading, linker, lowering |
 | `faultline-jtd` | JSON Type Definition (RFC 8927) checking and lowering |
+| `faultline-jsonpath` | JSONPath (RFC 9535) parsing and evaluation |
+| `faultline-overlay` | OpenAPI Overlay 1.0 reading and application |
 | `faultline-diff` | Alignment, rename detection, comparison engine, change model |
 | `faultline-rules` | Rule catalog, classification, semver derivation |
 | `faultline-policy` | `faultline.toml`, overrides, waivers, baselines, verdicts |
@@ -263,3 +265,4 @@ The milestones the project was built in, in order. The
 | M20 RAML | RAML 1.0 includes, libraries, templates, types, embedded JSON Schema |
 | M21 Thrift | Thrift IDL, services, wire types, one-way calls |
 | M22 JSON Type Definition | RFC 8927 schemas |
+| M23 Overlays | JSONPath, OpenAPI Overlays applied per version |
