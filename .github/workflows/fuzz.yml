@@ -23,6 +23,8 @@ on:
       - "crates/faultline-raml/**"
       - "crates/faultline-thrift/**"
       - "crates/faultline-jtd/**"
+      - "crates/faultline-jsonpath/**"
+      - "crates/faultline-overlay/**"
       - "crates/faultline-regex/**"
       - "crates/faultline-diff/**"
       - "crates/faultline-subsume/**"
@@ -40,7 +42,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [parse_json, parse_yaml, uri_pointer, lower_jsonschema, lower_openapi, lower_protobuf, lower_graphql, lower_avro, regex, http_request, lower_asyncapi, parse_xml, lower_xsd, lower_wsdl, lower_raml, lower_thrift, lower_jtd]
+        target: [parse_json, parse_yaml, uri_pointer, lower_jsonschema, lower_openapi, lower_protobuf, lower_graphql, lower_avro, regex, http_request, lower_asyncapi, parse_xml, lower_xsd, lower_wsdl, lower_raml, lower_thrift, lower_jtd, jsonpath, apply_overlay]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly
