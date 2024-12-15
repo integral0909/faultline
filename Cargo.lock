@@ -692,6 +692,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "faultline-smithy"
+version = "0.1.0"
+dependencies = [
+ "faultline-diff",
+ "faultline-doc",
+ "faultline-ir",
+ "faultline-rules",
+ "faultline-source",
+]
+
+[[package]]
 name = "faultline-source"
 version = "0.1.0"
 dependencies = [

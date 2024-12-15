@@ -33,6 +33,7 @@ faultline-thrift = { path = "crates/faultline-thrift", version = "0.1.0" }
 faultline-jtd = { path = "crates/faultline-jtd", version = "0.1.0" }
 faultline-jsonpath = { path = "crates/faultline-jsonpath", version = "0.1.0" }
 faultline-overlay = { path = "crates/faultline-overlay", version = "0.1.0" }
+faultline-smithy = { path = "crates/faultline-smithy", version = "0.1.0" }
 faultline-registry = { path = "crates/faultline-registry", version = "0.1.0" }
 faultline-regex = { path = "crates/faultline-regex", version = "0.1.0" }
 faultline-report = { path = "crates/faultline-report", version = "0.1.0" }
