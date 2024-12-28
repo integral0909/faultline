@@ -87,6 +87,34 @@ fn loads_files_as_they_were_in_a_revision() {
 }
 
 #[test]
+fn lists_directories_as_they_were_in_a_revision() {
+    let dir = fixture();
+    write(dir.path(), "api/new.yaml", "added: later\n");
+    let repo = Repository::discover(dir.path()).unwrap();
+    let head = repo.resolve("HEAD").unwrap();
+    let loader = repo.loader(&head, Vec::new(), Limits::default());
+    assert_eq!(
+        loader.list(&uri("file:///api/")).unwrap(),
+        ["common.yaml", "openapi.yaml"]
+    );
+    assert_eq!(
+        loader.list(&uri("file:///")).unwrap(),
+        Vec::<String>::new(),
+        "no files at the top"
+    );
+    assert_eq!(
+        loader.list(&uri("file:///api/openapi.yaml")),
+        Err(LoadError::NotFound),
+        "a file is not a directory"
+    );
+    let rooted = repo.loader(&head, vec!["api".into()], Limits::default());
+    assert_eq!(
+        rooted.list(&uri("file:///")).unwrap(),
+        ["common.yaml", "openapi.yaml"]
+    );
+}
+
+#[test]
 fn discovery_works_from_subdirectories() {
     let dir = fixture();
     let repo = Repository::discover(&dir.path().join("api")).unwrap();

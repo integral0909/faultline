@@ -126,3 +126,57 @@ fn encoded_names_round_trip_through_the_filesystem() {
     let uri = workspace_uri(Path::new("api/pet store#1.yaml"));
     assert_eq!(loader.load(&uri).unwrap().text, "a: 1\n");
 }
+
+#[test]
+fn lists_the_files_of_a_directory() {
+    let (dir, loader) = workspace();
+    fs::write(dir.path().join("ws/api/b.smithy"), "").unwrap();
+    assert_eq!(
+        loader.list(&u("file:///api/")).unwrap(),
+        ["b.smithy", "openapi.yaml"],
+        "files only, sorted"
+    );
+    assert_eq!(loader.list(&u("file:///api/common")).unwrap(), ["pet.json"]);
+    assert!(loader.list(&u("file:///missing/")).is_err());
+    assert_eq!(
+        loader.list(&u("file:///../")).unwrap_err(),
+        LoadError::OutsideRoot
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn listing_leaves_out_links_that_leave_the_root() {
+    let (dir, loader) = workspace();
+    std::os::unix::fs::symlink(
+        dir.path().join("secret.txt"),
+        dir.path().join("ws/api/leak.txt"),
+    )
+    .unwrap();
+    std::os::unix::fs::symlink(
+        dir.path().join("ws/api/openapi.yaml"),
+        dir.path().join("ws/api/alias.yaml"),
+    )
+    .unwrap();
+    assert_eq!(
+        loader.list(&u("file:///api/")).unwrap(),
+        ["alias.yaml", "openapi.yaml"]
+    );
+}
+
+#[test]
+fn memory_loaders_list_their_documents() {
+    let loader = faultline_doc::loader::MemoryLoader::new()
+        .with("file:///m/a.smithy", "")
+        .with("file:///m/b%20c.smithy", "")
+        .with("file:///m/sub/d.smithy", "")
+        .with("file:///other.smithy", "");
+    assert_eq!(
+        loader.list(&u("file:///m/")).unwrap(),
+        ["a.smithy", "b c.smithy"]
+    );
+    assert_eq!(
+        faultline_doc::loader::directory_of(&u("file:///m/a.smithy")).to_string(),
+        "file:///m/"
+    );
+}

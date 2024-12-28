@@ -42,6 +42,28 @@ impl Loader for OverlayLoader<'_> {
             None => self.inner.load(uri),
         }
     }
+
+    /// The files underneath, and open documents in the directory that are
+    /// not saved yet.
+    fn list(&self, uri: &UriRef) -> Result<Vec<String>, LoadError> {
+        let mut names = self.inner.list(uri).unwrap_or_default();
+        let mut prefix = key(uri);
+        if !prefix.ends_with('/') {
+            prefix.push('/');
+        }
+        for document in self.documents.keys() {
+            if let Some(name) = document.strip_prefix(&prefix)
+                && !name.is_empty()
+                && !name.contains('/')
+                && let Some(name) = faultline_doc::uri::percent_decode(name)
+                && !names.contains(&name)
+            {
+                names.push(name);
+            }
+        }
+        names.sort();
+        Ok(names)
+    }
 }
 
 #[cfg(test)]
@@ -62,5 +84,20 @@ mod tests {
         assert_eq!(load("file:///api/./b.yaml").unwrap(), "other");
         assert_eq!(load("file:///api/new.yaml").unwrap(), "created");
         assert_eq!(load("file:///api/c.yaml"), Err(LoadError::NotFound));
+    }
+
+    #[test]
+    fn listings_include_unsaved_documents() {
+        let disk = MemoryLoader::new()
+            .with("file:///model/a.smithy", "")
+            .with("file:///model/b.smithy", "");
+        let mut overlay = OverlayLoader::new(&disk);
+        overlay.insert(Path::new("model/a.smithy"), "changed");
+        overlay.insert(Path::new("model/new.smithy"), "created");
+        overlay.insert(Path::new("elsewhere.smithy"), "");
+        let listed = overlay
+            .list(&UriRef::parse("file:///model/").unwrap())
+            .unwrap();
+        assert_eq!(listed, ["a.smithy", "b.smithy", "new.smithy"]);
     }
 }

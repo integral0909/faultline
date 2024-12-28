@@ -292,4 +292,33 @@ impl Loader for GitLoader {
             text: text.to_owned(),
         })
     }
+
+    /// The blobs in a directory of the revision's tree; links and
+    /// submodules are left out, as they are not read.
+    fn list(&self, uri: &UriRef) -> Result<Vec<String>, LoadError> {
+        let relative = workspace_path(uri)?;
+        let repo = self.repo.to_thread_local();
+        let git = |e: gix::Error| LoadError::Io(e.to_string());
+        let mut tree = repo.find_tree(self.tree).map_err(git)?;
+        let path: PathBuf = self.root.iter().chain(&relative).collect();
+        if !path.as_os_str().is_empty() {
+            let entry = tree
+                .lookup_entry_by_path(&path)
+                .map_err(git)?
+                .ok_or(LoadError::NotFound)?;
+            if !entry.mode().is_tree() {
+                return Err(LoadError::NotFound);
+            }
+            tree = repo.find_tree(entry.object_id()).map_err(git)?;
+        }
+        let decoded = tree.decode().map_err(|e| LoadError::Io(e.to_string()))?;
+        let mut names: Vec<String> = decoded
+            .entries
+            .iter()
+            .filter(|e| e.mode.is_blob())
+            .map(|e| e.filename.to_string())
+            .collect();
+        names.sort();
+        Ok(names)
+    }
 }

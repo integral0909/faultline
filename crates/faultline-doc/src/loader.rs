@@ -85,6 +85,19 @@ impl std::error::Error for LoadError {}
 pub trait Loader: Send + Sync {
     /// Loads the document at `uri`. The fragment, if any, is ignored.
     fn load(&self, uri: &UriRef) -> Result<Loaded, LoadError>;
+
+    /// The names of the files directly in the directory `uri` names,
+    /// sorted, for formats whose models span the files of a directory
+    /// (Smithy). Loaders that cannot list directories report none.
+    fn list(&self, uri: &UriRef) -> Result<Vec<String>, LoadError> {
+        let _ = uri;
+        Ok(Vec::new())
+    }
+}
+
+/// The directory a document is in, as a URI ending in `/`.
+pub fn directory_of(uri: &UriRef) -> UriRef {
+    uri.resolve(&UriRef::parse(".").expect("`.` is a relative reference"))
 }
 
 /// Sends `http`/`https` URIs to a remote loader, when there is one, and
@@ -107,6 +120,14 @@ impl Loader for SchemeRouter<'_> {
         match (uri.scheme(), self.remote) {
             (Some(scheme), Some(remote)) if is_network_scheme(scheme) => remote.load(uri),
             _ => self.workspace.load(uri),
+        }
+    }
+
+    fn list(&self, uri: &UriRef) -> Result<Vec<String>, LoadError> {
+        match uri.scheme() {
+            // Remote directories are not listed.
+            Some(scheme) if is_network_scheme(scheme) => Ok(Vec::new()),
+            _ => self.workspace.list(uri),
         }
     }
 }
@@ -148,6 +169,22 @@ impl Loader for MemoryLoader {
                 text: text.clone(),
             })
             .ok_or(LoadError::NotFound)
+    }
+
+    fn list(&self, uri: &UriRef) -> Result<Vec<String>, LoadError> {
+        let mut prefix = uri.without_fragment().normalized().to_string();
+        if !prefix.ends_with('/') {
+            prefix.push('/');
+        }
+        let mut names: Vec<String> = self
+            .documents
+            .keys()
+            .filter_map(|key| key.strip_prefix(&prefix))
+            .filter(|rest| !rest.is_empty() && !rest.contains('/'))
+            .filter_map(percent_decode)
+            .collect();
+        names.sort();
+        Ok(names)
     }
 }
 
@@ -273,6 +310,28 @@ impl Loader for FsLoader {
             name: SourceName::Path(relative.to_path_buf()),
             text: text.to_owned(),
         })
+    }
+
+    /// Regular files in the directory, including links to files inside the
+    /// workspace; nothing outside the root is listed.
+    fn list(&self, uri: &UriRef) -> Result<Vec<String>, LoadError> {
+        let path = self.path_for(uri)?;
+        let canonical = path.canonicalize().map_err(|e| io_error(&e))?;
+        if !canonical.starts_with(&self.root) {
+            return Err(LoadError::OutsideRoot);
+        }
+        let entries = std::fs::read_dir(&canonical).map_err(|e| io_error(&e))?;
+        let mut names = Vec::new();
+        for entry in entries.flatten() {
+            let Ok(target) = entry.path().canonicalize() else {
+                continue;
+            };
+            if target.starts_with(&self.root) && target.is_file() {
+                names.push(entry.file_name().to_string_lossy().into_owned());
+            }
+        }
+        names.sort();
+        Ok(names)
     }
 }
 
