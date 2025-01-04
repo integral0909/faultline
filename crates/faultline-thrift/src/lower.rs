@@ -11,7 +11,7 @@
 //! | `map<K, V>` | map |
 //! | `enum` | enum of the value names, with their numbers |
 //! | `struct`, `exception` | object whose fields carry their ids as tags |
-//! | `union` | object whose fields exclude each other, one of them set |
+//! | `union` | closed object whose fields exclude each other, one of them set |
 //! | `typedef` | the type it names |
 //!
 //! Numbers and collections carry their wire type as their encoding, so
@@ -145,8 +145,15 @@ impl<'a> Lowerer<'a> {
     }
 
     fn structure(&mut self, file: usize, s: &Struct) -> TypeNode {
-        let any = self.api.types.alloc(TypeNode::new(TypeKind::Any));
-        let mut object = ObjectType::new(any);
+        // Readers skip fields they do not know; a union left without a
+        // field it knows has no value, so unions are closed.
+        let others = if s.kind == StructKind::Union {
+            TypeKind::Never
+        } else {
+            TypeKind::Any
+        };
+        let others = self.api.types.alloc(TypeNode::new(others));
+        let mut object = ObjectType::new(others);
         for field in &s.fields {
             let ty = self.field_type(file, &field.ty);
             let required = field.requiredness == crate::ast::Requiredness::Required;

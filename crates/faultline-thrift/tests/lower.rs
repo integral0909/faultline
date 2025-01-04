@@ -173,6 +173,18 @@ fn wire_changes_are_classified() {
 }
 
 #[test]
+fn union_changes_are_classified() {
+    let base = "union Payload { 1: i32 number, 2: string text }\n";
+    let wider = base.replace("string text", "string text, 3: bool flag");
+    assert_eq!(
+        worst(base, &wider, Role::Output),
+        Severity::Risky,
+        "old readers do not know the new field"
+    );
+    assert_eq!(worst(base, &wider, Role::Input), Severity::Info);
+}
+
+#[test]
 fn enum_changes_are_classified() {
     let base = "enum Kind { DOG = 1, CAT = 2 }\nstruct Pet { 1: required Kind kind }\n";
     assert_eq!(
