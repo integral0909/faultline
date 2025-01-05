@@ -25,6 +25,7 @@ pub enum ApiFormat {
     Raml,
     Thrift,
     JsonTypeDefinition,
+    Smithy,
 }
 
 impl ApiFormat {
@@ -44,6 +45,7 @@ impl ApiFormat {
             ApiFormat::Raml => "raml-1.0",
             ApiFormat::Thrift => "thrift",
             ApiFormat::JsonTypeDefinition => "jtd",
+            ApiFormat::Smithy => "smithy",
         }
     }
 }
