@@ -9,6 +9,7 @@ pub mod codes;
 pub mod lexer;
 pub mod load;
 mod lower;
+mod operations;
 pub mod parser;
 pub mod resolve;
 
@@ -28,8 +29,9 @@ pub struct Lowered {
 }
 
 /// Lowers the Smithy model whose entry file is `entry` into an API named
-/// `name`. The structures and unions of the entry file's namespace are
-/// schema roots used in `role`.
+/// `name`: the operations of the services in the entry file's namespace,
+/// or, when it has none, its structures and unions as schema roots used in
+/// `role`.
 pub fn lower_smithy(
     entry: &UriRef,
     loader: &dyn Loader,
@@ -62,8 +64,14 @@ pub fn lower_smithy(
     }
     let mut lowerer = lower::Lowerer::new(&model, name, &namespace);
     let prefix = format!("{namespace}#");
+    let has_services = model
+        .shapes
+        .iter()
+        .any(|s| s.kind == ShapeKind::Service && s.id.starts_with(&prefix));
+    lowerer.services(&namespace);
     for shape in &model.shapes {
-        let root = matches!(shape.kind, ShapeKind::Structure | ShapeKind::Union)
+        let root = !has_services
+            && matches!(shape.kind, ShapeKind::Structure | ShapeKind::Union)
             && shape.id.starts_with(&prefix)
             && !shape.has_trait("mixin");
         if root {
