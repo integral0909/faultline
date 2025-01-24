@@ -436,6 +436,7 @@ dependencies = [
  "faultline-raml",
  "faultline-report",
  "faultline-rules",
+ "faultline-smithy",
  "faultline-source",
  "faultline-thrift",
  "faultline-vcs",

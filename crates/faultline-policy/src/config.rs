@@ -118,10 +118,12 @@ pub enum ApiFormat {
     Thrift,
     /// JSON Type Definition schemas.
     Jtd,
+    /// Smithy models.
+    Smithy,
 }
 
 impl ApiFormat {
-    pub const ALL: [ApiFormat; 12] = [
+    pub const ALL: [ApiFormat; 13] = [
         ApiFormat::OpenApi,
         ApiFormat::AsyncApi,
         ApiFormat::JsonSchema,
@@ -134,6 +136,7 @@ impl ApiFormat {
         ApiFormat::Raml,
         ApiFormat::Thrift,
         ApiFormat::Jtd,
+        ApiFormat::Smithy,
     ];
 
     /// The name `parse` reads back.
@@ -151,6 +154,7 @@ impl ApiFormat {
             ApiFormat::Raml => "raml",
             ApiFormat::Thrift => "thrift",
             ApiFormat::Jtd => "jtd",
+            ApiFormat::Smithy => "smithy",
         }
     }
 
@@ -168,6 +172,7 @@ impl ApiFormat {
             "raml" => Some(ApiFormat::Raml),
             "thrift" => Some(ApiFormat::Thrift),
             "jtd" | "json-type-definition" => Some(ApiFormat::Jtd),
+            "smithy" => Some(ApiFormat::Smithy),
             _ => None,
         }
     }

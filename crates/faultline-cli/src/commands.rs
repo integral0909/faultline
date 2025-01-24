@@ -33,6 +33,8 @@ pub(crate) enum Format {
     Thrift,
     /// JSON Type Definition (RFC 8927).
     Jtd,
+    /// Smithy IDL 2.0.
+    Smithy,
 }
 
 impl From<Format> for ApiFormat {
@@ -50,6 +52,7 @@ impl From<Format> for ApiFormat {
             Format::Raml => ApiFormat::Raml,
             Format::Thrift => ApiFormat::Thrift,
             Format::Jtd => ApiFormat::Jtd,
+            Format::Smithy => ApiFormat::Smithy,
         }
     }
 }

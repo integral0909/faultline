@@ -811,6 +811,46 @@ fn overlays_only_apply_to_documents() {
 }
 
 #[test]
+fn smithy_models_are_compared() {
+    let dir = repo().join("examples/smithy");
+    let output = faultline(
+        &dir,
+        &[
+            "diff",
+            "v1/model/weather.smithy",
+            "v2/model/weather.smithy",
+            "--output",
+            "json",
+        ],
+    );
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    let report: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+    let mut found: Vec<String> = report["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["severity"] != "info")
+        .map(|f| {
+            format!(
+                "{} {}",
+                f["rule"].as_str().unwrap(),
+                f["path"].as_str().unwrap()
+            )
+        })
+        .collect();
+    found.sort();
+    assert_eq!(
+        found,
+        [
+            "FL1007 op[GET /cities]/param[query:pageSize]",
+            "FL2012 op[GET /cities]/param[query:nextToken]",
+            "FL2040 op[GET /cities/{}]/response[410]",
+        ],
+        "the error defined in the other file is found"
+    );
+}
+
+#[test]
 fn declared_versions_are_checked_with_semver_versioning() {
     let dir = workspace();
     // Version 2 claims to be a minor release despite its breaking changes.
