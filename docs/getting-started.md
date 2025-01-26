@@ -128,6 +128,20 @@ only breaks JSON encodings and generated code. See
 [examples/grpc](../examples/grpc) and the
 [Protobuf internals](internals/protobuf.md).
 
+## Smithy
+
+Files ending in `.smithy` are read as Smithy IDL 2.0, together with the
+`.smithy` files beside them. Operations with `@http` are compared as HTTP
+operations bound by their traits, others as remote procedure calls:
+
+```sh
+faultline diff v1/model/weather.smithy v2/model/weather.smithy
+```
+
+A model without services is compared as its structures and unions, used in
+the role given with `--role`. See [examples/smithy](../examples/smithy) and
+the [Smithy internals](internals/smithy.md).
+
 ## Thrift
 
 Files ending in `.thrift` are read as Thrift IDL with the files they

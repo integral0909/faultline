@@ -2,8 +2,8 @@
 
 Faultline finds breaking changes in API contracts before your consumers do.
 
-It reads OpenAPI, AsyncAPI, RAML, JSON Schema, JSON Type Definition,
-Protobuf, Thrift, GraphQL, Avro, XML Schema and WSDL, lowers each into a single typed model in which every position knows
+It reads OpenAPI, AsyncAPI, RAML, Smithy, JSON Schema, JSON Type
+Definition, Protobuf, Thrift, GraphQL, Avro, XML Schema and WSDL, lowers each into a single typed model in which every position knows
 whether data flows **into** the API or **out of** it, and decides
 compatibility semantically: a change is breaking when some value that used to
 be valid no longer is, in the direction that matters. When Faultline can prove
@@ -26,8 +26,8 @@ breaking[FL1007]: op[GET /pets]/param[query:limit]: maximum changed from 100 to 
 ```
 
 > **Status:** early development (0.1). Swagger 2.0, OpenAPI 3.0/3.1, AsyncAPI
-> 2.x/3.0, RAML 1.0, JSON Schema (draft-04 to 2020-12), JSON Type
-> Definition, Protobuf (proto2, proto3, editions), Thrift, GraphQL SDL, Avro,
+> 2.x/3.0, RAML 1.0, Smithy 2.0, JSON Schema (draft-04 to 2020-12), JSON
+> Type Definition, Protobuf (proto2, proto3, editions), Thrift, GraphQL SDL, Avro,
 > XML Schema and WSDL 1.1 are supported, with
 > text, JSON, SARIF, Markdown, GitHub annotation and JUnit output. Pull
 > requests can be checked against their base branch straight from git, editors

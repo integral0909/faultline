@@ -190,6 +190,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Types are compared by field id, integer widths and collection kinds as
   wire types, and services as RPC operations whose replies hold the result
   or a declared exception. Fuzzed (`lower_thrift`).
+- `faultline-smithy` and `format = "smithy"`: Smithy IDL 2.0 models read
+  with the files beside them, with mixins, resources, `apply` and elided
+  members resolved. Services are compared as HTTP operations bound by
+  `@http` and the binding traits, or as remote procedure calls. Fuzzed
+  (`lower_smithy`).
+- Loaders can list a directory's files (`Loader::list`), in the working
+  tree, in git revisions and in the editor.
+- Unions of Thrift and Smithy are closed: a new alternative is risky for
+  readers.
 - Overlays: `overlays` in `[[api]]` and `diff --overlay` apply OpenAPI
   Overlay 1.0 documents to the entry document of both versions before
   comparing. Each version reads its own overlays; one missing from a
