@@ -25,6 +25,7 @@ faultline-thrift = { path = "../crates/faultline-thrift" }
 faultline-jtd = { path = "../crates/faultline-jtd" }
 faultline-jsonpath = { path = "../crates/faultline-jsonpath" }
 faultline-overlay = { path = "../crates/faultline-overlay" }
+faultline-smithy = { path = "../crates/faultline-smithy" }
 faultline-xml = { path = "../crates/faultline-xml" }
 faultline-xsd = { path = "../crates/faultline-xsd" }
 faultline-asyncapi = { path = "../crates/faultline-asyncapi" }
@@ -166,6 +167,13 @@ bench = false
 [[bin]]
 name = "apply_overlay"
 path = "fuzz_targets/apply_overlay.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "lower_smithy"
+path = "fuzz_targets/lower_smithy.rs"
 test = false
 doc = false
 bench = false
