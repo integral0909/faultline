@@ -18,6 +18,12 @@ working tree or from a git revision. The lexer and parser cover the IDL:
 * `apply` statements and documentation comments (`///`).
 
 After a syntax error (`FLE8401`), parsing resumes at the next statement.
+
+A `.json` entry, or any JSON document with `smithy` and `shapes` members,
+is a model in the JSON AST form that Smithy's build tools write. It is read
+into the same syntax trees as the IDL, one per namespace. The namespace with
+a service comes first, so the same model in either form is compared the
+same way.
 Models declaring a version other than 2 are read as version 2, with a
 warning (`FLE8405`).
 
@@ -96,4 +102,4 @@ is `@streaming` makes that direction a stream.
   AWS JSON protocols' `X-Amz-Target` routing. The model is compared as its
   shapes and HTTP bindings.
 * `@httpQueryParams` and `@httpPrefixHeaders` maps.
-* Models in the JSON AST form, and models that span several directories.
+* Models that span several directories.

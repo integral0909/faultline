@@ -1,11 +1,12 @@
 //! The Smithy IDL front end.
 //!
 //! [`load`] reads a model's files, [`lexer`] and [`parser`] turn each into
-//! an [`ast::Model`], [`resolve`] resolves their names into one model of
+//! an [`ast::Model`] ([`json_ast`] does the same for the JSON AST form), [`resolve`] resolves their names into one model of
 //! absolute shape ids, and [`lower_smithy`] lowers it into the IR.
 
 pub mod ast;
 pub mod codes;
+pub mod json_ast;
 pub mod lexer;
 pub mod load;
 mod lower;

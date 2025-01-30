@@ -30,10 +30,15 @@ pub struct Files {
     pub diagnostics: Diagnostics,
 }
 
-/// Loads `entry` and the `.smithy` files in its directory.
+/// Loads `entry` and the `.smithy` files in its directory; or, for a
+/// `.json` entry, the JSON AST it holds.
 pub fn load(entry: &UriRef, loader: &dyn Loader, sources: &SourceMap) -> Files {
     let mut files = Files::default();
     let entry = entry.without_fragment().normalized();
+    if entry.path().to_ascii_lowercase().ends_with(".json") {
+        read_json(&entry, loader, sources, &mut files);
+        return files;
+    }
     read(&entry, loader, sources, &mut files, true);
     if files.files.is_empty() {
         return files;
@@ -100,6 +105,51 @@ fn read(uri: &UriRef, loader: &dyn Loader, sources: &SourceMap, files: &mut File
         source: file.id(),
         model,
     });
+}
+
+/// Reads a JSON AST model: one file per namespace, a namespace with a
+/// service first, as the entry.
+fn read_json(uri: &UriRef, loader: &dyn Loader, sources: &SourceMap, files: &mut Files) {
+    let loaded = match loader.load(uri) {
+        Ok(loaded) => loaded,
+        Err(e) => {
+            files.diagnostics.push(
+                Diagnostic::error(format!("cannot read {uri}: {e}")).with_code(codes::UNRESOLVED),
+            );
+            return;
+        }
+    };
+    let file = match sources.add(loaded.name, loaded.text) {
+        Ok(file) => file,
+        Err(e) => {
+            files
+                .diagnostics
+                .push(Diagnostic::error(e.to_string()).with_code(codes::UNSUPPORTED));
+            return;
+        }
+    };
+    let parsed = faultline_doc::parse(
+        &file,
+        faultline_doc::Format::Json,
+        &faultline_source::Limits::default(),
+    );
+    files.diagnostics.extend(parsed.diagnostics);
+    let Some(document) = parsed.document else {
+        return;
+    };
+    let mut models = crate::json_ast::read(&document.root, &mut files.diagnostics);
+    models.sort_by_key(|m| {
+        !m.shapes
+            .iter()
+            .any(|s| s.kind == crate::ast::ShapeKind::Service)
+    });
+    for model in models {
+        files.files.push(SmithyFile {
+            uri: uri.clone(),
+            source: file.id(),
+            model,
+        });
+    }
 }
 
 /// A file name as a relative reference: every byte but unreserved ones

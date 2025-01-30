@@ -324,34 +324,11 @@ impl Engine {
             workspace: loader,
             remote: self.remote.as_deref(),
         };
-        // Protobuf, GraphQL, XML Schema and WSDL are not JSON or YAML: they
-        // are read by their own front ends.
+        // Protobuf, GraphQL, XML Schema, WSDL and others are not JSON or
+        // YAML: they are read by their own front ends.
         let format = format.or_else(|| format_by_extension(&entry));
-        if let Some(format) = format
-            && !overlays.is_empty()
-            && !reads_documents(format)
-        {
-            let message = format!(
-                "overlays apply to JSON and YAML descriptions, not to {}",
-                format.as_str()
-            );
-            return Lowered {
-                api: None,
-                diagnostics: [Diagnostic::error(message).with_code(codes::OVERLAY)]
-                    .into_iter()
-                    .collect(),
-                missing_entry: false,
-            };
-        }
-        if let Some(format) = format
-            && let Some((api, diagnostics)) =
-                self.lower_other(format, loader, &entry, name, role, sources)
-        {
-            return Lowered {
-                api,
-                diagnostics,
-                missing_entry: false,
-            };
+        if let Some(format) = format.filter(|f| !reads_documents(*f)) {
+            return self.lower_elsewhere(format, loader, &entry, overlays, name, role, sources);
         }
         let mut store = DocumentStore::new(&router, sources, self.limits.clone());
         store.allow_remote(self.remote.is_some());
@@ -373,47 +350,54 @@ impl Engine {
                 None => ApiFormat::JsonSchema,
             },
         };
-        let (mut api, mut diagnostics) = match format {
-            ApiFormat::OpenApi => {
-                let lowered = faultline_openapi::lower_openapi(&entry, &mut store, name);
-                (lowered.api, lowered.diagnostics)
-            }
-            ApiFormat::JsonSchema => {
-                let lowered = faultline_jsonschema::lower_document(
-                    &entry,
-                    &mut store,
-                    Options::default(),
-                    ir_role(role),
-                );
-                (lowered.api, lowered.diagnostics)
-            }
-            ApiFormat::AsyncApi => {
-                let lowered = faultline_asyncapi::lower_asyncapi(&entry, &mut store, name);
-                (lowered.api, lowered.diagnostics)
-            }
-            ApiFormat::Avro => {
-                let lowered = faultline_avro::lower_avro(&entry, &mut store, name, ir_role(role));
-                (lowered.api, lowered.diagnostics)
-            }
-            ApiFormat::Jtd => {
-                let lowered = faultline_jtd::lower_jtd(&entry, &mut store, name, ir_role(role));
-                (lowered.api, lowered.diagnostics)
-            }
-            ApiFormat::Protobuf
-            | ApiFormat::ProtobufHttp
-            | ApiFormat::GraphQl
-            | ApiFormat::Xsd
-            | ApiFormat::Wsdl
-            | ApiFormat::Raml
-            | ApiFormat::Thrift
-            | ApiFormat::Smithy => {
-                unreachable!("handled above")
-            }
-        };
+        // A JSON document that turned out to be read by its own front end
+        // (a Smithy JSON AST).
+        if !reads_documents(format) {
+            let mut lowered =
+                self.lower_elsewhere(format, loader, &entry, overlays, name, role, sources);
+            lowered.diagnostics.extend(overlaid);
+            return lowered;
+        }
+        let (mut api, mut diagnostics) = lower_document(format, &mut store, &entry, name, role);
         if let Some(api) = &mut api {
             name.clone_into(&mut api.name);
         }
         diagnostics.extend(overlaid);
+        Lowered {
+            api,
+            diagnostics,
+            missing_entry: false,
+        }
+    }
+
+    /// Lowers a format read by its own front end, which overlays cannot
+    /// change.
+    #[allow(clippy::too_many_arguments)]
+    fn lower_elsewhere(
+        &self,
+        format: ApiFormat,
+        loader: &dyn Loader,
+        entry: &UriRef,
+        overlays: &[UriRef],
+        name: &str,
+        role: SchemaRole,
+        sources: &SourceMap,
+    ) -> Lowered {
+        let (api, diagnostics) = if overlays.is_empty() {
+            self.lower_other(format, loader, entry, name, role, sources)
+                .expect("formats that are not documents are lowered by their front ends")
+        } else {
+            let message = format!(
+                "overlays apply to JSON and YAML descriptions, not to {}",
+                format.as_str()
+            );
+            (
+                None,
+                [Diagnostic::error(message).with_code(codes::OVERLAY)]
+                    .into_iter()
+                    .collect(),
+            )
+        };
         Lowered {
             api,
             diagnostics,
@@ -611,6 +595,52 @@ impl Engine {
             overlays,
             notes,
         })
+    }
+}
+
+/// Lowers a format whose descriptions are JSON or YAML documents, from
+/// `store`.
+fn lower_document(
+    format: ApiFormat,
+    store: &mut DocumentStore<'_>,
+    entry: &UriRef,
+    name: &str,
+    role: SchemaRole,
+) -> (Option<Api>, Diagnostics) {
+    match format {
+        ApiFormat::OpenApi => {
+            let lowered = faultline_openapi::lower_openapi(entry, store, name);
+            (lowered.api, lowered.diagnostics)
+        }
+        ApiFormat::JsonSchema => {
+            let lowered = faultline_jsonschema::lower_document(
+                entry,
+                store,
+                Options::default(),
+                ir_role(role),
+            );
+            (lowered.api, lowered.diagnostics)
+        }
+        ApiFormat::AsyncApi => {
+            let lowered = faultline_asyncapi::lower_asyncapi(entry, store, name);
+            (lowered.api, lowered.diagnostics)
+        }
+        ApiFormat::Avro => {
+            let lowered = faultline_avro::lower_avro(entry, store, name, ir_role(role));
+            (lowered.api, lowered.diagnostics)
+        }
+        ApiFormat::Jtd => {
+            let lowered = faultline_jtd::lower_jtd(entry, store, name, ir_role(role));
+            (lowered.api, lowered.diagnostics)
+        }
+        ApiFormat::Protobuf
+        | ApiFormat::ProtobufHttp
+        | ApiFormat::GraphQl
+        | ApiFormat::Xsd
+        | ApiFormat::Wsdl
+        | ApiFormat::Raml
+        | ApiFormat::Thrift
+        | ApiFormat::Smithy => unreachable!("read by their own front ends"),
     }
 }
 
@@ -823,6 +853,8 @@ pub fn detect_format(store: &mut DocumentStore<'_>, entry: &UriRef) -> Option<Ap
         Some(ApiFormat::OpenApi)
     } else if root.get("asyncapi").is_some() {
         Some(ApiFormat::AsyncApi)
+    } else if root.get("smithy").is_some() && root.get("shapes").is_some() {
+        Some(ApiFormat::Smithy)
     } else {
         Some(ApiFormat::JsonSchema)
     }
