@@ -82,10 +82,10 @@ impl Shape {
 }
 
 /// A lowered type with what default checking needs.
-struct Lowered {
-    id: TypeId,
+pub(crate) struct Lowered {
+    pub(crate) id: TypeId,
     shape: Shape,
-    name: Option<String>,
+    pub(crate) name: Option<String>,
 }
 
 pub(crate) struct Lowerer {
@@ -122,7 +122,12 @@ impl Lowerer {
         self.schema(node, "").map(|lowered| lowered.id)
     }
 
-    fn error(&mut self, code: faultline_source::DiagnosticCode, span: Span, message: String) {
+    pub(crate) fn error(
+        &mut self,
+        code: faultline_source::DiagnosticCode,
+        span: Span,
+        message: String,
+    ) {
         self.diagnostics.push(
             Diagnostic::error(message)
                 .with_code(code)
@@ -134,7 +139,7 @@ impl Lowerer {
         self.api.types.alloc(TypeNode::new(kind).with_origin(span))
     }
 
-    fn schema(&mut self, node: &Node, namespace: &str) -> Option<Lowered> {
+    pub(crate) fn schema(&mut self, node: &Node, namespace: &str) -> Option<Lowered> {
         match &node.value {
             Value::String(name) => self.reference(name, namespace, node.span),
             Value::Array(branches) => self.union(branches, namespace, node.span),
@@ -430,11 +435,6 @@ impl Lowerer {
 
     fn record(&mut self, node: &Node, namespace: &str) -> Option<Lowered> {
         let (full, namespace, id) = self.declare(node, namespace, Shape::Record)?;
-        let any = self.api.types.alloc_kind(TypeKind::Any);
-        let mut object = ObjectType::new(any);
-        // Writers write every field and nothing else; readers ignore unknown
-        // fields and fill in defaults.
-        object.writer_exact = true;
         let fields = self.required(node, "fields").and_then(|f| {
             f.as_array().or_else(|| {
                 self.error(
@@ -445,8 +445,28 @@ impl Lowerer {
                 None
             })
         });
+        let object = self.fields(fields.unwrap_or_default(), &namespace, &full);
+        let mut type_node = TypeNode::new(TypeKind::Object(object))
+            .with_origin(node.span)
+            .with_name(QualName::new(&full));
+        type_node.meta.description = node.get("doc").and_then(Node::as_str).map(str::to_owned);
+        self.api.types.define(id, type_node);
+        Some(Lowered {
+            id,
+            shape: Shape::Record,
+            name: Some(full),
+        })
+    }
+
+    /// The object a record's fields (or a message's parameters) make up:
+    /// writers write every field and nothing else; readers ignore unknown
+    /// fields and fill in defaults.
+    pub(crate) fn fields(&mut self, fields: &[Node], namespace: &str, owner: &str) -> ObjectType {
+        let any = self.api.types.alloc_kind(TypeKind::Any);
+        let mut object = ObjectType::new(any);
+        object.writer_exact = true;
         let mut seen: HashMap<String, Span> = HashMap::new();
-        for field in fields.unwrap_or_default() {
+        for field in fields {
             let Some(name_node) = field.get("name") else {
                 self.error(
                     codes::INVALID_SCHEMA,
@@ -472,7 +492,7 @@ impl Lowerer {
             }
             if let Some(first) = seen.insert(name.to_owned(), name_node.span) {
                 self.diagnostics.push(
-                    Diagnostic::error(format!("field `{name}` is defined twice in `{full}`"))
+                    Diagnostic::error(format!("field `{name}` is defined twice in `{owner}`"))
                         .with_code(codes::DUPLICATE)
                         .with_primary(name_node.span, "defined again")
                         .with_secondary(first, "first defined here"),
@@ -487,7 +507,7 @@ impl Lowerer {
                 );
                 continue;
             };
-            let Some(lowered) = self.schema(ty_node, &namespace) else {
+            let Some(lowered) = self.schema(ty_node, namespace) else {
                 continue;
             };
             let default = field.get("default");
@@ -501,16 +521,7 @@ impl Lowerer {
             out.origin = Some(field.span);
             object.fields.push(out);
         }
-        let mut type_node = TypeNode::new(TypeKind::Object(object))
-            .with_origin(node.span)
-            .with_name(QualName::new(&full));
-        type_node.meta.description = node.get("doc").and_then(Node::as_str).map(str::to_owned);
-        self.api.types.define(id, type_node);
-        Some(Lowered {
-            id,
-            shape: Shape::Record,
-            name: Some(full),
-        })
+        object
     }
 
     fn enumeration(&mut self, node: &Node, namespace: &str) -> Option<Lowered> {

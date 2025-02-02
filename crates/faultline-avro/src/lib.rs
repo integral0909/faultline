@@ -1,12 +1,15 @@
 //! Apache Avro schema front end.
 //!
-//! [`lower_avro`] reads an Avro schema (`.avsc`), checks it the way Avro
-//! parsers do, and lowers it into the IR as a reader sees data, so that the
+//! [`lower_avro`] reads an Avro schema (`.avsc`) or protocol (`.avpr`),
+//! checks it the way Avro parsers do, and lowers it into the IR as a reader sees data, so that the
 //! comparison roles are Avro's compatibility modes: `input` is BACKWARD,
 //! `output` FORWARD and `both` FULL.
 
 pub mod codes;
 mod lower;
+mod protocol;
+
+pub use protocol::AVRO_MEDIA_TYPE;
 
 use faultline_doc::{DocumentStore, Node, StoreError, UriRef};
 use faultline_ir::{Api, Role, TypeId};
@@ -75,7 +78,12 @@ pub fn lower_avro(
         }
     };
     let mut lowerer = lower::Lowerer::new(name);
-    lowerer.root(&document.document.root, role);
+    let root = &document.document.root;
+    if root.get("protocol").is_some() {
+        lowerer.protocol(root, role);
+    } else {
+        lowerer.root(root, role);
+    }
     diagnostics.extend(lowerer.diagnostics);
     diagnostics.sort();
     let api = (!diagnostics.has_errors()).then_some(lowerer.api);
