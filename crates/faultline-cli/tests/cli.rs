@@ -851,6 +851,40 @@ fn smithy_models_are_compared() {
 }
 
 #[test]
+fn avro_idl_protocols_are_compared() {
+    let dir = repo().join("examples/avro-idl");
+    let output = faultline(
+        &dir,
+        &[
+            "diff",
+            "v1/orders.avdl",
+            "v2/orders.avdl",
+            "--output",
+            "json",
+        ],
+    );
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    let report: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+    let breaking: Vec<String> = report["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["severity"] == "breaking")
+        .map(|f| {
+            format!(
+                "{} {}",
+                f["rule"].as_str().unwrap(),
+                f["path"].as_str().unwrap()
+            )
+        })
+        .collect();
+    assert_eq!(
+        breaking,
+        ["FL1012 op[Orders/get]/response[default]/body[avro/binary]"]
+    );
+}
+
+#[test]
 fn declared_versions_are_checked_with_semver_versioning() {
     let dir = workspace();
     // Version 2 claims to be a minor release despite its breaking changes.

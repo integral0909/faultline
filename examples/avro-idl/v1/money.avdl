@@ -1,0 +1,7 @@
+@namespace("example.money")
+protocol Money {
+  record Money {
+    long units;
+    string currency;
+  }
+}

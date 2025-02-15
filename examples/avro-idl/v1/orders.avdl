@@ -1,0 +1,32 @@
+/** Places and tracks orders. */
+@namespace("example.orders")
+protocol Orders {
+  import idl "money.avdl";
+
+  enum Status { PLACED, SHIPPED, DELIVERED } = PLACED;
+
+  record Line {
+    string sku;
+    int quantity = 1;
+    example.money.Money price;
+  }
+
+  /** An order. */
+  record Order {
+    string id;
+    array<Line> lines;
+    Status status = "PLACED";
+    string? note = null;
+    timestamp_ms placed;
+  }
+
+  error NotFound {
+    string id;
+  }
+
+  Order get(string id) throws NotFound;
+
+  string place(Order order);
+
+  void cancel(string id) oneway;
+}

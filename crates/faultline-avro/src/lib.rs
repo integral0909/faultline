@@ -6,6 +6,7 @@
 //! `output` FORWARD and `both` FULL.
 
 pub mod codes;
+pub mod idl;
 mod lower;
 mod protocol;
 
@@ -46,6 +47,37 @@ pub fn lower_embedded(node: &Node) -> Embedded {
         lowered,
         diagnostics,
     }
+}
+
+/// Reads the Avro IDL file at `entry` (`.avdl`), with the files it
+/// imports, and lowers the protocol or schemas it declares into an [`Api`]
+/// named `name`.
+pub fn lower_avro_idl(
+    entry: &UriRef,
+    loader: &dyn faultline_doc::loader::Loader,
+    sources: &faultline_source::SourceMap,
+    name: &str,
+    role: Role,
+) -> Lowered {
+    let mut diagnostics = Diagnostics::new();
+    let Some(protocol) = idl::read(entry, loader, sources, &mut diagnostics) else {
+        return Lowered {
+            api: None,
+            diagnostics,
+        };
+    };
+    if diagnostics.has_errors() {
+        return Lowered {
+            api: None,
+            diagnostics,
+        };
+    }
+    let mut lowerer = lower::Lowerer::new(name);
+    lowerer.protocol(&protocol, role);
+    diagnostics.extend(lowerer.diagnostics);
+    diagnostics.sort();
+    let api = (!diagnostics.has_errors()).then_some(lowerer.api);
+    Lowered { api, diagnostics }
 }
 
 /// Reads the schema at `entry` and lowers it into an [`Api`] named `name`,

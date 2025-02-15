@@ -327,7 +327,7 @@ impl Engine {
         // Protobuf, GraphQL, XML Schema, WSDL and others are not JSON or
         // YAML: they are read by their own front ends.
         let format = format.or_else(|| format_by_extension(&entry));
-        if let Some(format) = format.filter(|f| !reads_documents(*f)) {
+        if let Some(format) = format.filter(|f| !reads_documents(*f, &entry)) {
             return self.lower_elsewhere(format, loader, &entry, overlays, name, role, sources);
         }
         let mut store = DocumentStore::new(&router, sources, self.limits.clone());
@@ -352,7 +352,7 @@ impl Engine {
         };
         // A JSON document that turned out to be read by its own front end
         // (a Smithy JSON AST).
-        if !reads_documents(format) {
+        if !reads_documents(format, &entry) {
             let mut lowered =
                 self.lower_elsewhere(format, loader, &entry, overlays, name, role, sources);
             lowered.diagnostics.extend(overlaid);
@@ -451,6 +451,10 @@ impl Engine {
             }
             ApiFormat::Smithy => {
                 let l = faultline_smithy::lower_smithy(entry, loader, sources, name, ir_role(role));
+                (l.api, l.diagnostics)
+            }
+            ApiFormat::Avro if is_avro_idl(entry) => {
+                let l = faultline_avro::lower_avro_idl(entry, loader, sources, name, ir_role(role));
                 (l.api, l.diagnostics)
             }
             ApiFormat::OpenApi
@@ -645,16 +649,17 @@ fn lower_document(
 }
 
 /// Whether a format's descriptions are JSON or YAML documents, which
-/// overlays can change.
-fn reads_documents(format: ApiFormat) -> bool {
-    matches!(
-        format,
-        ApiFormat::OpenApi
-            | ApiFormat::AsyncApi
-            | ApiFormat::JsonSchema
-            | ApiFormat::Avro
-            | ApiFormat::Jtd
-    )
+/// overlays can change. Avro IDL files are not.
+fn reads_documents(format: ApiFormat, entry: &UriRef) -> bool {
+    match format {
+        ApiFormat::Avro => !is_avro_idl(entry),
+        ApiFormat::OpenApi | ApiFormat::AsyncApi | ApiFormat::JsonSchema | ApiFormat::Jtd => true,
+        _ => false,
+    }
+}
+
+fn is_avro_idl(entry: &UriRef) -> bool {
+    entry.path().to_ascii_lowercase().ends_with(".avdl")
 }
 
 /// Applies `overlays` to the entry document held by `store`, which later
@@ -833,7 +838,7 @@ pub fn format_by_extension(entry: &UriRef) -> Option<ApiFormat> {
     match extension.as_str() {
         "proto" => Some(ApiFormat::Protobuf),
         "graphql" | "graphqls" | "gql" => Some(ApiFormat::GraphQl),
-        "avsc" => Some(ApiFormat::Avro),
+        "avsc" | "avpr" | "avdl" => Some(ApiFormat::Avro),
         "xsd" => Some(ApiFormat::Xsd),
         "wsdl" => Some(ApiFormat::Wsdl),
         "raml" => Some(ApiFormat::Raml),
