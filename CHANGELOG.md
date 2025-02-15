@@ -190,6 +190,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Types are compared by field id, integer widths and collection kinds as
   wire types, and services as RPC operations whose replies hold the result
   or a declared exception. Fuzzed (`lower_thrift`).
+- Avro protocols (`.avpr`) and IDL (`.avdl`), with imports: messages are
+  operations whose responses include their declared errors, and one-way
+  messages are one-way operations. Fuzzed (`lower_avro_idl`).
 - `faultline-smithy` and `format = "smithy"`: Smithy IDL 2.0 models read
   with the files beside them, with mixins, resources, `apply` and elided
   members resolved. Services are compared as HTTP operations bound by

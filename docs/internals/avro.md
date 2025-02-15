@@ -1,7 +1,7 @@
 # Avro front end
 
-`faultline-avro` reads Apache Avro schemas (`.avsc`) and lowers them into
-the IR.
+`faultline-avro` reads Apache Avro schemas (`.avsc`), protocols (`.avpr`)
+and IDL files (`.avdl`) and lowers them into the IR.
 
 ## Reading and checking
 
@@ -69,6 +69,44 @@ Integer ranges make the promotions Avro allows widenings: `int` to `long`,
 Readers matching renamed fields through aliases are compared as the same
 field, with the rename reported (FL1025).
 
+## Protocols
+
+A protocol defines named types in order, as a schema does, and messages.
+Each message is an operation (`op[Orders/get]`):
+
+* the request is a record of the message's parameters, with their
+  defaults;
+* the response is the response type or, when the message declares errors,
+  a union of the response type and the errors. A new error is therefore a
+  union branch that an old client's reader cannot resolve, which is
+  breaking;
+* a `one-way` message has no response and is a one-way operation, and
+  changing that is breaking (FL3002).
+
+A protocol without messages is compared as its named types, each a schema
+root.
+
+## IDL
+
+Avro IDL files are read into the protocol tree an `.avpr` document gives,
+with spans in the IDL, so the checks, the lowering and the findings are
+those of the JSON forms. The reader covers:
+
+* protocols with `@namespace`, and Avro 1.12's schema files (`namespace`,
+  `schema` and declarations), read as protocols without messages;
+* `record`, `error`, `enum` with a default, and `fixed`;
+* messages with `throws` and `oneway`, and `void` responses;
+* fields, several per declaration, with defaults and annotations
+  (`@aliases`, `@order`);
+* `array<T>`, `map<T>`, `union { ... }` and `T?`. `T?` is a union with
+  `null`, placed first unless the field's default is something else;
+* the logical types `date`, `time_ms`, `timestamp_ms`,
+  `local_timestamp_ms`, `uuid` and `decimal(p, s)`;
+* doc comments (`/** */`), and names in backquotes;
+* `import idl`, `import protocol` and `import schema`, resolved against the
+  importing file. Imported types keep their own namespace. A file that
+  imports itself, directly or through others, is reported.
+
 ## Limitations
 
 * Readers reject a writer's `long` or an unknown enum symbol outright. These
@@ -79,5 +117,6 @@ field, with the rename reported (FL1025).
   required, although Avro writers always write every field.
 * Transitive modes (checking against every earlier version) need each
   earlier version compared in turn.
-* Schemas referencing named types from other files or a registry are not
-  resolved; one self-contained `.avsc` per API.
+* `.avsc` schemas referencing named types from other files or a registry
+  are not resolved; one self-contained schema per API, or an IDL file that
+  imports the others.

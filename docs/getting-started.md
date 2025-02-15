@@ -190,6 +190,16 @@ fill in defaults and match renamed fields through aliases, and the numeric
 promotions Avro allows are compatible. See [examples/avro](../examples/avro)
 and the [Avro internals](internals/avro.md).
 
+Protocols (`.avpr`) and IDL files (`.avdl`) are compared as their messages,
+each an operation whose request is its parameters and whose response is
+the response type or a declared error. IDL imports are followed:
+
+```sh
+faultline diff v1/orders.avdl v2/orders.avdl
+```
+
+See [examples/avro-idl](../examples/avro-idl).
+
 ## XML Schema
 
 Files ending in `.xsd` are read as XML Schema, following `include` and
