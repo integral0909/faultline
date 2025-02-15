@@ -177,3 +177,10 @@ path = "fuzz_targets/lower_smithy.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "lower_avro_idl"
+path = "fuzz_targets/lower_avro_idl.rs"
+test = false
+doc = false
+bench = false
