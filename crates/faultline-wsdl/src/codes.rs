@@ -4,7 +4,8 @@ use faultline_source::DiagnosticCode;
 
 /// The document is not a WSDL description.
 pub const NOT_WSDL: DiagnosticCode = DiagnosticCode::new("FLE7401");
-/// A WSDL 2.0 description, which is not supported.
+/// A description in the namespace of a WSDL 2.0 draft rather than the
+/// recommendation.
 pub const UNSUPPORTED_VERSION: DiagnosticCode = DiagnosticCode::new("FLE7402");
 /// A reference to a message, port type, binding, element or type names
 /// nothing.

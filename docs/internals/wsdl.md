@@ -1,7 +1,7 @@
 # WSDL
 
-`faultline-wsdl` reads WSDL 1.1 descriptions and lowers their operations
-into the IR, with the schemas they carry lowered by the XML Schema front end
+`faultline-wsdl` reads WSDL 1.1 and 2.0 descriptions and lowers their
+operations into the IR, with the schemas they carry lowered by the XML Schema front end
 ([xsd.md](xsd.md)) into the same type graph.
 
 ## Reading
@@ -12,8 +12,25 @@ The reader collects messages and parts, port types and their operations
 `wsdl:import` loads either another description, merged into this one, or a
 schema document. Imports are resolved inside the workspace, and each
 document is read once. SOAP 1.1 and SOAP 1.2 bindings are understood; other
-bindings (HTTP GET/POST, MIME) contribute no protocol details. A WSDL 2.0
-description is reported as unsupported (`FLE7402`).
+bindings (HTTP GET/POST, MIME) contribute no protocol details.
+
+## WSDL 2.0
+
+WSDL 2.0 descriptions are read into the same components, so both versions
+are lowered, and compared, alike:
+
+* An `interface` is a port type. `extends` brings in the operations of the
+  interfaces it names.
+* An operation's `input`, `output` and faults name elements directly. Each
+  becomes a message with one part holding the element. `#any` (or
+  `#other`) is any content, and `#none` is no content.
+* An in-only operation has no output, and is one-way.
+* A SOAP binding is SOAP 1.2 unless `wsoap:version="1.1"`. It is document
+  style and has each operation's `wsoap:action`.
+* HTTP bindings contribute no protocol details, as in WSDL 1.1.
+
+A description in the namespace of a pre-recommendation draft of WSDL 2.0
+is reported (`FLE7402`).
 
 ## Operations
 

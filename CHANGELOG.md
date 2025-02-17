@@ -190,6 +190,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Types are compared by field id, integer widths and collection kinds as
   wire types, and services as RPC operations whose replies hold the result
   or a declared exception. Fuzzed (`lower_thrift`).
+- WSDL 2.0 descriptions, read into the same model as WSDL 1.1: interfaces
+  with `extends`, element-based messages, in-only operations as one-way,
+  and SOAP bindings of either version.
 - Avro protocols (`.avpr`) and IDL (`.avdl`), with imports: messages are
   operations whose responses include their declared errors, and one-way
   messages are one-way operations. Fuzzed (`lower_avro_idl`).

@@ -28,11 +28,11 @@ breaking[FL1007]: op[GET /pets]/param[query:limit]: maximum changed from 100 to 
 > **Status:** early development (0.1). Swagger 2.0, OpenAPI 3.0/3.1, AsyncAPI
 > 2.x/3.0, RAML 1.0, Smithy 2.0, JSON Schema (draft-04 to 2020-12), JSON Type
 > Definition, Protobuf (proto2, proto3, editions), Thrift, GraphQL SDL, Avro
-> (schemas, protocols and IDL), XML Schema and WSDL 1.1 are supported, with
-> text, JSON, SARIF, Markdown, GitHub annotation, GitLab Code Quality and JUnit
-> output. Pull requests can be checked against their base branch straight
-> from git, editors show findings through a language server, and a schema
-> registry refuses breaking versions. See the [roadmap](docs/architecture.md#roadmap).
+> (schemas, protocols and IDL), XML Schema and WSDL 1.1 and 2.0 are supported,
+> with text, JSON, SARIF, Markdown, GitHub annotation, GitLab Code Quality and
+> JUnit output. Pull requests can be checked against their base branch
+> straight from git, editors show findings through a language server, and a
+> schema registry refuses breaking versions. See the [roadmap](docs/architecture.md#roadmap).
 
 ## Quick start
 

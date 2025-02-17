@@ -1,4 +1,6 @@
-//! The components of a WSDL 1.1 description, as read from it.
+//! The components of a WSDL description, as read from it. WSDL 2.0
+//! descriptions are read into the same components (see
+//! [`crate::wsdl2`]).
 
 use faultline_source::Span;
 use faultline_xml::QName;
@@ -147,6 +149,10 @@ pub struct Definitions {
 }
 
 impl Definitions {
+    pub fn port_type(&self, name: &QName) -> Option<&PortType> {
+        self.port_types.iter().find(|p| &p.name == name)
+    }
+
     pub fn message(&self, name: &QName) -> Option<&Message> {
         self.messages.iter().find(|m| m.name == *name)
     }

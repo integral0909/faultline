@@ -103,9 +103,14 @@ fn imports_bring_in_descriptions_and_schemas() {
 fn problems_are_reported() {
     let codes = |text: &str| read(&[("t.wsdl", text)]).2;
     assert_eq!(codes("<xs:schema xmlns:xs='urn:not-xs'/>"), ["FLE7401"]);
+    assert!(
+        codes(r#"<description xmlns="http://www.w3.org/ns/wsdl"/>"#).is_empty(),
+        "WSDL 2.0"
+    );
     assert_eq!(
-        codes(r#"<description xmlns="http://www.w3.org/ns/wsdl"/>"#),
-        ["FLE7402"]
+        codes(r#"<description xmlns="http://www.w3.org/2004/08/wsdl"/>"#),
+        ["FLE7402"],
+        "a draft of WSDL 2.0"
     );
     let head = r#"<wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" targetNamespace="urn:t">"#;
     let doc = |body: &str| format!("{head}{body}</wsdl:definitions>");

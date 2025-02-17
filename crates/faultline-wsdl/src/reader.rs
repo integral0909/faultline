@@ -1,5 +1,6 @@
-//! Reading WSDL 1.1 documents into [`Definitions`], and their schemas into
-//! XML Schema components.
+//! Reading WSDL 1.1 documents (and, through [`crate::wsdl2`], WSDL 2.0
+//! descriptions) into [`Definitions`], and their schemas into XML Schema
+//! components.
 
 use std::collections::HashSet;
 
@@ -17,7 +18,7 @@ use crate::model::{
 
 /// The WSDL 1.1 namespace.
 pub const WSDL: &str = "http://schemas.xmlsoap.org/wsdl/";
-/// The WSDL 2.0 namespace, recognized to say it is not supported.
+/// The WSDL 2.0 namespace.
 pub const WSDL_2: &str = "http://www.w3.org/ns/wsdl";
 /// The SOAP 1.1 binding namespace.
 pub const SOAP_11: &str = "http://schemas.xmlsoap.org/wsdl/soap/";
@@ -31,6 +32,10 @@ pub struct Reader<'a> {
     pub definitions: Definitions,
     pub diagnostics: Diagnostics,
     loaded: HashSet<String>,
+    /// WSDL 2.0 interface faults and `extends`, completed once every
+    /// document is read.
+    pub(crate) interface_faults: Vec<crate::wsdl2::InterfaceFault>,
+    pub(crate) extends: Vec<crate::wsdl2::Extends>,
 }
 
 impl std::fmt::Debug for Reader<'_> {
@@ -48,10 +53,12 @@ impl<'a> Reader<'a> {
             definitions: Definitions::default(),
             diagnostics: Diagnostics::new(),
             loaded: HashSet::new(),
+            interface_faults: Vec::new(),
+            extends: Vec::new(),
         }
     }
 
-    fn error(&mut self, code: DiagnosticCode, message: String, span: Span) {
+    pub(crate) fn error(&mut self, code: DiagnosticCode, message: String, span: Span) {
         self.diagnostics.push(
             Diagnostic::error(message)
                 .with_code(code)
@@ -62,6 +69,7 @@ impl<'a> Reader<'a> {
     /// Reads the description at `uri` and what it imports.
     pub fn load(&mut self, uri: &UriRef) {
         self.load_at(uri, None);
+        self.finish_wsdl2();
     }
 
     fn load_at(&mut self, uri: &UriRef, at: Option<Span>) {
@@ -79,10 +87,21 @@ impl<'a> Reader<'a> {
             self.schemas.add_schema(&root, uri);
         } else if root.name.is(WSDL, "definitions") {
             self.read_definitions(&root, uri);
-        } else if root.name.namespace.as_deref() == Some(WSDL_2) {
+        } else if root.name.is(WSDL_2, "description") {
+            self.read_description(&root, uri);
+        } else if root.name.local == "description"
+            && root
+                .name
+                .namespace
+                .as_deref()
+                .is_some_and(|ns| ns.starts_with("http://www.w3.org/200") && ns.ends_with("/wsdl"))
+        {
             self.error(
                 codes::UNSUPPORTED_VERSION,
-                "WSDL 2.0 descriptions are not supported; WSDL 1.1 is".into(),
+                format!(
+                    "{} is a draft of WSDL 2.0; descriptions use the recommendation's namespace, {WSDL_2}",
+                    root.name.namespace.as_deref().unwrap_or_default()
+                ),
                 root.name_span,
             );
         } else {
@@ -148,7 +167,7 @@ impl<'a> Reader<'a> {
         }
     }
 
-    fn import(&mut self, element: &Element, base: &UriRef) {
+    pub(crate) fn import(&mut self, element: &Element, base: &UriRef) {
         let Some(attribute) = element.attribute("location") else {
             return;
         };
@@ -180,7 +199,7 @@ impl<'a> Reader<'a> {
         self.load_at(&target, Some(span));
     }
 
-    fn required(&mut self, element: &Element, attribute: &str) -> Option<String> {
+    pub(crate) fn required(&mut self, element: &Element, attribute: &str) -> Option<String> {
         if let Some(value) = element.attr(attribute) {
             return Some(value.to_owned());
         }
@@ -193,7 +212,7 @@ impl<'a> Reader<'a> {
     }
 
     /// A `QName`-valued attribute.
-    fn qname(&mut self, element: &Element, attribute: &str) -> Option<(QName, Span)> {
+    pub(crate) fn qname(&mut self, element: &Element, attribute: &str) -> Option<(QName, Span)> {
         let attr = element.attribute(attribute)?;
         if let Some(name) = element.resolve_qname(&attr.value) {
             return Some((name, attr.value_span));

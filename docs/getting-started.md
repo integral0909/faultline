@@ -217,9 +217,9 @@ attributes are `@`-prefixed members, repeated elements are arrays, and a
 
 ## WSDL
 
-Files ending in `.wsdl` are read as WSDL 1.1 with the schemas they embed or
-import. Each operation of each port type is compared, with its SOAP bodies,
-actions, headers and faults:
+Files ending in `.wsdl` are read as WSDL 1.1 or 2.0, with the schemas they
+embed or import. Each operation of each port type (or WSDL 2.0 interface) is
+compared, with its SOAP bodies, actions, headers and faults:
 
 ```sh
 faultline diff v1/pets.wsdl v2/pets.wsdl
