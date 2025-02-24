@@ -20,6 +20,20 @@ classification in-process. On a laptop (Apple M-series, one release build):
 Time grows linearly with the size of the description. The numbers are
 indicative; run the benchmark to compare changes on your machine.
 
+`cargo bench -p faultline --bench formats` does the same for the front ends
+that read interface definition languages, on descriptions of one shape:
+record types that refer to each other in a chain, an operation per type,
+and a twentieth of the types changed. For 4,000 operations:
+
+| Format | Size | Findings | Time |
+|---|---:|---:|---:|
+| Protobuf | 0.46 MB | 1,200 | 78 ms |
+| Thrift | 0.51 MB | 1,600 | 94 ms |
+| Smithy | 0.59 MB | 1,200 | 122 ms |
+| GraphQL | 0.32 MB | 792 | 130 ms |
+
+Each grows linearly from 250 operations up.
+
 ## Where the time goes
 
 * **Parsing** is linear. Minified documents, a single multi-megabyte line,

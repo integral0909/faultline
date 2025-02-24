@@ -45,3 +45,7 @@ workspace = true
 [[bench]]
 name = "pipeline"
 harness = false
+
+[[bench]]
+name = "formats"
+harness = false
