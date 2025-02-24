@@ -190,6 +190,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Types are compared by field id, integer widths and collection kinds as
   wire types, and services as RPC operations whose replies hold the result
   or a declared exception. Fuzzed (`lower_thrift`).
+- `faultline init` writes a `faultline.toml` listing the API descriptions
+  in a workspace, recognized by content (OpenAPI, AsyncAPI, RAML APIs,
+  services in Protobuf, Thrift and Smithy, GraphQL schemas, Avro, WSDL,
+  JSON Type Definitions), leaving out files that others include.
 - WSDL 2.0 descriptions, read into the same model as WSDL 1.1: interfaces
   with `extends`, element-based messages, in-only operations as one-way,
   and SOAP bindings of either version.

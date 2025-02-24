@@ -332,10 +332,7 @@ impl Reader<'_> {
 
 /// The message an interface fault's content is carried in.
 fn fault_message_name(fault: &QName) -> QName {
-    QName::new(
-        fault.namespace.as_deref(),
-        format!("fault.{}", fault.local),
-    )
+    QName::new(fault.namespace.as_deref(), format!("fault.{}", fault.local))
 }
 
 /// The value of the attribute `local` in `namespace`.

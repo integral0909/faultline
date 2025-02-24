@@ -885,6 +885,72 @@ fn avro_idl_protocols_are_compared() {
 }
 
 #[test]
+fn init_lists_the_api_descriptions_of_a_workspace() {
+    let dir = tempfile::tempdir().unwrap();
+    let write = |path: &str, text: &str| {
+        let path = dir.path().join(path);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, text).unwrap();
+    };
+    write(
+        "api/openapi.yaml",
+        "openapi: 3.1.0\ninfo: {title: T, version: 1.0.0}\npaths: {}\n",
+    );
+    write("api/lib.raml", "#%RAML 1.0 Library\n");
+    write(
+        "proto/pets.proto",
+        "syntax = \"proto3\";\nservice Pets {}\n",
+    );
+    write(
+        "proto/types.proto",
+        "syntax = \"proto3\";\nmessage Pet {}\n",
+    );
+    write(
+        "idl/main.thrift",
+        "include \"shared.thrift\"\nservice Main {}\n",
+    );
+    write("idl/shared.thrift", "service Shared {}\n");
+    write("config/app.yaml", "port: 8080\n");
+    write("node_modules/dep/openapi.yaml", "openapi: 3.0.0\n");
+    write(".hidden/openapi.yaml", "openapi: 3.0.0\n");
+
+    let printed = faultline(dir.path(), &["init", "--print"]);
+    assert_eq!(printed.status.code(), Some(0), "{}", stderr(&printed));
+    let config = stdout(&printed);
+    let entries: Vec<&str> = config
+        .lines()
+        .filter_map(|l| l.strip_prefix("entry = "))
+        .collect();
+    assert_eq!(
+        entries,
+        [
+            "\"api/openapi.yaml\"",
+            "\"idl/main.thrift\"",
+            "\"proto/pets.proto\""
+        ],
+        "{config}"
+    );
+    assert!(
+        !dir.path().join("faultline.toml").exists(),
+        "--print writes nothing"
+    );
+
+    let written = faultline(dir.path(), &["init"]);
+    assert_eq!(written.status.code(), Some(0), "{}", stderr(&written));
+    assert_eq!(
+        std::fs::read_to_string(dir.path().join("faultline.toml")).unwrap(),
+        config
+    );
+    let again = faultline(dir.path(), &["init"]);
+    assert_eq!(again.status.code(), Some(2));
+    assert!(stderr(&again).contains("--force"), "{}", stderr(&again));
+    assert_eq!(
+        faultline(dir.path(), &["init", "--force"]).status.code(),
+        Some(0)
+    );
+}
+
+#[test]
 fn declared_versions_are_checked_with_semver_versioning() {
     let dir = workspace();
     // Version 2 claims to be a minor release despite its breaking changes.

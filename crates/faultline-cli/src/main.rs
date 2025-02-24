@@ -1,6 +1,7 @@
 //! The `faultline` command-line tool.
 
 mod commands;
+mod init;
 mod registry;
 
 use std::process::ExitCode;
@@ -21,6 +22,8 @@ enum Command {
     Diff(commands::DiffArgs),
     /// Compare every API in faultline.toml with a base revision.
     Check(commands::CheckArgs),
+    /// Write a faultline.toml listing the API descriptions in a workspace.
+    Init(init::InitArgs),
     /// Record the current findings between two versions as accepted.
     Baseline(commands::BaselineArgs),
     /// Explain a rule.

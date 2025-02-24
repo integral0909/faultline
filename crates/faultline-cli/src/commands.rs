@@ -260,6 +260,7 @@ pub(crate) fn run(command: Command) -> i32 {
     let result = match command {
         Command::Diff(args) => diff(&args),
         Command::Check(args) => check(&args),
+        Command::Init(args) => crate::init::init(&args),
         Command::Baseline(args) => baseline(&args),
         Command::Explain { rule } => explain(&rule),
         Command::Rules { markdown } => {

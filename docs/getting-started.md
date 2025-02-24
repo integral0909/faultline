@@ -276,7 +276,9 @@ written in different formats. See
 
 ## Checking pull requests
 
-List the APIs in `faultline.toml` at the root of the repository:
+List the APIs in `faultline.toml` at the root of the repository.
+`faultline init` writes one listing the API descriptions it finds, which you
+then review (`--print` shows it without writing):
 
 ```toml
 [[api]]
