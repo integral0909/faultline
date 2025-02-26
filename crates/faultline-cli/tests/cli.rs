@@ -168,6 +168,30 @@ fn markdown_github_and_junit() {
 }
 
 #[test]
+fn html_reports_are_self_contained() {
+    let dir = workspace();
+    let output = faultline(dir.path(), &[&DIFF[..], &["--output", "html"]].concat());
+    assert_eq!(output.status.code(), Some(1));
+    let page = stdout(&output);
+    assert!(page.starts_with("<!DOCTYPE html>"), "{page}");
+    assert!(
+        page.contains("<h1>Faultline found 5 failing changes</h1>"),
+        "{page}"
+    );
+    assert!(page.contains("<code>op[DELETE /pets/{}]</code>"), "{page}");
+    assert!(
+        page.contains("enum value &quot;adopted&quot; added"),
+        "{page}"
+    );
+    assert!(!page.contains("<script"), "no scripts");
+    assert!(
+        !page.contains("src=\"http") && !page.contains("<link"),
+        "nothing is loaded from elsewhere"
+    );
+    assert!(page.trim_end().ends_with("</html>"));
+}
+
+#[test]
 fn gitlab_code_quality() {
     let dir = workspace();
     let output = faultline(dir.path(), &[&DIFF[..], &["--output", "gitlab"]].concat());

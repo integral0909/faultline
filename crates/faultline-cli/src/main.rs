@@ -80,6 +80,8 @@ enum Output {
     Junit,
     /// GitLab Code Quality.
     Gitlab,
+    /// A self-contained HTML page.
+    Html,
     /// Release notes in Markdown.
     Changelog,
 }
@@ -94,6 +96,7 @@ impl From<Output> for faultline_report::OutputFormat {
             Output::Github => Self::Github,
             Output::Junit => Self::Junit,
             Output::Gitlab => Self::Gitlab,
+            Output::Html => Self::Html,
             Output::Changelog => Self::Changelog,
         }
     }

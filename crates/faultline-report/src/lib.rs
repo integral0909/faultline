@@ -8,6 +8,7 @@
 mod changelog;
 mod github;
 mod gitlab;
+mod html;
 mod json;
 mod junit;
 mod location;
@@ -62,12 +63,14 @@ pub enum OutputFormat {
     Junit,
     /// GitLab Code Quality.
     Gitlab,
+    /// A self-contained HTML page.
+    Html,
     /// Release notes in Markdown.
     Changelog,
 }
 
 impl OutputFormat {
-    pub const ALL: [OutputFormat; 8] = [
+    pub const ALL: [OutputFormat; 9] = [
         OutputFormat::Text,
         OutputFormat::Json,
         OutputFormat::Sarif,
@@ -75,6 +78,7 @@ impl OutputFormat {
         OutputFormat::Github,
         OutputFormat::Junit,
         OutputFormat::Gitlab,
+        OutputFormat::Html,
         OutputFormat::Changelog,
     ];
 
@@ -87,6 +91,7 @@ impl OutputFormat {
             OutputFormat::Github => "github",
             OutputFormat::Junit => "junit",
             OutputFormat::Gitlab => "gitlab",
+            OutputFormat::Html => "html",
             OutputFormat::Changelog => "changelog",
         }
     }
@@ -112,6 +117,7 @@ pub fn render(report: &Report<'_>, format: OutputFormat) -> String {
         OutputFormat::Github => github::render(report),
         OutputFormat::Junit => junit::render(report),
         OutputFormat::Gitlab => gitlab::render(report),
+        OutputFormat::Html => html::render(report),
         OutputFormat::Changelog => changelog::render(report),
     }
 }
@@ -131,6 +137,24 @@ pub(crate) fn short_witness(value: &faultline_ir::Literal) -> String {
     }
     let truncated: String = text.chars().take(MAX).collect();
     format!("{truncated}…")
+}
+
+/// The one-line verdict at the top of a report for people.
+pub(crate) fn headline(report: &Report<'_>) -> String {
+    let evaluation = report.evaluation;
+    let failing = evaluation.failing();
+    if report.diagnostics.has_errors() {
+        "Faultline could not check the API: the inputs have errors".to_owned()
+    } else if failing > 0 {
+        format!(
+            "Faultline found {failing} failing {}",
+            if failing == 1 { "change" } else { "changes" }
+        )
+    } else if !evaluation.version_violations.is_empty() {
+        "Faultline found a version that does not match its changes".to_owned()
+    } else {
+        "Faultline found no breaking changes".to_owned()
+    }
 }
 
 /// What is wrong with a release's declared versions, in one sentence.

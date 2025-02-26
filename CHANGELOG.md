@@ -224,6 +224,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - FL1031 covers collections whose wire encoding changes, and a removed
   field's number is only reported as unreserved where the format can
   reserve numbers.
+- `--output html`: a self-contained report page, with findings linked to
+  their rules, for CI systems that keep reports as artifacts.
 - `--output gitlab`: GitLab Code Quality reports, with finding ids as
   fingerprints so merge requests show which findings are new.
 - `check` takes its base from GitLab merge request pipelines

@@ -73,7 +73,8 @@ reports.
 
 `--output` selects `text` (default), `json`, `sarif`, `markdown` (for pull
 request comments), `github` (workflow annotations), `junit`, `gitlab`
-(GitLab Code Quality, shown in merge requests), or `changelog`. The last is release notes in Markdown, grouped into breaking
+(GitLab Code Quality, shown in merge requests), `html` (a self-contained
+page to keep as a build artifact), or `changelog`. The last is release notes in Markdown, grouped into breaking
 changes, deprecations, additions and other changes.
 
 The JSON format is versioned by its `schema_version` field; see
