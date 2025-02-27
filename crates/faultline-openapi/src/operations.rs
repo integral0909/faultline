@@ -46,13 +46,53 @@ impl Context<'_, '_, '_> {
             .unwrap_or_default();
         let template = PathTemplate::parse(path);
         let mut operations = Vec::new();
+        let v32 = self.format == faultline_ir::ApiFormat::OpenApi32;
         for method in HttpMethod::ALL {
+            // `query` is a field of OpenAPI 3.2 path items only.
+            if method == HttpMethod::Query && !v32 {
+                continue;
+            }
             let field = method.as_str().to_ascii_lowercase();
             if let Some(at) = item.child(&field) {
                 operations.extend(self.operation(method, &template, key, &at, &shared, security));
             }
         }
+        if v32 && let Some(additional) = item.child("additionalOperations") {
+            self.additional_operations(&additional);
+        }
         operations
+    }
+
+    /// OpenAPI 3.2's `additionalOperations`, for methods without a field of
+    /// their own. Every method the IR distinguishes has one, so an entry
+    /// for one of them is an error, and entries for other methods are
+    /// reported as not compared.
+    fn additional_operations(&mut self, additional: &At) {
+        let Some(object) = additional.node().as_object() else {
+            return;
+        };
+        let methods: Vec<(String, faultline_source::Span)> = object
+            .members()
+            .map(|(name, member)| (name.to_owned(), member.key_span))
+            .collect();
+        for (name, span) in methods {
+            if let Some(method) = HttpMethod::parse(&name) {
+                self.error(
+                    codes::ADDITIONAL_OPERATION,
+                    &format!(
+                        "{name} has its own field; use `{}` instead of additionalOperations",
+                        method.as_str().to_ascii_lowercase()
+                    ),
+                    span,
+                );
+            } else {
+                self.warning(
+                    codes::ADDITIONAL_OPERATION,
+                    &format!("operations for the {name} method are not compared"),
+                    span,
+                );
+            }
+        }
     }
 
     fn operation(
@@ -152,9 +192,68 @@ impl Context<'_, '_, '_> {
             self.error(codes::INVALID_FIELD, "parameters must be an array", span);
             return Vec::new();
         }
-        list.elements()
+        let mut parameters = Vec::new();
+        for element in list.elements() {
+            let querystring = self.format == faultline_ir::ApiFormat::OpenApi32
+                && self
+                    .resolve(element.clone())
+                    .and_then(|at| at.get("in").and_then(|n| n.as_str()).map(str::to_owned))
+                    .as_deref()
+                    == Some("querystring");
+            if querystring {
+                parameters.extend(self.querystring(element));
+            } else if let Some(parameter) = self.parameter(element) {
+                parameters.push(parameter);
+            }
+        }
+        parameters
+    }
+
+    /// An OpenAPI 3.2 `querystring` parameter, which describes the whole
+    /// query string with `content`: each property of its object schema is
+    /// a query parameter, so that moving parameters into one is not a
+    /// change.
+    fn querystring(&mut self, at: At) -> Vec<Parameter> {
+        let Some(at) = self.resolve(at) else {
+            return Vec::new();
+        };
+        let schema = at
+            .child("content")
+            .and_then(|content| content.entries().into_iter().next())
+            .and_then(|(_, media)| media.child("schema"))
+            .and_then(|schema| self.resolve(schema));
+        let properties = schema.as_ref().and_then(|s| s.child("properties"));
+        let (Some(schema), Some(properties)) = (schema, properties) else {
+            let span = at.span();
+            self.warning(
+                codes::MISSING_SCHEMA,
+                "a querystring parameter is compared by the properties of an object schema; this one has none",
+                span,
+            );
+            return Vec::new();
+        };
+        let required: Vec<String> = schema
+            .get("required")
+            .and_then(|r| r.as_array())
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(|i| i.as_str().map(str::to_owned))
+                    .collect()
+            })
+            .unwrap_or_default();
+        properties
+            .entries()
             .into_iter()
-            .filter_map(|element| self.parameter(element))
+            .map(|(name, property)| Parameter {
+                location: ParamLocation::Query,
+                required: required.contains(&name),
+                ty: self.schema(&property),
+                serialization: None,
+                meta: self.meta(&property),
+                origin: Some(property.span()),
+                name,
+            })
             .collect()
     }
 
@@ -453,11 +552,26 @@ impl Context<'_, '_, '_> {
 
     /// The type of the `schema` member of a Media Type Object; a media type
     /// without a schema accepts any payload.
+    /// A media type's schema. In OpenAPI 3.2, a sequential media type
+    /// (JSON Lines, server-sent events) may give `itemSchema` instead: the
+    /// schema of each item, compared as an array of them.
     fn schema_or_any(&mut self, media: &At) -> faultline_ir::TypeId {
-        match media.child("schema") {
-            Some(schema) => self.schema(&schema),
-            None => self.any(),
+        if let Some(schema) = media.child("schema") {
+            return self.schema(&schema);
         }
+        if self.format == faultline_ir::ApiFormat::OpenApi32
+            && let Some(item) = media.child("itemSchema")
+        {
+            let item = self.schema(&item);
+            return self
+                .lowerer
+                .api_mut()
+                .types
+                .alloc_kind(faultline_ir::TypeKind::Array(faultline_ir::ArrayType::of(
+                    item,
+                )));
+        }
+        self.any()
     }
 
     pub(crate) fn any(&mut self) -> faultline_ir::TypeId {

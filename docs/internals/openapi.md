@@ -1,6 +1,6 @@
 # OpenAPI lowering
 
-`faultline-openapi` lowers Swagger 2.0, OpenAPI 3.0 and 3.1 descriptions into the IR
+`faultline-openapi` lowers Swagger 2.0 and OpenAPI 3.0, 3.1 and 3.2 descriptions into the IR
 ([ir.md](ir.md)). Schemas are delegated to the JSON Schema front end
 ([json-schema.md](json-schema.md)); this crate handles everything around them.
 
@@ -9,7 +9,7 @@
 | `openapi` | Schema dialect |
 |---|---|
 | `3.0.x` | the OpenAPI 3.0 Schema Object: draft-04-style bounds, no `$id`, `$ref` siblings ignored, `nullable` |
-| `3.1.x` | `jsonSchemaDialect` if it names a known dialect, else JSON Schema 2020-12 |
+| `3.1.x`, `3.2.x` | `jsonSchemaDialect` if it names a known dialect, else JSON Schema 2020-12 |
 | `swagger: "2.0"` | the Swagger 2.0 Schema Object: as OpenAPI 3.0, with `x-nullable` for `nullable` and `type: file` as a string |
 
 `nullable: true` adds `null` to the declared `type` and has no effect without
@@ -41,6 +41,22 @@ rejects it.
 * **Discriminators**: explicit `mapping` entries (by reference or component
   name), and implicit mappings from the component names of `$ref` variants
   that no explicit entry already targets.
+
+## OpenAPI 3.2
+
+* The `query` field of a path item is a `QUERY` operation
+  (`QUERY /pets`).
+* `additionalOperations` names methods without a field of their own. Every
+  method Faultline distinguishes has one, so an entry for one of them is an
+  error, and entries for other methods (`COPY`, `PURGE`, ...) are reported
+  as not compared (`FLE2012`).
+* A `querystring` parameter describes the whole query string with
+  `content`. Each property of its object schema is a query parameter,
+  required as the schema says, so moving parameters into a `querystring`
+  is not a change.
+* A media type's `itemSchema` describes each item of a sequential media
+  type (JSON Lines, server-sent events). The content is compared as an array
+  of those items.
 
 ## Swagger 2.0
 

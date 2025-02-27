@@ -1,7 +1,7 @@
 //! The OpenAPI front end.
 //!
-//! Lowers Swagger 2.0, OpenAPI 3.0 and OpenAPI 3.1
-//! descriptions into the Faultline IR: every
+//! Lowers Swagger 2.0 and OpenAPI 3.0, 3.1 and 3.2 descriptions into the
+//! Faultline IR: every
 //! operation with its parameters (including their serialization), request
 //! body, responses, headers, callbacks and security requirements; 3.1
 //! webhooks; and every schema, lowered by the JSON Schema front end in the
@@ -85,6 +85,7 @@ pub fn lower_openapi(entry: &UriRef, store: &mut DocumentStore<'_>, name: &str) 
     let mut context = Context {
         lowerer: &mut lowerer,
         dialect,
+        format,
         diagnostics,
     };
     if format == ApiFormat::Swagger2 {
@@ -129,13 +130,18 @@ fn detect_version(root: &At, diagnostics: &mut Diagnostics) -> Option<(ApiFormat
         Some(v) if v.starts_with("3.0.") || v == "3.0" => {
             Some((ApiFormat::OpenApi30, Dialect::OpenApi30))
         }
-        Some(v) if v.starts_with("3.1.") || v == "3.1" => {
+        Some(v) if v.starts_with("3.1.") || v == "3.1" || v.starts_with("3.2.") || v == "3.2" => {
             let dialect = root
                 .get("jsonSchemaDialect")
                 .and_then(|d| d.as_str())
                 .and_then(Dialect::from_meta_schema)
                 .unwrap_or(Dialect::Draft2020_12);
-            Some((ApiFormat::OpenApi31, dialect))
+            let format = if v.starts_with("3.1") {
+                ApiFormat::OpenApi31
+            } else {
+                ApiFormat::OpenApi32
+            };
+            Some((format, dialect))
         }
         _ => {
             let (message, at) = match version {
@@ -152,7 +158,7 @@ fn detect_version(root: &At, diagnostics: &mut Diagnostics) -> Option<(ApiFormat
                 Diagnostic::error(message)
                     .with_code(codes::NOT_OPENAPI)
                     .with_primary(at, "")
-                    .with_note("OpenAPI 3.0 and 3.1 are supported"),
+                    .with_note("OpenAPI 3.0, 3.1 and 3.2 are supported"),
             );
             None
         }

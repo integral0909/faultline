@@ -15,6 +15,8 @@ pub(crate) use faultline_jsonschema::nav::At;
 pub(crate) struct Context<'x, 'a, 'l> {
     pub(crate) lowerer: &'x mut Lowerer<'a, 'l>,
     pub(crate) dialect: Dialect,
+    /// The version of the description, for fields only some versions have.
+    pub(crate) format: faultline_ir::ApiFormat,
     pub(crate) diagnostics: Diagnostics,
 }
 
@@ -97,6 +99,19 @@ impl Context<'_, '_, '_> {
     ) {
         self.diagnostics.push(
             Diagnostic::error(message.to_owned())
+                .with_code(code)
+                .with_primary(span, ""),
+        );
+    }
+
+    pub(crate) fn warning(
+        &mut self,
+        code: faultline_source::DiagnosticCode,
+        message: &str,
+        span: Span,
+    ) {
+        self.diagnostics.push(
+            Diagnostic::warning(message.to_owned())
                 .with_code(code)
                 .with_primary(span, ""),
         );

@@ -24,3 +24,7 @@ pub const MISSING_SCHEMA: DiagnosticCode = DiagnosticCode::new("FLE2009");
 pub const SWAGGER_2: DiagnosticCode = DiagnosticCode::new("FLE2010");
 /// A path template does not start with `/`.
 pub const INVALID_PATH: DiagnosticCode = DiagnosticCode::new("FLE2011");
+/// An OpenAPI 3.2 `additionalOperations` entry for a method that has a
+/// field of its own (an error), or for a method Faultline does not compare
+/// (a warning).
+pub const ADDITIONAL_OPERATION: DiagnosticCode = DiagnosticCode::new("FLE2012");

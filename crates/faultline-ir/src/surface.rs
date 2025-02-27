@@ -20,10 +20,13 @@ pub enum HttpMethod {
     Head,
     Patch,
     Trace,
+    /// `QUERY`: a safe request with a body describing the query
+    /// (OpenAPI 3.2).
+    Query,
 }
 
 impl HttpMethod {
-    pub const ALL: [HttpMethod; 8] = [
+    pub const ALL: [HttpMethod; 9] = [
         HttpMethod::Get,
         HttpMethod::Put,
         HttpMethod::Post,
@@ -32,6 +35,7 @@ impl HttpMethod {
         HttpMethod::Head,
         HttpMethod::Patch,
         HttpMethod::Trace,
+        HttpMethod::Query,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -44,6 +48,7 @@ impl HttpMethod {
             HttpMethod::Head => "HEAD",
             HttpMethod::Patch => "PATCH",
             HttpMethod::Trace => "TRACE",
+            HttpMethod::Query => "QUERY",
         }
     }
 

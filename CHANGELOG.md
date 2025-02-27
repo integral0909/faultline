@@ -224,6 +224,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - FL1031 covers collections whose wire encoding changes, and a removed
   field's number is only reported as unreserved where the format can
   reserve numbers.
+- OpenAPI 3.2: `QUERY` operations, `querystring` parameters compared as
+  the query parameters they describe, `itemSchema` streams compared as
+  arrays of their items, and `additionalOperations` for other methods
+  reported as not compared.
 - `--output html`: a self-contained report page, with findings linked to
   their rules, for CI systems that keep reports as artifacts.
 - `--output gitlab`: GitLab Code Quality reports, with finding ids as
