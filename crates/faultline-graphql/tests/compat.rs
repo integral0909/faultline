@@ -239,3 +239,40 @@ fn identical_schemas_have_no_findings() {
     let text = schema(PET, "enum E { A }");
     assert!(summary(&text, &text).is_empty());
 }
+
+const ONE_OF: &str = r"
+type Query { pet(by: PetBy!): String }
+input PetBy @oneOf { id: ID, name: String }
+";
+
+#[test]
+fn one_of_inputs_take_exactly_one_field() {
+    let api = api(ONE_OF);
+    let by = api.named[&faultline_ir::QualName::new("PetBy")];
+    let faultline_ir::TypeKind::Object(object) = &api.types.get(by).kind else {
+        panic!()
+    };
+    assert_eq!(object.exclusive[0].fields, ["id", "name"]);
+    assert_eq!(object.min_properties, 1);
+    assert!(
+        matches!(
+            api.types.get(object.fields[0].ty).kind,
+            faultline_ir::TypeKind::String(_)
+        ),
+        "the chosen field is not null"
+    );
+
+    // Dropping @oneOf lets clients send several fields, or none: servers
+    // written for one field are sent inputs they never handled.
+    let plain = summary(ONE_OF, &ONE_OF.replace(" @oneOf", ""));
+    assert!(!plain.is_empty());
+    // Making an input @oneOf rejects clients that send several fields.
+    let made = summary(&ONE_OF.replace(" @oneOf", ""), ONE_OF);
+    assert!(made.iter().any(|s| s.contains("breaking")), "{made:?}");
+    // A new alternative is compatible for requests.
+    let wider = summary(
+        ONE_OF,
+        &ONE_OF.replace("name: String", "name: String, tag: String"),
+    );
+    assert!(wider.iter().all(|s| !s.contains("breaking")), "{wider:?}");
+}

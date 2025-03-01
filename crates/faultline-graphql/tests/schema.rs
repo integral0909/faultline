@@ -361,3 +361,11 @@ fn syntax_errors_recover_at_the_next_definition() {
         ]
     );
 }
+
+#[test]
+fn one_of_fields_are_nullable_without_defaults() {
+    let found =
+        errors("type Query { a(x: X): Int }\ninput X @oneOf { a: Int!, b: Int = 1, c: Int }");
+    let codes: Vec<&str> = found.iter().map(|(code, _)| code.as_str()).collect();
+    assert_eq!(codes, ["FLE4010", "FLE4010"]);
+}

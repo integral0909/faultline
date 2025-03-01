@@ -21,3 +21,5 @@ pub const EXECUTABLE: DiagnosticCode = DiagnosticCode::new("FLE4007");
 pub const RESERVED_NAME: DiagnosticCode = DiagnosticCode::new("FLE4008");
 /// A type or directive definition has no fields, values or members.
 pub const EMPTY: DiagnosticCode = DiagnosticCode::new("FLE4009");
+/// A field of a `@oneOf` input object is non-null or has a default.
+pub const ONE_OF: DiagnosticCode = DiagnosticCode::new("FLE4010");

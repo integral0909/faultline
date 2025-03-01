@@ -54,6 +54,7 @@ Values are modelled as a client sees them:
 | `T!` | `T` |
 | `[T]` | array of `T` |
 | input object, argument list | closed object; a non-null value without a default is required; defaults are recorded |
+| `@oneOf` input object | closed object with exactly one field set, to a value that is not null |
 | enum | closed enum of value names |
 | union | tagged union of its members |
 | interface | the object of its declared fields |
@@ -78,8 +79,8 @@ argument or input field, or an argument made non-null breaks clients.
 
 * One schema file per API. Schemas split across files must be combined
   first.
-* Directive definitions and uses other than `@deprecated` do not affect the
-  comparison.
+* Directive definitions and uses other than `@deprecated` and `@oneOf` do
+  not affect the comparison.
 * Custom scalars are assumed to be strings; a change from one custom scalar
   to another is reported as a format change.
 * Renaming a type is visible only through `__typename`, as an enum value

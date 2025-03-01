@@ -236,6 +236,9 @@ impl<'a> Lowerer<'a> {
                 }
                 TypeKind::Object(object)
             }
+            TypeDefKind::InputObject { fields } if crate::schema::is_one_of(def) => {
+                TypeKind::Object(self.one_of(&def.name.text, fields))
+            }
             TypeDefKind::InputObject { fields } => TypeKind::Object(self.inputs(fields)),
             TypeDefKind::Union { members } => {
                 let variants = members.iter().map(|m| self.named(&m.text)).collect();
@@ -289,6 +292,27 @@ impl<'a> Lowerer<'a> {
             field.origin = Some(value.span);
             object.fields.push(field);
         }
+        object
+    }
+
+    /// A `@oneOf` input object: exactly one field is set, to a value that
+    /// is not null.
+    fn one_of(&mut self, name: &str, values: &[InputValue]) -> ObjectType {
+        let never = self.api.types.alloc_kind(TypeKind::Never);
+        let mut object = ObjectType::new(never);
+        for value in values {
+            let ty = self.non_null(&value.ty);
+            let mut field = Field::new(value.name.text.clone(), ty, false);
+            field.meta = meta(value.description.as_ref(), &value.directives);
+            field.origin = Some(value.span);
+            object.fields.push(field);
+        }
+        object.exclusive.push(faultline_ir::ExclusiveGroup {
+            name: name.to_owned(),
+            fields: values.iter().map(|v| v.name.text.clone()).collect(),
+            origin: None,
+        });
+        object.min_properties = 1;
         object
     }
 }

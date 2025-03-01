@@ -315,6 +315,21 @@ impl Builder {
                 TypeDefKind::InputObject { fields } => {
                     self.nonempty(ty, fields.len(), "fields");
                     self.input_values(fields);
+                    if is_one_of(ty) {
+                        for field in fields {
+                            if field.ty.is_non_null() || field.default.is_some() {
+                                self.error(
+                                    codes::ONE_OF,
+                                    field.name.span,
+                                    format!(
+                                        "`{}` is a field of the @oneOf input `{}`: it must be nullable and have no default",
+                                        field.name.text, ty.name.text
+                                    ),
+                                    "",
+                                );
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -491,4 +506,9 @@ fn article(kind: &str) -> &'static str {
     } else {
         "a"
     }
+}
+
+/// Whether an input object is `@oneOf`: exactly one of its fields is set.
+pub(crate) fn is_one_of(ty: &TypeDef) -> bool {
+    ty.directives.iter().any(|d| d.name.text == "oneOf")
 }
