@@ -224,6 +224,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - FL1031 covers collections whose wire encoding changes, and a removed
   field's number is only reported as unreserved where the format can
   reserve numbers.
+- RAML 0.8, read as its RAML 1.0 equivalent: list-form declarations,
+  named parameters with 0.8's defaults, and bodies' JSON Schemas.
 - OpenAPI 3.2: `QUERY` operations, `querystring` parameters compared as
   the query parameters they describe, `itemSchema` streams compared as
   arrays of their items, and `additionalOperations` for other methods

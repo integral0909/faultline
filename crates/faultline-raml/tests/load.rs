@@ -89,8 +89,9 @@ fn headers_name_the_document_kind() {
 fn problems_are_reported() {
     let codes = |files: &[(&str, &str)]| load(files).1;
     assert_eq!(codes(&[("a.raml", "title: Pets\n")]), ["FLE7601"]);
+    assert!(codes(&[("a.raml", "#%RAML 0.8\ntitle: Pets\n")]).is_empty());
     assert_eq!(
-        codes(&[("a.raml", "#%RAML 0.8\ntitle: Pets\n")]),
+        codes(&[("a.raml", "#%RAML 2.0\ntitle: Pets\n")]),
         ["FLE7602"]
     );
     assert_eq!(

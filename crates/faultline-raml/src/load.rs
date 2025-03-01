@@ -33,6 +33,8 @@ pub struct Document {
     pub kind: String,
     pub root: Node,
     pub uri: UriRef,
+    /// `1.0` or `0.8`.
+    pub version: String,
 }
 
 /// Loads RAML documents through the workspace loader.
@@ -100,21 +102,26 @@ impl<'a> RamlLoader<'a> {
         };
         let mut words = rest.split_whitespace();
         let version = words.next().unwrap_or_default();
-        if version != "1.0" {
+        if version != "1.0" && version != "0.8" {
             let span = Span::new(file.id(), 0, u32::try_from(header.len()).unwrap_or(0));
             self.error(
                 codes::UNSUPPORTED_VERSION,
-                format!("RAML {version} is not supported; RAML 1.0 is"),
+                format!("RAML {version} is not supported; RAML 1.0 and 0.8 are"),
                 Some(span),
             );
             return None;
         }
+        let version = version.to_owned();
         let kind = words.collect::<Vec<_>>().join(" ");
-        let root = self.yaml(&file, uri)?;
+        let mut root = self.yaml(&file, uri)?;
+        if version == "0.8" {
+            crate::raml08::upgrade(&mut root);
+        }
         Some(Document {
             kind,
             root,
             uri: uri.clone(),
+            version,
         })
     }
 

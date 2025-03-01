@@ -12,6 +12,7 @@ mod jsonschema;
 mod libraries;
 pub mod load;
 mod lower;
+mod raml08;
 pub mod templates;
 pub mod types;
 

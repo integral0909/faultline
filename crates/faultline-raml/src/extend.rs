@@ -106,6 +106,7 @@ fn apply_at(raml: &mut RamlLoader<'_>, mut document: Document, depth: usize) -> 
         kind: master.kind,
         root,
         uri: master.uri,
+        version: master.version,
     })
 }
 

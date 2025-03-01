@@ -1,20 +1,37 @@
 # RAML
 
-`faultline-raml` reads RAML 1.0 APIs and lowers their resources and methods
+`faultline-raml` reads RAML 1.0 and 0.8 APIs and lowers their resources and methods
 into operations, and their data types into the IR's type graph.
 
 ## Loading
 
 A RAML document is YAML whose first line names the version and kind of
 document: `#%RAML 1.0` for an API, `#%RAML 1.0 Library` for a library, and
-so on. Other versions, including RAML 0.8, are reported as unsupported
-(`FLE7602`). The YAML loader keeps RAML's local tags, so `!include path`
+so on. RAML 0.8 is read as described below; other versions are reported as
+unsupported (`FLE7602`). The YAML loader keeps RAML's local tags, so `!include path`
 embeds another file where it occurs: a RAML or YAML file as its tree, a JSON
 file as its parsed value, and any other file as its text. Includes are
 resolved against the including file and confined to the workspace. A file
 that includes itself, directly or indirectly, is reported (`FLE7603`).
 Included nodes keep the spans of the files they came from, so findings point
 into the included file.
+
+## RAML 0.8
+
+A RAML 0.8 document is rewritten into its RAML 1.0 equivalent before
+lowering, so that both are compared alike:
+
+* `schemas`, `traits`, `resourceTypes` and `securitySchemes` written as
+  lists of one-member maps become maps.
+* Named parameters (`queryParameters`, `headers`, `formParameters`,
+  `uriParameters`, `baseUriParameters`) are optional unless they say
+  `required: true`, except URI parameters, which are always required. A
+  parameter without a type is a string, `type: date` is a `datetime`, and
+  `repeat: true` makes an array.
+* A body's `schema` is its type: the name of a `schemas` entry, or a JSON
+  Schema written in place. Either way it is lowered as a JSON Schema, as
+  RAML 1.0 lowers JSON Schemas used as types. A body's `formParameters`
+  are the properties of an object.
 
 ## Overlays and extensions
 
