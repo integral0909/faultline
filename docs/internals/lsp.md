@@ -12,9 +12,13 @@ configuration apply before they are saved).
 
 * With `[[api]]` entries, each configured API is compared.
 * Without any, each open document that is an API description on its own is
-  compared: `.proto`, `.graphql`/`.graphqls`/`.gql` and `.avsc` files by
-  extension, and JSON or YAML files whose first lines declare `openapi` or
-  `$schema`. Other JSON and YAML (`package.json`, CI files) stay quiet.
+  compared. Files in the schema languages are recognized by extension:
+  Protobuf, Thrift, Smithy, GraphQL, Avro, XML Schema, WSDL and JSON Type
+  Definition. RAML files count when they are APIs; fragments such as
+  libraries are compared through the API that uses them. JSON or YAML files
+  count when their first lines declare `openapi`, `swagger`, `asyncapi`,
+  `$schema` or `smithy`. Other JSON and YAML (`package.json`, CI files) stay
+  quiet.
 
 The old version is read from the base revision (`HEAD` by default; the
 `--base` flag, the `base` initialization option, or the `faultline.base`

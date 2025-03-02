@@ -330,11 +330,17 @@ fn relative_to(root: &Path, path: &Path) -> PathBuf {
 }
 
 /// Whether a document is worth comparing without configuration: schema
-/// languages by extension, JSON and YAML only when they declare themselves
-/// OpenAPI or JSON Schema (so that `package.json` stays quiet).
+/// languages by extension (RAML only for APIs, not fragments such as
+/// libraries, which are compared through the API using them), JSON and
+/// YAML only when they declare themselves OpenAPI, AsyncAPI, JSON Schema or
+/// a Smithy JSON AST (so that `package.json` stays quiet).
 pub(crate) fn looks_like_api(path: &Path, text: &str) -> bool {
     let entry = workspace_uri(path);
-    if faultline::format_by_extension(&entry).is_some() {
+    if let Some(format) = faultline::format_by_extension(&entry) {
+        if format == faultline_policy::ApiFormat::Raml {
+            let header = text.lines().next().unwrap_or_default().trim();
+            return matches!(header, "#%RAML 1.0" | "#%RAML 0.8");
+        }
         return true;
     }
     let extension = path
@@ -349,7 +355,7 @@ pub(crate) fn looks_like_api(path: &Path, text: &str) -> bool {
     let head: String = text.chars().take(4096).collect();
     head.lines().any(|line| {
         let key = line.trim_start().trim_start_matches(['{', '"', '\'']);
-        ["openapi", "swagger", "asyncapi", "$schema"]
+        ["openapi", "swagger", "asyncapi", "$schema", "smithy"]
             .iter()
             .any(|k| key.starts_with(k))
     })
@@ -685,6 +691,15 @@ mod tests {
         assert!(!yes("package.json", "{\"name\": \"x\"}"));
         assert!(!yes("compose.yaml", "services:\n  api: {}\n"));
         assert!(!yes("notes.md", "openapi"));
+        assert!(yes("pets.thrift", ""));
+        assert!(yes("model/weather.smithy", ""));
+        assert!(yes(
+            "model.json",
+            "{\n  \"smithy\": \"2.0\",\n  \"shapes\": {}\n}"
+        ));
+        assert!(yes("api.raml", "#%RAML 1.0\ntitle: T\n"));
+        assert!(yes("old.raml", "#%RAML 0.8\ntitle: T\n"));
+        assert!(!yes("lib.raml", "#%RAML 1.0 Library\n"), "a fragment");
     }
 
     #[test]
