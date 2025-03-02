@@ -368,6 +368,19 @@ fn explain_rules_and_ir_dump() {
 }
 
 #[test]
+fn diagnostic_codes_are_explained() {
+    let output = faultline(&repo(), &["explain", "fle7605"]);
+    assert_eq!(output.status.code(), Some(0));
+    assert!(
+        stdout(&output).starts_with("FLE7605 (faultline-raml)\n\nA type, trait"),
+        "{}",
+        stdout(&output)
+    );
+    let unknown = faultline(&repo(), &["explain", "FLE9999"]);
+    assert_eq!(unknown.status.code(), Some(2));
+}
+
+#[test]
 fn committed_rule_reference_is_current() {
     let generated = stdout(&faultline(&repo(), &["rules", "--markdown"]));
     let path = repo().join("docs/rules.md");

@@ -1,0 +1,149 @@
+# Diagnostics
+
+Problems with the inputs (a file that does not parse, a reference that
+resolves to nothing) are reported as diagnostics, distinct from findings
+about compatibility. Each has a code; `faultline explain FLE0000` shows
+what a code means. This reference is generated from the definitions.
+
+| Code | Crate | Meaning |
+|---|---|---|
+| FLE0001 | `faultline-doc` | A file is not text in UTF-8 (or UTF-16 or UTF-32 with a byte order mark). |
+| FLE0002 | `faultline-doc` | A file is larger than the input size limit. |
+| FLE0003 | `faultline-doc` | Values nest deeper than the input depth limit. |
+| FLE0004 | `faultline-doc` | A document has more values than the node limit, counting the values YAML aliases expand to. |
+| FLE0005 | `faultline-doc` | An object or mapping has the same key twice. |
+| FLE0006 | `faultline-doc` | A number's exponent is too large to represent. |
+| FLE0101 | `faultline-doc` | JSON: a character that cannot start or continue a value here. |
+| FLE0102 | `faultline-doc` | JSON: the text ends inside a value. |
+| FLE0103 | `faultline-doc` | JSON: a string has an escape other than those JSON defines. |
+| FLE0104 | `faultline-doc` | JSON: a `\u` escape is half of a surrogate pair without the other half. |
+| FLE0105 | `faultline-doc` | JSON: a string holds a control character that must be escaped. |
+| FLE0106 | `faultline-doc` | JSON: a number is not written as JSON requires (leading zeros, a missing digit). |
+| FLE0107 | `faultline-doc` | JSON: text follows the document's value. |
+| FLE0201 | `faultline-doc` | YAML: the text does not follow the YAML grammar. |
+| FLE0202 | `faultline-doc` | YAML: an alias (`*name`) refers to no anchor defined before it. |
+| FLE0203 | `faultline-doc` | YAML: a file holds more than one document; one is expected. |
+| FLE0204 | `faultline-doc` | YAML: a mapping key is a collection rather than a scalar. |
+| FLE0205 | `faultline-doc` | YAML: a tag other than the core schema's is ignored (a warning). |
+| FLE0206 | `faultline-doc` | YAML: a value does not match its core schema tag, such as `!!int` on text. |
+| FLE0207 | `faultline-doc` | YAML: a merge key (`<<`) whose value is not a mapping or a list of mappings. |
+| FLE0701 | `faultline-xml` | The document is not well-formed XML. |
+| FLE0702 | `faultline-xml` | The document has a document type declaration, which is not processed. |
+| FLE0703 | `faultline-xml` | An entity reference other than the predefined ones, or an invalid character reference. |
+| FLE0704 | `faultline-xml` | A namespace prefix is used without being declared. |
+| FLE0705 | `faultline-xml` | An element has the same attribute twice. |
+| FLE0706 | `faultline-xml` | An end tag does not match the element it closes. |
+| FLE0707 | `faultline-xml` | Elements nest deeper than the limit. |
+| FLE0708 | `faultline-xml` | The document has more nodes than the limit. |
+| FLE0901 | `faultline` | An entry document could not be located or is outside the workspace. |
+| FLE0902 | `faultline` | The workspace root could not be opened. |
+| FLE0903 | `faultline` | The git repository holding the workspace could not be opened or read. |
+| FLE0904 | `faultline` | A revision could not be resolved, or two revisions share no history. |
+| FLE0905 | `faultline` | A configured API does not exist in the old version (a note, not an error). |
+| FLE0906 | `faultline` | An overlay cannot be read or applied, or is given for a format that is not JSON or YAML. An overlay missing from a revision is a note: the version is compared without it. |
+| FLE1001 | `faultline-jsonschema` | A keyword's value has the wrong JSON type or is out of range. |
+| FLE1002 | `faultline-jsonschema` | `type` names something other than the seven JSON Schema types. |
+| FLE1003 | `faultline-jsonschema` | A reference does not resolve to anything. |
+| FLE1004 | `faultline-jsonschema` | A reference points outside the workspace root. |
+| FLE1005 | `faultline-jsonschema` | A reference needs network access, which is disabled. |
+| FLE1006 | `faultline-jsonschema` | A referenced document could not be read. |
+| FLE1007 | `faultline-jsonschema` | `$schema` names a dialect Faultline does not know. |
+| FLE1008 | `faultline-jsonschema` | Keywords next to `$ref` are ignored in this dialect. |
+| FLE1009 | `faultline-jsonschema` | A schema is defined in terms of itself without an object or array in between, so it describes no well-founded set of values. |
+| FLE1010 | `faultline-jsonschema` | A keyword's semantics can only be approximated statically. |
+| FLE1011 | `faultline-jsonschema` | A reference points at a value that is not a schema. |
+| FLE1012 | `faultline-jsonschema` | The same `$id` or anchor is declared twice. |
+| FLE1013 | `faultline-jsonschema` | A reference or identifier is not a valid URI reference. |
+| FLE1099 | `faultline-jsonschema` | An internal invariant was violated while lowering; always a bug. |
+| FLE1201 | `faultline-overlay` | The overlay document is malformed, or an action cannot be applied. |
+| FLE1202 | `faultline-overlay` | An action's target is not a valid JSONPath query. |
+| FLE1203 | `faultline-overlay` | An action's target selects nothing (a warning). |
+| FLE2001 | `faultline-openapi` | The document is not an OpenAPI 3.x description. |
+| FLE2002 | `faultline-openapi` | A field has the wrong JSON type. |
+| FLE2003 | `faultline-openapi` | A reference to a non-schema object does not resolve. |
+| FLE2004 | `faultline-openapi` | Two operations have the same method and normalized path. |
+| FLE2005 | `faultline-openapi` | A path parameter is undeclared, not required, or not in the template. |
+| FLE2006 | `faultline-openapi` | A response key is not a status code, range or `default`. |
+| FLE2007 | `faultline-openapi` | A parameter's `in` is not path, query, header or cookie. |
+| FLE2008 | `faultline-openapi` | References between non-schema objects form a cycle. |
+| FLE2009 | `faultline-openapi` | A parameter or header has neither `schema` nor `content`. |
+| FLE2010 | `faultline-openapi` | A `swagger` version other than `"2.0"`. |
+| FLE2011 | `faultline-openapi` | A path template does not start with `/`. |
+| FLE2012 | `faultline-openapi` | An OpenAPI 3.2 `additionalOperations` entry for a method that has a field of its own (an error), or for a method Faultline does not compare (a warning). |
+| FLE3001 | `faultline-protobuf` | The file does not follow the Protobuf grammar. |
+| FLE3002 | `faultline-protobuf` | An imported file could not be found or read. |
+| FLE3003 | `faultline-protobuf` | A type name does not resolve to a message or enum. |
+| FLE3004 | `faultline-protobuf` | Two declarations have the same fully-qualified name. |
+| FLE3005 | `faultline-protobuf` | A field or enum number is out of range or in a range Protobuf reserves. |
+| FLE3006 | `faultline-protobuf` | Two fields, or two enum values without `allow_alias`, share a number. |
+| FLE3007 | `faultline-protobuf` | A field or value uses a number or name its declaration reserves. |
+| FLE3008 | `faultline-protobuf` | A map key type is not an integral type, `bool` or `string`. |
+| FLE3009 | `faultline-protobuf` | A name resolves, but to the wrong kind of declaration (an enum as an RPC input, a service as a field type). |
+| FLE3010 | `faultline-protobuf` | Files import each other in a cycle. |
+| FLE3011 | `faultline-protobuf` | A construct the syntax level does not allow (`required` in proto3, an enum whose first value is not zero in proto3, an unknown syntax). |
+| FLE3012 | `faultline-protobuf` | An import is not used (a warning). |
+| FLE3013 | `faultline-protobuf` | An HTTP rule cannot be used for the HTTP/JSON view (a warning): it is malformed, names fields the request does not have, or binds a path twice. |
+| FLE4001 | `faultline-graphql` | The document does not follow the GraphQL grammar. |
+| FLE4002 | `faultline-graphql` | A type name refers to no definition. |
+| FLE4003 | `faultline-graphql` | Two definitions of a type, field, argument, enum value or directive. |
+| FLE4004 | `faultline-graphql` | A type is used where its kind is not allowed: an output type as an argument, a scalar as a union member, an extension of the wrong kind. |
+| FLE4005 | `faultline-graphql` | An object or interface does not provide a field its interface declares. |
+| FLE4006 | `faultline-graphql` | The schema has no query root type. |
+| FLE4007 | `faultline-graphql` | A query, mutation or fragment appears in a schema document. |
+| FLE4008 | `faultline-graphql` | A name starting with `__`, which introspection reserves. |
+| FLE4009 | `faultline-graphql` | A type or directive definition has no fields, values or members. |
+| FLE4010 | `faultline-graphql` | A field of a `@oneOf` input object is non-null or has a default. |
+| FLE5001 | `faultline-avro` | A schema is not valid Avro: a missing or ill-typed attribute. |
+| FLE5002 | `faultline-avro` | A type name refers to no primitive or earlier definition. |
+| FLE5003 | `faultline-avro` | A name, field or enum symbol is defined twice. |
+| FLE5004 | `faultline-avro` | A name or symbol does not match `[A-Za-z_][A-Za-z0-9_]*`. |
+| FLE5005 | `faultline-avro` | A union holds another union, or two branches of the same type. |
+| FLE5006 | `faultline-avro` | A logical type does not fit its underlying type (a warning). |
+| FLE5007 | `faultline-avro` | A default value does not match the field's type, or for a union, its first branch. |
+| FLE6001 | `faultline-asyncapi` | The document is not an AsyncAPI 2.x or 3.0 description. |
+| FLE6002 | `faultline-asyncapi` | A field has the wrong JSON type or a value the specification forbids. |
+| FLE6003 | `faultline-asyncapi` | A reference to a non-schema object does not resolve. |
+| FLE6004 | `faultline-asyncapi` | References between non-schema objects form a cycle. |
+| FLE6005 | `faultline-asyncapi` | A payload or headers schema uses a schema format that is not supported; it is compared as accepting any value. |
+| FLE6006 | `faultline-asyncapi` | No longer emitted: traits are applied. The code is not reused. |
+| FLE6007 | `faultline-asyncapi` | A 3.0 operation's `action` is neither `send` nor `receive`. |
+| FLE6008 | `faultline-asyncapi` | An embedded Avro schema is invalid. |
+| FLE7201 | `faultline-xsd` | A document meant to be a schema is not one. |
+| FLE7202 | `faultline-xsd` | A `QName` in an attribute value uses an undeclared prefix. |
+| FLE7203 | `faultline-xsd` | A global component is declared twice. |
+| FLE7204 | `faultline-xsd` | A reference to a type, element, group or attribute names nothing. |
+| FLE7205 | `faultline-xsd` | An included or imported document cannot be loaded. |
+| FLE7206 | `faultline-xsd` | A declaration is malformed. |
+| FLE7207 | `faultline-xsd` | A construct that is not supported (a warning). |
+| FLE7401 | `faultline-wsdl` | The document is not a WSDL description. |
+| FLE7402 | `faultline-wsdl` | A description in the namespace of a WSDL 2.0 draft rather than the recommendation. |
+| FLE7403 | `faultline-wsdl` | A reference to a message, port type, binding, element or type names nothing. |
+| FLE7404 | `faultline-wsdl` | A declaration is malformed. |
+| FLE7405 | `faultline-wsdl` | An imported document cannot be loaded. |
+| FLE7406 | `faultline-wsdl` | SOAP encoding is compared as literal (a warning). |
+| FLE7601 | `faultline-raml` | The document is not RAML. |
+| FLE7602 | `faultline-raml` | A RAML version other than 1.0. |
+| FLE7603 | `faultline-raml` | An included file cannot be loaded, is outside the workspace, or includes itself. |
+| FLE7604 | `faultline-raml` | A declaration is malformed. |
+| FLE7605 | `faultline-raml` | A type, trait, resource type or library name refers to nothing. |
+| FLE7606 | `faultline-raml` | A type expression cannot be parsed. |
+| FLE8001 | `faultline-thrift` | The file does not follow the Thrift grammar. |
+| FLE8002 | `faultline-thrift` | An included file could not be found or read. |
+| FLE8003 | `faultline-thrift` | A type or service name does not resolve. |
+| FLE8004 | `faultline-thrift` | Two definitions in a file have the same name. |
+| FLE8005 | `faultline-thrift` | Two fields share an id or a name, or an id is out of range. |
+| FLE8006 | `faultline-thrift` | A name resolves, but to the wrong kind of definition (a service as a field type, a struct as a service's parent). |
+| FLE8007 | `faultline-thrift` | Files include each other in a cycle, or typedefs refer to themselves. |
+| FLE8008 | `faultline-thrift` | A field without an explicit id (a warning): the compiler assigns a negative one that changes when fields are reordered. |
+| FLE8009 | `faultline-thrift` | A deprecated construct (`senum`, `slist`, `async`), read as its replacement or ignored (a warning). |
+| FLE8201 | `faultline-jtd` | A schema is not a valid JSON Type Definition: an unknown keyword, a keyword of the wrong type, or keywords of several forms together. |
+| FLE8202 | `faultline-jtd` | A `ref` names no definition. |
+| FLE8203 | `faultline-jtd` | An enum value, or a property in both `properties` and `optionalProperties`, is given twice. |
+| FLE8204 | `faultline-jtd` | A discriminator mapping is not a non-nullable properties schema, or declares the discriminator's own property. |
+| FLE8205 | `faultline-jtd` | Definitions refer to each other without ever reaching a type. |
+| FLE8401 | `faultline-smithy` | The file does not follow the Smithy IDL grammar. |
+| FLE8402 | `faultline-smithy` | A shape id resolves to no shape. |
+| FLE8403 | `faultline-smithy` | Two shapes, or two members of a shape, have the same name. |
+| FLE8404 | `faultline-smithy` | A shape id resolves to a shape of the wrong kind (a structure as an operation, a string as a mixin). |
+| FLE8405 | `faultline-smithy` | A construct the front end does not model, or a Smithy version other than 2 (a warning). |
+| FLE8406 | `faultline-smithy` | Mixins or resources refer to each other in a cycle, or a member's elided target cannot be found. |

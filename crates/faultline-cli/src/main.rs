@@ -1,6 +1,7 @@
 //! The `faultline` command-line tool.
 
 mod commands;
+mod diagnostics;
 mod init;
 mod registry;
 
@@ -26,9 +27,10 @@ enum Command {
     Init(init::InitArgs),
     /// Record the current findings between two versions as accepted.
     Baseline(commands::BaselineArgs),
-    /// Explain a rule.
+    /// Explain a rule or a diagnostic code.
     Explain {
-        /// Rule code (FL1007) or name (bound-changed).
+        /// Rule code (FL1007) or name (bound-changed), or a diagnostic code
+        /// (FLE7605).
         rule: String,
     },
     /// List every rule.

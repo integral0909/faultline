@@ -519,6 +519,16 @@ fn baseline(args: &BaselineArgs) -> Result<i32, String> {
 }
 
 fn explain(code: &str) -> Result<i32, String> {
+    if code.len() > 3 && code[..3].eq_ignore_ascii_case("FLE") {
+        let (code, krate, meaning) = crate::diagnostics::DIAGNOSTICS
+            .iter()
+            .find(|(c, _, _)| c.eq_ignore_ascii_case(code))
+            .ok_or_else(|| {
+                format!("no diagnostic has the code {code}; docs/diagnostics.md lists them")
+            })?;
+        println!("{code} ({krate})\n\n{meaning}");
+        return Ok(exit::PASSED);
+    }
     let rule = faultline_rules::catalog::find(code)
         .ok_or_else(|| format!("no rule named {code}; `faultline rules` lists them"))?;
     println!("{} {}: {}\n", rule.code, rule.name, rule.title);

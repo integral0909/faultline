@@ -1,14 +1,16 @@
 # Troubleshooting
 
-Diagnostics carry a code (`error[FLE1004]`). This page covers the ones people
-most often run into, grouped by symptom. Exit code 2 means Faultline could not
+Diagnostics carry a code (`error[FLE1004]`). `faultline explain FLE1004`
+says what any code means, and [diagnostics.md](diagnostics.md) lists them
+all. This page covers the ones people most often run into, grouped by
+symptom. Exit code 2 means Faultline could not
 read the inputs or the configuration, so it made no judgement about
 compatibility; exit code 3 is a bug, please report it with the inputs.
 
 ## `faultline check`
 
 **`no base revision; pass --base`.** Outside GitHub Actions pull request
-builds there is no default base. Pass the branch the change will merge into,
+builds and GitLab merge request pipelines there is no default base. Pass the branch the change will merge into,
 usually as a remote-tracking branch: `--base origin/main`.
 
 **`FLE0904` cannot resolve revision / no common ancestor.** The base is not in
