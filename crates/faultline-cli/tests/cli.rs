@@ -378,6 +378,21 @@ fn diagnostic_codes_are_explained() {
     );
     let unknown = faultline(&repo(), &["explain", "FLE9999"]);
     assert_eq!(unknown.status.code(), Some(2));
+
+    // Diagnostics point at their explanation.
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("api.raml"),
+        "#%RAML 1.0\ntitle: T\n/a:\n  get:\n    is: [missing]\n",
+    )
+    .unwrap();
+    let output = faultline(dir.path(), &["diff", "api.raml", "api.raml"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        stdout(&output).contains("= help: `faultline explain FLE7605` describes this code"),
+        "{}",
+        stdout(&output)
+    );
 }
 
 #[test]

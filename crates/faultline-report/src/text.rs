@@ -11,6 +11,24 @@ use crate::{Report, short_witness};
 pub(crate) fn render(report: &Report<'_>) -> String {
     let mut out = String::new();
     for diagnostic in report.diagnostics {
+        // Point errors and warnings with a code at their explanation, as
+        // findings point at their rule's.
+        let explained;
+        let diagnostic = match diagnostic.code {
+            Some(code)
+                if diagnostic.help.is_none()
+                    && matches!(
+                        diagnostic.severity,
+                        faultline_source::Severity::Error | faultline_source::Severity::Warning
+                    ) =>
+            {
+                explained = diagnostic
+                    .clone()
+                    .with_help(format!("`faultline explain {code}` describes this code"));
+                &explained
+            }
+            _ => diagnostic,
+        };
         out.push_str(&render_diagnostic(diagnostic, report.sources));
         out.push('\n');
     }
