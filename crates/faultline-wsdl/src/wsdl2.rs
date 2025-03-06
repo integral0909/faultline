@@ -1,4 +1,5 @@
-//! Reading WSDL 2.0 descriptions into the same [`Definitions`] as WSDL
+//! Reading WSDL 2.0 descriptions into the same
+//! [`Definitions`](crate::model::Definitions) as WSDL
 //! 1.1, so that both are lowered alike.
 //!
 //! * An `interface` is a port type; `extends` brings in the operations of

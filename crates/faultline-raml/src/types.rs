@@ -24,8 +24,8 @@
 //! given. A union of such types is discriminated by that property.
 //!
 //! A JSON Schema used as a type, included from a `.json` file or written
-//! inline as JSON text, gets a placeholder that
-//! [`crate::jsonschema`] later fills in with the JSON Schema front end.
+//! inline as JSON text, gets a placeholder that the JSON Schema front end
+//! later fills in.
 
 use std::collections::HashMap;
 
