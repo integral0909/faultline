@@ -644,3 +644,74 @@ operations:
         "traits fill in what is left out"
     );
 }
+
+const SECURED: &str = r##"asyncapi: 3.0.0
+info: {title: Orders, version: 1.0.0}
+channels:
+  orders:
+    address: orders
+    messages:
+      placed:
+        payload: {type: object, properties: {id: {type: string}}}
+        bindings:
+          kafka:
+            key: {type: string, maxLength: 36}
+operations:
+  receiveOrders:
+    action: receive
+    channel: {$ref: "#/channels/orders"}
+    security:
+      - $ref: "#/components/securitySchemes/sasl"
+components:
+  securitySchemes:
+    sasl: {type: scramSha512}
+    mtls: {type: X509}
+"##;
+
+#[test]
+fn security_and_kafka_keys_are_compared() {
+    let old = api(SECURED);
+    let op = &old.operations[0];
+    let security = op.security.as_ref().unwrap();
+    assert_eq!(security.len(), 1);
+    assert!(security[0].schemes.contains_key("sasl"));
+
+    let other_scheme = SECURED.replace("securitySchemes/sasl\"", "securitySchemes/mtls\"");
+    let found = findings(&old, &api(&other_scheme));
+    assert!(
+        summary(&found)
+            .iter()
+            .any(|s| s.contains("security-requirement")),
+        "{:?}",
+        summary(&found)
+    );
+
+    let shorter_key = SECURED.replace("maxLength: 36", "maxLength: 16");
+    let found = findings(&old, &api(&shorter_key));
+    assert!(
+        summary(&found).iter().any(|s| s.contains("[placed].key")),
+        "the key is compared: {:?}",
+        summary(&found)
+    );
+}
+
+#[test]
+fn version_2_operation_security() {
+    let text = r"asyncapi: 2.6.0
+info: {title: Orders, version: 1.0.0}
+channels:
+  orders:
+    publish:
+      security: [{oauth: [orders.read]}]
+      message:
+        payload: {type: string}
+components:
+  securitySchemes:
+    oauth: {type: oauth2, flows: {}}
+";
+    let old = api(text);
+    let requirement = &old.operations[0].security.as_ref().unwrap()[0];
+    assert_eq!(requirement.schemes["oauth"], ["orders.read"]);
+    let wider = api(&text.replace("[orders.read]", "[orders.read, orders.admin]"));
+    assert!(worst(&findings(&old, &wider)) >= Severity::Risky);
+}

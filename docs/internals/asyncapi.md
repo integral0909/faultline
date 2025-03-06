@@ -84,9 +84,22 @@ message and its traits are compared as their `allOf`, which is how a merge
 patch combines header schemas that constrain different members. Of
 operation traits only the 2.x `operationId` affects the comparison.
 
+## Security and bindings
+
+An operation's own `security` is compared as OpenAPI's is. In 2.x it is a
+list of requirements naming schemes and scopes. In 3.0 it is a list of
+security schemes, any one of which suffices, each named by the component it
+references, with its `scopes`. An operation without `security` takes its
+servers', which are not compared, so declaring security on an operation
+for the first time is not reported.
+
+A message's Kafka key (`bindings.kafka.key`), from the message or its
+traits, is compared as the message's `key`, next to its headers and
+payload.
+
 ## Not modelled
 
-* Servers, protocol bindings, correlation ids and security schemes are not
-  compared.
+* Servers and their security, correlation ids, and protocol bindings other
+  than Kafka message keys are not compared.
 * 3.0 channels that no operation uses have no direction and are not
   compared.

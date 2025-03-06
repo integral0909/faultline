@@ -1,6 +1,7 @@
 //! Channels and operations of AsyncAPI 2.x and 3.0.
 
 use faultline_doc::Value;
+use faultline_ir::SecurityRequirement;
 use faultline_ir::{
     Callback, Content, EnumType, EnumValue, Literal, MessageAction, Meta, Operation, OperationKey,
     ParamLocation, Parameter, PathTemplate, RequestBody, Response, Retired, StatusKey, StringType,
@@ -134,12 +135,75 @@ pub(crate) fn version_2(cx: &mut Context<'_, '_, '_>, root: &At) {
                 origin: Some(at.span()),
             });
             op.meta.description = cx.string(&at, "description");
+            op.security = at.child("security").map(|s| security_2(cx, &s));
             op.origin = Some(origin);
             operations.add(op);
         }
     }
     component_schemas(cx, root);
     operations.finish(cx);
+}
+
+/// A 2.x operation's `security`: requirements naming schemes and the
+/// scopes they need, as OpenAPI writes them.
+fn security_2(cx: &mut Context<'_, '_, '_>, at: &At) -> Vec<SecurityRequirement> {
+    let Some(list) = at.node().as_array() else {
+        cx.error(codes::INVALID_FIELD, "security must be an array", at.span());
+        return Vec::new();
+    };
+    list.iter()
+        .filter_map(|element| {
+            let object = element.as_object()?;
+            let schemes = object
+                .iter()
+                .map(|(name, scopes)| {
+                    let mut scopes: Vec<String> = scopes
+                        .as_array()
+                        .map(|s| {
+                            s.iter()
+                                .filter_map(|x| x.as_str().map(str::to_owned))
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    scopes.sort();
+                    scopes.dedup();
+                    (name.to_owned(), scopes)
+                })
+                .collect();
+            Some(SecurityRequirement { schemes })
+        })
+        .collect()
+}
+
+/// A 3.0 operation's `security`: security schemes, any one of which
+/// suffices, each named by the component it references (or its `type`
+/// when written in place), with the scopes it lists.
+fn security_3(cx: &mut Context<'_, '_, '_>, at: &At) -> Vec<SecurityRequirement> {
+    let mut out = Vec::new();
+    for element in at.elements() {
+        let name = referenced_name(&element);
+        let Some(scheme) = cx.resolve(element) else {
+            continue;
+        };
+        let Some(name) = name.or_else(|| cx.string(&scheme, "type")) else {
+            continue;
+        };
+        let mut scopes: Vec<String> = scheme
+            .get("scopes")
+            .and_then(|s| s.as_array())
+            .map(|s| {
+                s.iter()
+                    .filter_map(|x| x.as_str().map(str::to_owned))
+                    .collect()
+            })
+            .unwrap_or_default();
+        scopes.sort();
+        scopes.dedup();
+        out.push(SecurityRequirement {
+            schemes: std::iter::once((name, scopes)).collect(),
+        });
+    }
+    out
 }
 
 /// AsyncAPI 3.0: operations are top-level and point at channels.
@@ -198,6 +262,7 @@ pub(crate) fn version_3(cx: &mut Context<'_, '_, '_>, root: &At) {
         if let Some(reply) = reply(cx, &at) {
             op.responses.push(reply);
         }
+        op.security = at.child("security").map(|s| security_3(cx, &s));
         op.meta.description = cx.string(&at, "description");
         op.origin = Some(origin);
         operations.add(op);

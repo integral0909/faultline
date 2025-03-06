@@ -224,6 +224,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - FL1031 covers collections whose wire encoding changes, and a removed
   field's number is only reported as unreserved where the format can
   reserve numbers.
+- AsyncAPI operations' `security` and messages' Kafka keys are compared.
 - `faultline explain` explains diagnostic codes (`FLE7605`) as well as
   rules, from a catalog generated from the codes' definitions, which
   `docs/diagnostics.md` also lists. A test keeps codes unique and

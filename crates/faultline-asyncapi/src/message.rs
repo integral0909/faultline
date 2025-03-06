@@ -95,7 +95,8 @@ pub(crate) fn content(cx: &mut Context<'_, '_, '_>, entry: At, fallback: &str) -
         None => None,
     };
     let headers = headers(cx, &message, &traits);
-    let ty = envelope(cx, &content_type, headers, payload, &message);
+    let key = kafka_key(cx, &message, &traits);
+    let ty = envelope(cx, &content_type, headers, key, payload, &message);
     Some(Content {
         media_type: name,
         ty,
@@ -131,12 +132,28 @@ fn headers(
     Some((ty, span))
 }
 
-/// The object a message is compared as: its content type, headers and
-/// payload.
+/// The schema of a message's Kafka key (`bindings.kafka.key`), from the
+/// message or its traits: records are partitioned by their key, and
+/// consumers often read it.
+fn kafka_key(
+    cx: &mut Context<'_, '_, '_>,
+    message: &At,
+    traits: &[At],
+) -> Option<(TypeId, faultline_source::Span)> {
+    let key = std::iter::once(message)
+        .chain(traits)
+        .find_map(|at| at.child("bindings")?.child("kafka")?.child("key"))?;
+    let span = key.span();
+    Some((payload_type(cx, key, None), span))
+}
+
+/// The object a message is compared as: its content type, headers, Kafka
+/// key and payload.
 fn envelope(
     cx: &mut Context<'_, '_, '_>,
     content_type: &str,
     headers: Option<(TypeId, faultline_source::Span)>,
+    key: Option<(TypeId, faultline_source::Span)>,
     payload: Option<(TypeId, faultline_source::Span)>,
     message: &At,
 ) -> TypeId {
@@ -154,6 +171,11 @@ fn envelope(
     object.fields.push(content_type_field);
     if let Some((ty, span)) = headers {
         let mut field = Field::new("headers", ty, true);
+        field.origin = Some(span);
+        object.fields.push(field);
+    }
+    if let Some((ty, span)) = key {
+        let mut field = Field::new("key", ty, true);
         field.origin = Some(span);
         object.fields.push(field);
     }
