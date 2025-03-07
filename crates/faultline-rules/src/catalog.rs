@@ -133,6 +133,8 @@ rules! {
         "A new field or enum value uses a number or name that an older version reserved. Data written with the retired meaning still exists and will be misread.\n\nPick a number that was never used.";
     RESERVATION_REMOVED = "FL1034", "reservation-removed", Wire, "A reservation was removed",
         "Numbers or a name are no longer `reserved`, which allows them to be reused by accident.";
+    MEMBER_ORDER_CHANGED = "FL1035", "member-order-changed", Wire, "Members must appear in a different order",
+        "The elements of an XML Schema `sequence` must appear in a new order. Documents written in the old order no longer validate: requests are rejected by services that validate them, and clients that validate responses reject them.\n\nKeep the order, and add new elements at the end of the sequence.";
 
     OPERATION_REMOVED = "FL2001", "operation-removed", Wire, "An operation was removed",
         "An operation (an HTTP method and path, or an RPC method) no longer exists. Clients calling it receive errors.\n\nDeprecate the operation first and remove it in a major version.";

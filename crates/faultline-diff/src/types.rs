@@ -71,6 +71,7 @@ impl Differ<'_> {
             (TypeKind::Object(a), TypeKind::Object(b)) => {
                 self.objects(a, b, path, polarity, &mut local);
                 retired_fields(a, b, &mut shape);
+                member_order(a, b, &mut local);
             }
             (TypeKind::Array(a), TypeKind::Array(b)) => {
                 self.arrays(a, b, path, polarity, &mut local);
@@ -622,6 +623,28 @@ fn format_change(a: Option<&String>, b: Option<&String>, local: &mut Local) {
 
 /// Numbers of removed fields that were not retired, retired numbers that a
 /// new field reuses, and retirements that were dropped.
+/// A change in the relative order of members both versions keep in a fixed
+/// order: documents in the old order no longer validate.
+fn member_order(a: &ObjectType, b: &ObjectType, local: &mut Local) {
+    if a.order.is_empty() || b.order.is_empty() {
+        return;
+    }
+    let common = |order: &[String], other: &[String]| -> Vec<String> {
+        order
+            .iter()
+            .filter(|n| other.contains(n))
+            .cloned()
+            .collect()
+    };
+    let (old, new) = (common(&a.order, &b.order), common(&b.order, &a.order));
+    if old != new {
+        local.push((
+            ChangeKind::MemberOrderChanged { old, new },
+            Direction::Either,
+        ));
+    }
+}
+
 fn retired_fields(a: &ObjectType, b: &ObjectType, shape: &mut Shape) {
     for pair in field_pairs(a, b) {
         match pair {

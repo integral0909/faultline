@@ -285,6 +285,12 @@ pub enum ChangeKind {
         side: String,
         streaming: bool,
     },
+    /// Members that must appear in order (an XML sequence) appear in a
+    /// different order. Only members both versions have are listed.
+    MemberOrderChanged {
+        old: Vec<String>,
+        new: Vec<String>,
+    },
     /// An RPC changed between expecting a reply and not (`oneway`).
     OneWayChanged {
         one_way: bool,
@@ -403,6 +409,7 @@ impl ChangeKind {
             ChangeKind::EncodingChanged { .. } => "encoding-changed",
             ChangeKind::StreamingChanged { .. } => "streaming-changed",
             ChangeKind::OneWayChanged { .. } => "one-way-changed",
+            ChangeKind::MemberOrderChanged { .. } => "member-order-changed",
             ChangeKind::BoundChanged { .. } => "bound-changed",
             ChangeKind::NumericKindChanged { .. } => "numeric-kind-changed",
             ChangeKind::PatternChanged { .. } => "pattern-changed",

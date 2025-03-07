@@ -235,6 +235,7 @@ fn surface_pair(kind: &ChangeKind) -> Option<Surface> {
         | K::OneWayChanged { .. }
         | K::RetiredNumberReused { .. } => Value(same(Breaking)),
         K::NumberNotRetired { .. } | K::RetirementRemoved { .. } => Value(same(Risky)),
+        K::MemberOrderChanged { .. } => Value(pair(Breaking, Risky)),
         K::FieldAliasesChanged { removed, .. } => {
             Value(same(if removed.is_empty() { Info } else { Risky }))
         }
@@ -599,6 +600,15 @@ fn describe(kind: &ChangeKind) -> (&'static Rule, String, String) {
             &c::RESERVATION_REMOVED,
             format!("{what} no longer reserved"),
             what.clone(),
+        ),
+        K::MemberOrderChanged { old, new } => (
+            &c::MEMBER_ORDER_CHANGED,
+            format!(
+                "members must now appear as {} instead of {}",
+                new.join(", "),
+                old.join(", ")
+            ),
+            new.join(","),
         ),
         K::EncodingChanged { old, new } => (
             &c::ENCODING_CHANGED,

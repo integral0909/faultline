@@ -43,6 +43,7 @@ at the change, and on the evidence found (see
 | [FL1032](#fl1032) | `number-not-reserved` | wire | A removed field's number was not reserved |
 | [FL1033](#fl1033) | `reserved-number-reused` | wire | A reserved number was reused |
 | [FL1034](#fl1034) | `reservation-removed` | wire | A reservation was removed |
+| [FL1035](#fl1035) | `member-order-changed` | wire | Members must appear in a different order |
 | [FL2001](#fl2001) | `operation-removed` | wire | An operation was removed |
 | [FL2002](#fl2002) | `operation-added` | wire | An operation was added |
 | [FL2003](#fl2003) | `operation-id-changed` | source | An operationId changed |
@@ -295,6 +296,14 @@ Pick a number that was never used.
 **reservation-removed** — A reservation was removed
 
 Numbers or a name are no longer `reserved`, which allows them to be reused by accident.
+
+## FL1035
+
+**member-order-changed** — Members must appear in a different order
+
+The elements of an XML Schema `sequence` must appear in a new order. Documents written in the old order no longer validate: requests are rejected by services that validate them, and clients that validate responses reject them.
+
+Keep the order, and add new elements at the end of the sequence.
 
 ## FL2001
 

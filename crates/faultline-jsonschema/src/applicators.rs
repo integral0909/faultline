@@ -19,8 +19,14 @@ use crate::lower::{Lowerer, SchemaCtx, outermost_with};
 
 /// One conjunct of a schema.
 enum Part {
-    Kind(TypeKind),
+    Kind(Box<TypeKind>),
     Id(TypeId),
+}
+
+impl Part {
+    fn kind(kind: TypeKind) -> Part {
+        Part::Kind(Box::new(kind))
+    }
 }
 
 /// Keywords that do not assert anything, for the draft-07 `$ref` sibling
@@ -78,14 +84,14 @@ impl Lowerer<'_, '_> {
         let kind = match parts.len() {
             0 => TypeKind::Any,
             1 => match parts.pop().expect("one part") {
-                Part::Kind(kind) => kind,
+                Part::Kind(kind) => *kind,
                 Part::Id(id) => TypeKind::Ref(id),
             },
             _ => {
                 let ids = parts
                     .into_iter()
                     .map(|part| match part {
-                        Part::Kind(kind) => self.alloc(kind),
+                        Part::Kind(kind) => self.alloc(*kind),
                         Part::Id(id) => id,
                     })
                     .collect();
@@ -108,10 +114,10 @@ impl Lowerer<'_, '_> {
                     .iter()
                     .all(|e| e.values.iter().all(|v| typed.types.admits(&v.value)));
             if !redundant {
-                parts.push(Part::Kind(typed.kind));
+                parts.push(Part::kind(typed.kind));
             }
         }
-        parts.extend(enums.into_iter().map(|e| Part::Kind(TypeKind::Enum(e))));
+        parts.extend(enums.into_iter().map(|e| Part::kind(TypeKind::Enum(e))));
     }
 
     fn combinator_parts(&mut self, ctx: &SchemaCtx<'_>, parts: &mut Vec<Part>) {
@@ -121,7 +127,7 @@ impl Lowerer<'_, '_> {
         for (keyword, mode) in [("anyOf", UnionMode::Any), ("oneOf", UnionMode::Exclusive)] {
             if let Some(variants) = self.schema_list(ctx, keyword) {
                 let discriminator = self.discriminator(ctx, keyword, &variants);
-                parts.push(Part::Kind(TypeKind::Union(UnionType {
+                parts.push(Part::kind(TypeKind::Union(UnionType {
                     mode,
                     variants,
                     discriminator,
@@ -130,7 +136,7 @@ impl Lowerer<'_, '_> {
         }
         if ctx.get("not").is_some() {
             let operand = self.child(ctx, &["not"]);
-            parts.push(Part::Kind(TypeKind::Not(operand)));
+            parts.push(Part::kind(TypeKind::Not(operand)));
         }
     }
 
@@ -148,7 +154,7 @@ impl Lowerer<'_, '_> {
             let when_true = self.alloc(TypeKind::AllOf(vec![condition, then]));
             let negated = self.alloc(TypeKind::Not(condition));
             let when_false = self.alloc(TypeKind::AllOf(vec![negated, otherwise]));
-            parts.push(Part::Kind(TypeKind::Union(UnionType {
+            parts.push(Part::kind(TypeKind::Union(UnionType {
                 mode: UnionMode::Any,
                 variants: vec![when_true, when_false],
                 discriminator: None,
@@ -172,7 +178,7 @@ impl Lowerer<'_, '_> {
             let schema = self.child(ctx, &[keyword, &property]);
             let present = self.object_with_member(&property);
             let absent = self.alloc(TypeKind::Not(present));
-            parts.push(Part::Kind(TypeKind::Union(UnionType {
+            parts.push(Part::kind(TypeKind::Union(UnionType {
                 mode: UnionMode::Any,
                 variants: vec![absent, schema],
                 discriminator: None,
@@ -375,7 +381,7 @@ impl Lowerer<'_, '_> {
                     .iter()
                     .map(|p| (p.clone(), any))
                     .collect();
-                parts.push(Part::Kind(
+                parts.push(Part::kind(
                     self.only_for(TypeSet::OBJECT, TypeKind::Object(object)),
                 ));
                 self.warn_if_approximate(ctx, "unevaluatedProperties", evaluated.branched);
@@ -388,7 +394,7 @@ impl Lowerer<'_, '_> {
                 let any = self.any();
                 let mut array = faultline_ir::ArrayType::of(items);
                 array.prefix_items = vec![any; evaluated.prefix_items];
-                parts.push(Part::Kind(
+                parts.push(Part::kind(
                     self.only_for(TypeSet::ARRAY, TypeKind::Array(array)),
                 ));
                 self.warn_if_approximate(ctx, "unevaluatedItems", evaluated.branched);

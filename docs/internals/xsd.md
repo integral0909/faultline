@@ -73,10 +73,17 @@ Each global element that is not abstract is a schema root, named by its
 local name (by its expanded name when two namespaces share a local name),
 used in the role the configuration gives.
 
+## Element order
+
+The elements of a `sequence` must appear in the order it lists them, so the
+object records that order. When the elements both versions have appear in
+a different order, the change is reported (FL1035): breaking for documents
+a service reads, and risky for documents it writes, which clients may
+validate. Adding an element keeps the others' order, and `all` groups fix
+no order.
+
 ## Not modelled
 
-* Element order: changing the order of a `sequence` changes which documents
-  are valid, but members are compared by name.
 * Substitution groups and `xsi:type`: an abstract element is not a root, and
   derived types used through `xsi:type` are not considered.
 * Identity constraints (`xs:key`, `xs:unique`, `xs:keyref`) and assertions.

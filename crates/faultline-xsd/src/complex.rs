@@ -40,6 +40,8 @@ const MAX_GROUP_DEPTH: usize = 64;
 struct Members {
     fields: Vec<Field>,
     exclusive: Vec<ExclusiveGroup>,
+    /// Whether a `sequence` fixes the elements' order.
+    ordered: bool,
     any_element: bool,
     any_attribute: bool,
     text: Option<TypeId>,
@@ -135,6 +137,14 @@ impl Lowerer<'_> {
             let mut field = Field::new("#text", text, !complex.mixed);
             field.origin = Some(complex.span);
             members.fields.insert(0, field);
+        }
+        if members.ordered {
+            object.order = members
+                .fields
+                .iter()
+                .filter(|f| !f.name.starts_with('@') && !f.name.starts_with('#'))
+                .map(|f| f.name.clone())
+                .collect();
         }
         object.fields = members.fields;
         object.exclusive = members.exclusive;
@@ -258,6 +268,7 @@ impl Lowerer<'_> {
                 self.element_member(&decl, occurs, outer, members);
             }
             Term::Sequence(items) | Term::All(items) => {
+                members.ordered |= matches!(particle.term, Term::Sequence(_)) && items.len() > 1;
                 for item in items {
                     self.particle(item, context, members);
                 }

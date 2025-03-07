@@ -293,6 +293,10 @@ pub struct ObjectType {
     pub exclusive: Vec<ExclusiveGroup>,
     /// Tags and names no field may use again.
     pub retired: Retired,
+    /// The order members must appear in, where the format fixes it (the
+    /// elements of an XML Schema `sequence`); empty where order does not
+    /// matter.
+    pub order: Vec<String>,
     /// Writers always produce every declared field and nothing else, while
     /// readers ignore undeclared members and fill in defaulted fields (Avro
     /// records). Inclusion checks read the left side as written and the
@@ -322,6 +326,7 @@ impl ObjectType {
             max_properties: None,
             dependent_required: Vec::new(),
             exclusive: Vec::new(),
+            order: Vec::new(),
             retired: Retired::default(),
             writer_exact: false,
         }

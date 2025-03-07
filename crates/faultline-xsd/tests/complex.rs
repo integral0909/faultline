@@ -209,3 +209,50 @@ fn problems_are_reported() {
     let broken = lowered("<xs:schema", Role::Both);
     assert!(broken.api.is_none());
 }
+
+fn order_schema(group: &str, elements: &str) -> String {
+    format!(
+        r#"<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="order">
+    <xs:complexType><xs:{group}>{elements}</xs:{group}></xs:complexType>
+  </xs:element>
+</xs:schema>"#
+    )
+}
+
+const ID: &str = r#"<xs:element name="id" type="xs:string"/>"#;
+const QTY: &str = r#"<xs:element name="qty" type="xs:int"/>"#;
+const NOTE: &str = r#"<xs:element name="note" type="xs:string" minOccurs="0"/>"#;
+
+#[test]
+fn sequences_fix_the_order_of_their_elements() {
+    let old = order_schema("sequence", &format!("{ID}{QTY}"));
+    let swapped = order_schema("sequence", &format!("{QTY}{ID}"));
+    let found = findings(&old, &swapped, Role::Input);
+    assert_eq!(
+        summary(&found),
+        ["breaking member-order-changed schema[order]"]
+    );
+    assert!(
+        found[0].message.contains("qty, id instead of id, qty"),
+        "{}",
+        found[0].message
+    );
+    assert_eq!(
+        worst(&findings(&old, &swapped, Role::Output)),
+        Severity::Risky,
+        "clients that validate reject the new order"
+    );
+
+    // Adding an element at the end keeps the order of the others.
+    let appended = order_schema("sequence", &format!("{ID}{QTY}{NOTE}"));
+    assert!(
+        !summary(&findings(&old, &appended, Role::Input))
+            .iter()
+            .any(|s| s.contains("member-order")),
+    );
+    // `all` does not fix an order.
+    let all = order_schema("all", &format!("{ID}{QTY}"));
+    let all_swapped = order_schema("all", &format!("{QTY}{ID}"));
+    assert!(findings(&all, &all_swapped, Role::Input).is_empty());
+}
