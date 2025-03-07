@@ -46,6 +46,7 @@ faultline-xml = { path = "crates/faultline-xml", version = "0.1.0" }
 faultline-xsd = { path = "crates/faultline-xsd", version = "0.1.0" }
 
 clap = { version = "4.5", features = ["derive"] }
+clap_complete = "4.5"
 gix = { version = "0.88", default-features = false, features = ["parallel", "revision", "sha1"] }
 indexmap = "2.7"
 jsonschema = { version = "0.58", default-features = false, features = ["arbitrary-precision"] }

@@ -396,6 +396,23 @@ fn diagnostic_codes_are_explained() {
 }
 
 #[test]
+fn completion_scripts() {
+    for shell in ["bash", "zsh", "fish", "elvish", "powershell"] {
+        let output = faultline(&repo(), &["completions", shell]);
+        assert_eq!(output.status.code(), Some(0), "{shell}");
+        let script = stdout(&output);
+        assert!(
+            script.contains("faultline") && script.contains("diff"),
+            "{shell}"
+        );
+    }
+    assert_eq!(
+        faultline(&repo(), &["completions", "tcsh"]).status.code(),
+        Some(2)
+    );
+}
+
+#[test]
 fn committed_rule_reference_is_current() {
     let generated = stdout(&faultline(&repo(), &["rules", "--markdown"]));
     let path = repo().join("docs/rules.md");

@@ -282,6 +282,11 @@ pub(crate) fn run(command: Command) -> i32 {
         } => usage_import(&args),
         Command::Lsp(args) => Ok(lsp(&args)),
         Command::Registry { command } => crate::registry::run(&command),
+        Command::Completions { shell } => {
+            let mut cli = <crate::Cli as clap::CommandFactory>::command();
+            clap_complete::generate(shell, &mut cli, "faultline", &mut std::io::stdout());
+            Ok(exit::PASSED)
+        }
     };
     result.unwrap_or_else(|message| {
         eprintln!("error: {message}");

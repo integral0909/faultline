@@ -9,6 +9,12 @@ Faultline is a single binary. Build it from source with a Rust toolchain
 cargo install --locked --path crates/faultline-cli
 ```
 
+Shell completions come with the binary; for example, for zsh:
+
+```sh
+faultline completions zsh > "${fpath[1]}/_faultline"
+```
+
 ## Compare two versions
 
 Point `faultline diff` at the old and the new entry document. The format

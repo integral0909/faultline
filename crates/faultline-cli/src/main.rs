@@ -57,6 +57,11 @@ enum Command {
         #[command(subcommand)]
         command: registry::RegistryCommand,
     },
+    /// Print a completion script for a shell.
+    Completions {
+        /// The shell: bash, zsh, fish, elvish or powershell.
+        shell: clap_complete::Shell,
+    },
 }
 
 #[derive(Debug, Subcommand)]
