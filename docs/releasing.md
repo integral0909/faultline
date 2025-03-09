@@ -37,7 +37,11 @@ Releases are cut from `main` by pushing a version tag. The
 3. **Publish the GitHub release** with the archives, a `SHA256SUMS` file
    and the changelog section as its notes. Versions with a pre-release
    suffix (`1.0.0-rc.1`) are marked as pre-releases.
-4. **Publish to crates.io**, after a maintainer approves the `crates-io`
+4. **Publish the container image** `ghcr.io/integral0909/faultline`, built
+   from the `Dockerfile` for linux/amd64 and linux/arm64 and tagged with the
+   version (and `latest`, except for pre-releases). The image is
+   smoke-tested and gets a provenance attestation too.
+5. **Publish to crates.io**, after a maintainer approves the `crates-io`
    environment, which holds the registry token. `cargo publish --workspace`
    publishes the crates in dependency order.
 

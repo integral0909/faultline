@@ -224,6 +224,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - FL1031 covers collections whose wire encoding changes, and a removed
   field's number is only reported as unreserved where the format can
   reserve numbers.
+- A container image, `ghcr.io/integral0909/faultline`, built by the release
+  workflow for linux/amd64 and linux/arm64 from the new `Dockerfile`.
 - `faultline completions <shell>` prints a completion script for bash,
   zsh, fish, elvish or PowerShell.
 - FL1035 `member-order-changed`: the elements of an XML Schema `sequence`

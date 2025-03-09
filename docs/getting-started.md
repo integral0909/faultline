@@ -332,6 +332,16 @@ Its `exit-code` output holds faultline's exit code. See
 [examples/ci/gitlab-ci.yml](../examples/ci/gitlab-ci.yml) for a GitLab job
 whose findings appear in the merge request's Code Quality report.
 
+CI systems that run steps in containers can use the image
+`ghcr.io/integral0909/faultline:<version>`, whose entry point is
+`faultline`. Mount the repository and run as its owner, so that the
+checkout can be read and files such as baselines written:
+
+```sh
+docker run --rm -v "$PWD:/work" --user "$(id -u):$(id -g)" \
+  ghcr.io/integral0909/faultline:X.Y.Z check --base origin/main
+```
+
 `diff` can read either side from a revision too. The new path defaults to the
 old one:
 

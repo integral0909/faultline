@@ -1,0 +1,6 @@
+# Only the sources are needed to build the binary.
+target
+fuzz/target
+fuzz/corpus
+fuzz/artifacts
+.git

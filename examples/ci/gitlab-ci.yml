@@ -6,6 +6,9 @@
 #   [[api]]
 #   name = "public"
 #   entry = "api/openapi.yaml"
+# The job installs a release into a stock image. The published image
+# (ghcr.io/integral0909/faultline:X.Y.Z, with `entrypoint: [""]` in the job's
+# `image`) spares the download.
 api-compatibility:
   image: debian:stable-slim
   rules:
