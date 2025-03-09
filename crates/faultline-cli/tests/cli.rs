@@ -413,6 +413,60 @@ fn completion_scripts() {
 }
 
 #[test]
+fn swagger_migrations_change_nothing() {
+    let dir = repo().join("examples/swagger");
+    let migrated = faultline(&dir, &["diff", "swagger.yaml", "openapi.yaml"]);
+    assert_eq!(migrated.status.code(), Some(0), "{}", stdout(&migrated));
+    assert!(stdout(&migrated).contains("0 breaking, 0 risky, 0 compatible"));
+    // Against the next version, the findings are the OpenAPI versions'.
+    // Both files in the workspace: run from the examples directory.
+    let from_swagger = faultline(
+        &repo().join("examples"),
+        &[
+            "diff",
+            "swagger/swagger.yaml",
+            "petstore/v2/openapi.yaml",
+            "--output",
+            "json",
+        ],
+    );
+    assert_eq!(
+        from_swagger.status.code(),
+        Some(1),
+        "{}",
+        stdout(&from_swagger)
+    );
+    let from_openapi = faultline(
+        &repo().join("examples/petstore"),
+        &[
+            "diff",
+            "v1/openapi.yaml",
+            "v2/openapi.yaml",
+            "--output",
+            "json",
+        ],
+    );
+    let rules = |output: &Output| -> Vec<String> {
+        let report: serde_json::Value = serde_json::from_str(&stdout(output)).unwrap();
+        let mut rules: Vec<String> = report["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|f| {
+                format!(
+                    "{} {}",
+                    f["rule"].as_str().unwrap(),
+                    f["path"].as_str().unwrap()
+                )
+            })
+            .collect();
+        rules.sort();
+        rules
+    };
+    assert_eq!(rules(&from_swagger), rules(&from_openapi));
+}
+
+#[test]
 fn committed_rule_reference_is_current() {
     let generated = stdout(&faultline(&repo(), &["rules", "--markdown"]));
     let path = repo().join("docs/rules.md");

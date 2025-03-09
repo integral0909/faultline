@@ -12,6 +12,11 @@ The migration changes nothing a client can observe, so there are no
 findings. Swagger 2.0 is read as the official converters translate it:
 `body` parameters and `consumes` become request bodies, response `schema`s
 and `produces` become response content, `definitions` become schemas, and
-`collectionFormat` becomes `style` and `explode`. Comparing
-`swagger.yaml` with `../petstore/v2/openapi.yaml` shows the same findings
-as the OpenAPI 3 versions do.
+`collectionFormat` becomes `style` and `explode`. Comparing `swagger.yaml`
+with the pet store's second version shows the same findings as the OpenAPI
+3 versions do. Run it from `examples`, so that both files are inside the
+workspace:
+
+```sh
+cd .. && faultline diff swagger/swagger.yaml petstore/v2/openapi.yaml
+```
