@@ -12,7 +12,7 @@ root = "."
 
 [[api]]
 name = "public"                 # used in reports and finding ids
-entry = "api/openapi.yaml"
+entry = "api/openapi.yaml"       # or a pattern for a split GraphQL schema: "schema/*.graphql"
 # format = "openapi"            # or "asyncapi", "jsonschema", "protobuf", "protobuf-http", "graphql", "avro", "xsd", "wsdl", "raml", "thrift", "jtd", "smithy"; detected when omitted
 # role = "input"                # schemas without operations: input | output | both
 # overlays = ["api/public.yaml"] # OpenAPI Overlays applied to both versions, in order

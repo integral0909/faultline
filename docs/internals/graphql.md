@@ -77,8 +77,9 @@ argument or input field, or an argument made non-null breaks clients.
 
 ## Limitations
 
-* One schema file per API. Schemas split across files must be combined
-  first.
+* A schema split across files is read from the files a pattern matches in
+  one directory (`schema/*.graphql`); files in several directories must be
+  combined first.
 * Directive definitions and uses other than `@deprecated` and `@oneOf` do
   not affect the comparison.
 * Custom scalars are assumed to be strings; a change from one custom scalar

@@ -338,3 +338,38 @@ fn overlays_missing_from_the_base_are_noted() {
         "{text}"
     );
 }
+
+#[test]
+fn entry_patterns_are_read_from_revisions() {
+    let dir = tempfile::tempdir().unwrap();
+    git(dir.path(), &["init", "-q"]);
+    write(
+        dir.path(),
+        "faultline.toml",
+        "[[api]]\nname = \"graph\"\nentry = \"schema/*.graphql\"\n",
+    );
+    write(
+        dir.path(),
+        "schema/query.graphql",
+        "type Query { pet: Pet }\n",
+    );
+    write(
+        dir.path(),
+        "schema/pet.graphql",
+        "type Pet { name: String }\n",
+    );
+    commit(dir.path(), "schema");
+    git(
+        dir.path(),
+        &["update-ref", "refs/remotes/origin/main", "HEAD"],
+    );
+    // The branch removes a field, in a file of the split schema.
+    write(dir.path(), "schema/pet.graphql", "type Pet { id: ID }\n");
+    let output = faultline(dir.path(), &["check", "--base", "origin/main"]);
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    assert!(
+        stdout(&output).contains("graph: 1 breaking"),
+        "{}",
+        stdout(&output)
+    );
+}

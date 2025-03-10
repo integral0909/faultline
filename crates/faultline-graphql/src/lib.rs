@@ -35,31 +35,49 @@ pub fn lower_graphql(
     sources: &SourceMap,
     name: &str,
 ) -> Lowered {
+    lower_graphql_files(std::slice::from_ref(entry), loader, sources, name)
+}
+
+/// Reads a schema split over the files `entries`, as one document: types
+/// may be defined in one file and extended or used in another.
+pub fn lower_graphql_files(
+    entries: &[UriRef],
+    loader: &dyn Loader,
+    sources: &SourceMap,
+    name: &str,
+) -> Lowered {
     let mut diagnostics = Diagnostics::new();
-    let loaded = match loader.load(entry) {
-        Ok(loaded) => loaded,
-        Err(e) => {
-            diagnostics.push(
-                Diagnostic::error(format!("cannot read {entry}: {e}")).with_code(codes::SYNTAX),
-            );
-            return Lowered {
-                api: None,
-                diagnostics,
-            };
-        }
-    };
-    let file = match sources.add(loaded.name, loaded.text) {
-        Ok(file) => file,
-        Err(e) => {
-            diagnostics.push(Diagnostic::error(e.to_string()).with_code(codes::SYNTAX));
-            return Lowered {
-                api: None,
-                diagnostics,
-            };
-        }
-    };
-    let (document, parse_diagnostics) = parser::parse(file.id(), file.text());
-    diagnostics.extend(parse_diagnostics);
+    let mut document = ast::Document::default();
+    for entry in entries {
+        let loaded = match loader.load(entry) {
+            Ok(loaded) => loaded,
+            Err(e) => {
+                diagnostics.push(
+                    Diagnostic::error(format!("cannot read {entry}: {e}")).with_code(codes::SYNTAX),
+                );
+                continue;
+            }
+        };
+        let file = match sources.add(loaded.name, loaded.text) {
+            Ok(file) => file,
+            Err(e) => {
+                diagnostics.push(Diagnostic::error(e.to_string()).with_code(codes::SYNTAX));
+                continue;
+            }
+        };
+        let (parsed, parse_diagnostics) = parser::parse(file.id(), file.text());
+        diagnostics.extend(parse_diagnostics);
+        document.schemas.extend(parsed.schemas);
+        document.types.extend(parsed.types);
+        document.directives.extend(parsed.directives);
+    }
+    if diagnostics.has_errors() {
+        diagnostics.sort();
+        return Lowered {
+            api: None,
+            diagnostics,
+        };
+    }
     let (schema, schema_diagnostics) = schema::build(&document);
     diagnostics.extend(schema_diagnostics);
     diagnostics.sort();

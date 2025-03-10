@@ -181,6 +181,14 @@ does not. Arguments of nested fields appear in paths as
 `….nicknames().locale`. See [examples/graphql](../examples/graphql) and the
 [GraphQL internals](internals/graphql.md).
 
+A schema split over several files is named with a pattern for the files of
+one directory, quoted so that the shell leaves it alone. The files are read
+as one schema, so a type can be defined in one file and extended in another:
+
+```sh
+faultline diff 'v1/schema/*.graphql' 'v2/schema/*.graphql'
+```
+
 ## Avro
 
 Schemas ending in `.avsc` are read as Avro. Choose the compatibility mode

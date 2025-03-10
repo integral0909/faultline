@@ -278,15 +278,19 @@ impl Engine {
                 };
             }
         };
-        let mut lowered = self.lower_overlaid(
-            opened.loader.as_ref(),
-            &opened.entry,
-            &opened.overlays,
-            name,
-            format,
-            role,
-            sources,
-        );
+        let mut lowered = if opened.files.is_empty() {
+            self.lower_overlaid(
+                opened.loader.as_ref(),
+                &opened.entry,
+                &opened.overlays,
+                name,
+                format,
+                role,
+                sources,
+            )
+        } else {
+            lower_pattern(&opened, format, name, sources)
+        };
         lowered.diagnostics.extend(opened.notes);
         lowered
     }
@@ -486,6 +490,26 @@ impl Engine {
                 ),
             )
         })?;
+        if let Some((dir, pattern)) = split_pattern(&source.entry) {
+            let dir_uri = loader.uri_for(dir).map_err(|e| match e {
+                LoadError::OutsideRoot => outside_root(source),
+                _ => missing(source),
+            })?;
+            let files: Vec<UriRef> = matching(&loader, &dir_uri, pattern)
+                .into_iter()
+                .filter_map(|name| loader.uri_for(&dir.join(name)).ok())
+                .collect();
+            let Some(entry) = files.first().cloned() else {
+                return Err(missing(source));
+            };
+            return Ok(Opened {
+                loader: Box::new(loader),
+                entry,
+                files,
+                overlays: Vec::new(),
+                notes: Vec::new(),
+            });
+        }
         let entry = loader.uri_for(&source.entry).map_err(|e| match e {
             LoadError::OutsideRoot => outside_root(source),
             LoadError::NotFound => missing(source),
@@ -513,6 +537,7 @@ impl Engine {
         Ok(Opened {
             loader: Box::new(loader),
             entry,
+            files: Vec::new(),
             overlays,
             notes: Vec::new(),
         })
@@ -561,6 +586,24 @@ impl Engine {
                 .collect();
             Some(workspace_uri(&relative))
         };
+        if let Some((dir, pattern)) = split_pattern(&source.entry) {
+            let dir_uri = in_workspace(dir).ok_or_else(|| outside_root(source))?;
+            let loader = repo.loader(&resolved, root_in_repo.clone(), self.limits.clone());
+            let files: Vec<UriRef> = matching(&loader, &dir_uri, pattern)
+                .into_iter()
+                .filter_map(|name| in_workspace(&dir.join(name)))
+                .collect();
+            let Some(entry) = files.first().cloned() else {
+                return Err(missing(source));
+            };
+            return Ok(Opened {
+                loader: Box::new(loader),
+                entry,
+                files,
+                overlays: Vec::new(),
+                notes: Vec::new(),
+            });
+        }
         let entry = in_workspace(&source.entry).ok_or_else(|| outside_root(source))?;
         let mut overlays = Vec::new();
         let mut notes = Vec::new();
@@ -596,9 +639,87 @@ impl Engine {
         Ok(Opened {
             loader: Box::new(loader),
             entry,
+            files: Vec::new(),
             overlays,
             notes,
         })
+    }
+}
+
+/// An entry whose file name is a pattern (`schema/*.graphql`): its
+/// directory and the pattern.
+fn split_pattern(entry: &Path) -> Option<(&Path, &str)> {
+    let name = entry.file_name()?.to_str()?;
+    if !name.contains(['*', '?']) {
+        return None;
+    }
+    Some((entry.parent().unwrap_or(Path::new("")), name))
+}
+
+/// The names in the directory `dir` that match `pattern`, sorted.
+fn matching(loader: &dyn Loader, dir: &UriRef, pattern: &str) -> Vec<String> {
+    loader
+        .list(dir)
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|name| glob_match(pattern, name))
+        .collect()
+}
+
+/// Whether `name` matches `pattern`, where `*` stands for any characters
+/// and `?` for one.
+fn glob_match(pattern: &str, name: &str) -> bool {
+    let (p, n): (Vec<char>, Vec<char>) = (pattern.chars().collect(), name.chars().collect());
+    // The last `*` seen, and the name position it was tried at.
+    let (mut pi, mut ni, mut star, mut mark) = (0, 0, None, 0);
+    while ni < n.len() {
+        if pi < p.len() && (p[pi] == '?' || p[pi] == n[ni]) {
+            pi += 1;
+            ni += 1;
+        } else if pi < p.len() && p[pi] == '*' {
+            star = Some(pi);
+            mark = ni;
+            pi += 1;
+        } else if let Some(s) = star {
+            pi = s + 1;
+            mark += 1;
+            ni = mark;
+        } else {
+            return false;
+        }
+    }
+    p[pi..].iter().all(|&c| c == '*')
+}
+
+/// Lowers the files an entry pattern matched, which only GraphQL schemas,
+/// split over files, may do.
+fn lower_pattern(
+    opened: &Opened,
+    format: Option<ApiFormat>,
+    name: &str,
+    sources: &SourceMap,
+) -> Lowered {
+    let format = format.or_else(|| format_by_extension(&opened.entry));
+    if format != Some(ApiFormat::GraphQl) {
+        let message = "an entry that matches several files (a pattern such as `schema/*.graphql`) is read as one GraphQL schema; other formats name one entry file";
+        return Lowered {
+            api: None,
+            diagnostics: [Diagnostic::error(message.to_owned()).with_code(codes::ENTRY_NOT_FOUND)]
+                .into_iter()
+                .collect(),
+            missing_entry: false,
+        };
+    }
+    let l = faultline_graphql::lower_graphql_files(
+        &opened.files,
+        opened.loader.as_ref(),
+        sources,
+        name,
+    );
+    Lowered {
+        api: l.api,
+        diagnostics: l.diagnostics,
+        missing_entry: false,
     }
 }
 
@@ -765,6 +886,9 @@ fn spawn<'scope, 'env, T: Send + 'scope>(
 struct Opened {
     loader: Box<dyn Loader>,
     entry: UriRef,
+    /// For an entry that is a pattern (`schema/*.graphql`), the files it
+    /// matches, in order; the first is `entry`.
+    files: Vec<UriRef>,
     overlays: Vec<UriRef>,
     /// Things to know about how the version is read.
     notes: Vec<Diagnostic>,
@@ -876,6 +1000,12 @@ fn ir_role(role: SchemaRole) -> Role {
 /// The API name used when none is configured: the entry file's stem,
 /// without the `.jtd` of a compound `.jtd.json` extension.
 pub fn default_api_name(path: &Path) -> String {
+    // A pattern (`schema/*.graphql`) is named after its directory.
+    if let Some((dir, _)) = split_pattern(path) {
+        return dir
+            .file_name()
+            .map_or_else(|| "api".to_owned(), |d| d.to_string_lossy().into_owned());
+    }
     let stem = path
         .file_stem()
         .map_or_else(|| "api".to_owned(), |s| s.to_string_lossy().into_owned());
@@ -900,5 +1030,18 @@ mod tests {
         assert_eq!(stem(Path::new("schemas/user.jtd.json")), "user");
         assert_eq!(stem(Path::new(".jtd.json")), ".jtd");
         assert_eq!(stem(Path::new("ééa.json")), "ééa");
+        assert_eq!(stem(Path::new("api/schema/*.graphql")), "schema");
+    }
+
+    #[test]
+    fn patterns() {
+        use super::glob_match as matches;
+        assert!(matches("*.graphql", "pets.graphql"));
+        assert!(matches("*.graphql", ".graphql"));
+        assert!(!matches("*.graphql", "pets.graphqls"));
+        assert!(matches("pets-*.g?l", "pets-v1.gql"));
+        assert!(matches("*a*b*", "xaxxbx"));
+        assert!(!matches("*a*b", "xaxxbx"));
+        assert!(matches("*", ""));
     }
 }

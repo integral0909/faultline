@@ -467,6 +467,73 @@ fn swagger_migrations_change_nothing() {
 }
 
 #[test]
+fn graphql_schemas_split_over_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let write = |path: &str, text: &str| {
+        let path = dir.path().join(path);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, text).unwrap();
+    };
+    for version in ["v1", "v2"] {
+        write(
+            &format!("{version}/schema/query.graphql"),
+            "type Query { pet(id: ID!): Pet }\n",
+        );
+        write(&format!("{version}/schema/notes.md"), "not a schema");
+    }
+    write(
+        "v1/schema/pet.graphql",
+        "type Pet { id: ID! name: String }\n",
+    );
+    // The new version extends the type in a file of its own.
+    write("v2/schema/pet.graphql", "type Pet { id: ID! }\n");
+    write(
+        "v2/schema/pet-name.graphql",
+        "extend type Pet { name: Int }\n",
+    );
+
+    let output = faultline(
+        dir.path(),
+        &[
+            "diff",
+            "v1/schema/*.graphql",
+            "v2/schema/*.graphql",
+            "--output",
+            "json",
+        ],
+    );
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    let report: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+    let findings: Vec<String> = report["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| {
+            format!(
+                "{} {}",
+                f["api"].as_str().unwrap(),
+                f["rule"].as_str().unwrap()
+            )
+        })
+        .collect();
+    assert!(
+        findings.iter().all(|f| f.starts_with("schema ")),
+        "named after the directory: {findings:?}"
+    );
+    assert!(!findings.is_empty(), "name became an Int");
+
+    let nothing = faultline(dir.path(), &["diff", "v1/schema/*.gql", "v2/schema/*.gql"]);
+    assert_eq!(nothing.status.code(), Some(2), "{}", stdout(&nothing));
+    let other = faultline(dir.path(), &["diff", "v1/schema/*.md", "v2/schema/*.md"]);
+    assert_eq!(other.status.code(), Some(2));
+    assert!(
+        stdout(&other).contains("read as one GraphQL schema"),
+        "{}",
+        stdout(&other)
+    );
+}
+
+#[test]
 fn committed_rule_reference_is_current() {
     let generated = stdout(&faultline(&repo(), &["rules", "--markdown"]));
     let path = repo().join("docs/rules.md");
