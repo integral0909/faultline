@@ -10,7 +10,9 @@ The workspace folder is the one the editor opens; `faultline.toml` is read
 from it (from the editor's buffer when the file is open, so edits to the
 configuration apply before they are saved).
 
-* With `[[api]]` entries, each configured API is compared.
+* With `[[api]]` entries, each configured API is compared, with its
+  overlays applied and entry patterns (`schema/*.graphql`) expanded, as
+  `faultline check` does.
 * Without any, each open document that is an API description on its own is
   compared. Files in the schema languages are recognized by extension:
   Protobuf, Thrift, Smithy, GraphQL, Avro, XML Schema, WSDL and JSON Type

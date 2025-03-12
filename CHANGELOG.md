@@ -224,6 +224,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - FL1031 covers collections whose wire encoding changes, and a removed
   field's number is only reported as unreserved where the format can
   reserve numbers.
+- The language server applies configured overlays and expands entry
+  patterns, so the editor shows what `faultline check` reports.
 - GraphQL schemas split over files: an entry may be a pattern for the files
   of one directory (`schema/*.graphql`), read as one schema from the working
   tree or a revision, and named after the directory.

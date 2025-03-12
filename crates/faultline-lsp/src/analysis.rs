@@ -142,6 +142,8 @@ struct Target {
     name: String,
     /// Relative to the root.
     entry: PathBuf,
+    /// Relative to the root.
+    overlays: Vec<PathBuf>,
     format: Option<ApiFormat>,
     role: SchemaRole,
 }
@@ -301,6 +303,11 @@ fn targets(workspace: &Workspace<'_>) -> Vec<Target> {
             .map(|api| Target {
                 name: api.name.clone(),
                 entry: relative_to(workspace.root, &api.entry),
+                overlays: api
+                    .overlays
+                    .iter()
+                    .map(|o| relative_to(workspace.root, o))
+                    .collect(),
                 format: api.format,
                 role: api.role,
             })
@@ -313,6 +320,7 @@ fn targets(workspace: &Workspace<'_>) -> Vec<Target> {
         .map(|doc| Target {
             name: default_api_name(&doc.relative),
             entry: doc.relative.clone(),
+            overlays: Vec::new(),
             format: None,
             role: SchemaRole::Both,
         })
@@ -392,16 +400,17 @@ fn compare(
     for doc in workspace.open {
         overlay.insert(&doc.relative, doc.text);
     }
-    let new = engine.lower_entry(
+    let new = engine.lower_through(
         &overlay,
-        &workspace_uri(&target.entry),
+        &Source::new(workspace.root, &target.entry).with_overlays(target.overlays.clone()),
         &target.name,
         target.format,
         target.role,
         sources,
     );
-    let old_source =
-        Source::new(workspace.root, &target.entry).at(Revision::Named(workspace.base.to_owned()));
+    let old_source = Source::new(workspace.root, &target.entry)
+        .at(Revision::Named(workspace.base.to_owned()))
+        .with_overlays(target.overlays.clone());
     let old = engine.lower(
         &old_source,
         &target.name,

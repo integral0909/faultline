@@ -289,10 +289,53 @@ impl Engine {
                 sources,
             )
         } else {
-            lower_pattern(&opened, format, name, sources)
+            lower_pattern(opened.loader.as_ref(), &opened.files, format, name, sources)
         };
         lowered.diagnostics.extend(opened.notes);
         lowered
+    }
+
+    /// Lowers `source`, reading its entry, entry pattern and overlays
+    /// through `loader` rather than from its root or revision: for callers
+    /// that serve documents their own way, such as an editor serving unsaved
+    /// text. `source`'s paths are relative to the workspace `loader` serves.
+    pub fn lower_through(
+        &self,
+        loader: &dyn Loader,
+        source: &Source,
+        name: &str,
+        format: Option<ApiFormat>,
+        role: SchemaRole,
+        sources: &SourceMap,
+    ) -> Lowered {
+        let uri = |path: &Path| workspace_uri(&path.components().collect::<PathBuf>());
+        if let Some((dir, pattern)) = split_pattern(&source.entry) {
+            let files: Vec<UriRef> = matching(loader, &uri(dir), pattern)
+                .into_iter()
+                .map(|file| uri(&dir.join(file)))
+                .collect();
+            if files.is_empty() {
+                let failure = missing(source);
+                return Lowered {
+                    api: None,
+                    diagnostics: [Diagnostic::error(failure.message).with_code(failure.code)]
+                        .into_iter()
+                        .collect(),
+                    missing_entry: true,
+                };
+            }
+            return lower_pattern(loader, &files, format, name, sources);
+        }
+        let overlays: Vec<UriRef> = source.overlays.iter().map(|p| uri(p)).collect();
+        self.lower_overlaid(
+            loader,
+            &uri(&source.entry),
+            &overlays,
+            name,
+            format,
+            role,
+            sources,
+        )
     }
 
     /// Lowers the API whose entry document is `entry`, read through
@@ -694,12 +737,13 @@ fn glob_match(pattern: &str, name: &str) -> bool {
 /// Lowers the files an entry pattern matched, which only GraphQL schemas,
 /// split over files, may do.
 fn lower_pattern(
-    opened: &Opened,
+    loader: &dyn Loader,
+    files: &[UriRef],
     format: Option<ApiFormat>,
     name: &str,
     sources: &SourceMap,
 ) -> Lowered {
-    let format = format.or_else(|| format_by_extension(&opened.entry));
+    let format = format.or_else(|| files.first().and_then(format_by_extension));
     if format != Some(ApiFormat::GraphQl) {
         let message = "an entry that matches several files (a pattern such as `schema/*.graphql`) is read as one GraphQL schema; other formats name one entry file";
         return Lowered {
@@ -710,12 +754,7 @@ fn lower_pattern(
             missing_entry: false,
         };
     }
-    let l = faultline_graphql::lower_graphql_files(
-        &opened.files,
-        opened.loader.as_ref(),
-        sources,
-        name,
-    );
+    let l = faultline_graphql::lower_graphql_files(files, loader, sources, name);
     Lowered {
         api: l.api,
         diagnostics: l.diagnostics,

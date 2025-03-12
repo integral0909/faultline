@@ -446,3 +446,44 @@ fn stdio_session() {
             .any(|r| r["id"] == 2 && r["result"].is_null())
     );
 }
+
+#[test]
+fn configured_overlays_and_patterns_apply_in_the_editor() {
+    let config = "[[api]]\nname = \"pets\"\nentry = \"api/openapi.yaml\"\noverlays = [\"api/public.yaml\"]\n\n[[api]]\nname = \"graph\"\nentry = \"graph/*.graphql\"\n";
+    let internal = format!(
+        "{V1}  /admin:\n    delete:\n      x-internal: true\n      responses:\n        '204':\n          description: gone\n"
+    );
+    let overlay = "overlay: 1.0.0\ninfo: {title: Public, version: 1.0.0}\nactions:\n  - target: $.paths.*[?@['x-internal'] == true]\n    remove: true\n  - target: $.paths[?length(@) == 0]\n    remove: true\n";
+    let dir = repository(&[
+        ("faultline.toml", config),
+        ("api/openapi.yaml", &internal),
+        ("api/public.yaml", overlay),
+        ("graph/query.graphql", "type Query { pet: Pet }\n"),
+        ("graph/pet.graphql", "type Pet { name: String }\n"),
+    ]);
+    let mut client = Client::start(dir.path(), &json!({}));
+    let (published, messages) = client.analyze();
+    assert!(messages.is_empty(), "{messages:?}");
+    assert!(published.iter().all(|(_, d)| d.is_empty()), "{published:?}");
+
+    // Removing the internal operation is not a finding: the overlay hides it.
+    let api = file_uri(dir.path(), "api/openapi.yaml");
+    client.open(&api, &internal);
+    client.change(&api, V1);
+    // Removing a field from the split schema is, in the file that has it.
+    let pet = file_uri(dir.path(), "graph/pet.graphql");
+    client.open(&pet, "type Pet { name: String }\n");
+    client.change(&pet, "type Pet { id: ID }\n");
+    let (published, messages) = client.analyze();
+    assert!(messages.is_empty(), "{messages:?}");
+    assert!(
+        diagnostics_for(&published, &api).is_empty(),
+        "{published:?}"
+    );
+    assert!(
+        diagnostics_for(&published, &pet)
+            .iter()
+            .any(|d| d["severity"] == 1),
+        "{published:?}"
+    );
+}
