@@ -1104,6 +1104,12 @@ fn init_lists_the_api_descriptions_of_a_workspace() {
     write("node_modules/dep/openapi.yaml", "openapi: 3.0.0\n");
     write(".hidden/openapi.yaml", "openapi: 3.0.0\n");
 
+    write("graph/schema.graphql", "type Query { pet: Pet }\n");
+    write("graph/pet.graphql", "type Pet { name: String }\n");
+    write("graph/queries.graphql", "query Pets { pet { name } }\n");
+    write("single/schema.graphql", "type Query { ok: Boolean }\n");
+    write("single/ops.graphql", "query Ok { ok }\n");
+
     let printed = faultline(dir.path(), &["init", "--print"]);
     assert_eq!(printed.status.code(), Some(0), "{}", stderr(&printed));
     let config = stdout(&printed);
@@ -1115,11 +1121,14 @@ fn init_lists_the_api_descriptions_of_a_workspace() {
         entries,
         [
             "\"api/openapi.yaml\"",
+            "\"graph/*.graphql\"",
             "\"idl/main.thrift\"",
-            "\"proto/pets.proto\""
+            "\"proto/pets.proto\"",
+            "\"single/schema.graphql\"",
         ],
-        "{config}"
+        "a split schema is a pattern; operations beside a schema are not part of it: {config}"
     );
+    assert!(config.contains("name = \"graph\""), "{config}");
     assert!(
         !dir.path().join("faultline.toml").exists(),
         "--print writes nothing"

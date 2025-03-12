@@ -6,7 +6,9 @@
 //! * JSON and YAML documents declaring `openapi`, `swagger` or `asyncapi`;
 //! * RAML API documents (not fragments such as libraries);
 //! * Protobuf, Thrift and Smithy files that declare a service;
-//! * GraphQL schemas that define `Query` or a `schema`;
+//! * GraphQL schemas that define `Query` or a `schema`, as a pattern for
+//!   their directory's files when other files there hold parts of the
+//!   schema;
 //! * Avro schemas, protocols and IDL files, WSDL descriptions and JSON Type
 //!   Definitions.
 //!
@@ -78,6 +80,7 @@ pub(crate) fn init(args: &InitArgs) -> Result<i32, String> {
     search(&root, &root, 0, &mut visited, &mut found);
     found.sort_by(|a, b| a.path.cmp(&b.path));
     let found = without_included(&root, found);
+    let found = split_graphql(&root, found);
     let config = render(&found);
     if args.print {
         print!("{config}");
@@ -220,6 +223,75 @@ fn without_included(root: &Path, found: Vec<Found>) -> Vec<Found> {
         .collect()
 }
 
+/// A GraphQL schema whose directory holds other schema files (types, and
+/// `extend`s, without a `Query` of their own) is split over them: it is
+/// listed as a pattern for the directory's files with its extension.
+fn split_graphql(root: &Path, found: Vec<Found>) -> Vec<Found> {
+    found
+        .into_iter()
+        .map(|api| {
+            if api.kind != "GraphQL" {
+                return api;
+            }
+            let (dir, file) = api.path.rsplit_once('/').unwrap_or(("", &api.path));
+            let Some(extension) = file.rsplit_once('.').map(|(_, e)| e.to_owned()) else {
+                return api;
+            };
+            let Ok(entries) = std::fs::read_dir(root.join(dir)) else {
+                return api;
+            };
+            let parts = entries.flatten().any(|entry| {
+                let name = entry.file_name().to_string_lossy().into_owned();
+                name != file
+                    && name.ends_with(&format!(".{extension}"))
+                    && sniff(&entry.path()).is_some_and(|text| schema_part(&text))
+            });
+            if !parts {
+                return api;
+            }
+            let pattern = if dir.is_empty() {
+                format!("*.{extension}")
+            } else {
+                format!("{dir}/*.{extension}")
+            };
+            Found {
+                path: pattern,
+                kind: "GraphQL, split over files",
+            }
+        })
+        .collect()
+}
+
+/// Whether GraphQL text is part of a schema defined elsewhere: it defines
+/// or extends types, but not `Query`, and is not an operation document.
+fn schema_part(text: &str) -> bool {
+    let starts = |keyword: &str| {
+        text.lines()
+            .any(|line| line.trim_start().starts_with(keyword))
+    };
+    let defines = [
+        "type ",
+        "extend ",
+        "input ",
+        "enum ",
+        "interface ",
+        "union ",
+        "scalar ",
+    ]
+    .iter()
+    .any(|k| starts(k));
+    let executable = [
+        "query ",
+        "query{",
+        "mutation ",
+        "subscription ",
+        "fragment ",
+    ]
+    .iter()
+    .any(|k| starts(k));
+    defines && !executable && !text.contains("type Query")
+}
+
 /// `path` relative to the directory `dir`, both with `/` separators, with
 /// `.` and `..` resolved; `None` if it leaves the root.
 fn join(dir: &str, path: &str) -> Option<String> {
@@ -256,6 +328,11 @@ fn sniff(path: &Path) -> Option<String> {
 fn render(found: &[Found]) -> String {
     let stem = |path: &str| {
         let file = path.rsplit('/').next().unwrap_or(path);
+        // A pattern is named after its directory.
+        if file.contains('*') {
+            let dir = path.rsplit('/').nth(1).unwrap_or("api");
+            return dir.to_owned();
+        }
         let file = file.strip_suffix(".jtd.json").unwrap_or(file);
         file.rsplit_once('.').map_or(file, |(s, _)| s).to_owned()
     };
