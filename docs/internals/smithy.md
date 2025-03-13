@@ -8,7 +8,11 @@ unions into schema roots.
 
 A Smithy model is usually spread over the files of a directory. The entry
 file is read together with the other `.smithy` files beside it, from the
-working tree or from a git revision. The lexer and parser cover the IDL:
+working tree or from a git revision. A model spread over several
+directories is named by its `smithy-build.json`: the files its `sources`
+and `imports` list are read, and so are the `.smithy` and JSON files
+directly in the directories they list. Of those, the file declaring a
+service is the entry. The lexer and parser cover the IDL:
 
 * control statements, metadata, `namespace` and `use`;
 * every shape type, with traits and their node values;
@@ -102,4 +106,5 @@ is `@streaming` makes that direction a stream.
   AWS JSON protocols' `X-Amz-Target` routing. The model is compared as its
   shapes and HTTP bindings.
 * `@httpQueryParams` and `@httpPrefixHeaders` maps.
-* Models that span several directories.
+* Files in subdirectories of the directories `smithy-build.json` lists;
+  list those directories too.

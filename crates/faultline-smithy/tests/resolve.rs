@@ -190,3 +190,25 @@ fn problems_are_reported() {
         assert_eq!(&codes, expected, "{text}");
     }
 }
+
+#[test]
+fn build_configurations_name_the_model_files() {
+    let config =
+        r#"{"version": "1.0", "sources": ["model/"], "imports": ["../shared/common.smithy"]}"#;
+    let service = "$version: \"2\"\nnamespace example.weather\nservice Weather { operations: [Ping] }\noperation Ping { output: PingOutput }\n";
+    let output = "$version: \"2\"\nnamespace example.weather\nuse example.common#Stamp\nstructure PingOutput { at: Stamp }\n";
+    let common = "$version: \"2\"\nnamespace example.common\ntimestamp Stamp\n";
+    let (model, codes) = resolved(&[
+        ("file:///weather/smithy-build.json", config),
+        ("file:///weather/model/a.smithy", output),
+        ("file:///weather/model/b.smithy", service),
+        ("file:///weather/model/nested/ignored.smithy", "not read"),
+        ("file:///shared/common.smithy", common),
+    ]);
+    assert!(codes.is_empty(), "{codes:?}");
+    let ping = model.get("example.weather#PingOutput").unwrap();
+    assert_eq!(ping.members[0].target, "example.common#Stamp");
+
+    let (_, codes) = resolved(&[("file:///w/smithy-build.json", r#"{"version": "1.0"}"#)]);
+    assert_eq!(codes, ["FLE8402"]);
+}

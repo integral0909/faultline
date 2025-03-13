@@ -35,6 +35,10 @@ pub struct Files {
 pub fn load(entry: &UriRef, loader: &dyn Loader, sources: &SourceMap) -> Files {
     let mut files = Files::default();
     let entry = entry.without_fragment().normalized();
+    if entry.path().ends_with("/smithy-build.json") || entry.path() == "smithy-build.json" {
+        read_build_config(&entry, loader, sources, &mut files);
+        return files;
+    }
     if entry.path().to_ascii_lowercase().ends_with(".json") {
         read_json(&entry, loader, sources, &mut files);
         return files;
@@ -105,6 +109,138 @@ fn read(uri: &UriRef, loader: &dyn Loader, sources: &SourceMap, files: &mut File
         source: file.id(),
         model,
     });
+}
+
+/// Reads the model a `smithy-build.json` describes: the files named in its
+/// `sources` and `imports`, and the `.smithy` and JSON files directly in the
+/// directories named there. The file declaring a service comes first, as
+/// the entry.
+fn read_build_config(uri: &UriRef, loader: &dyn Loader, sources: &SourceMap, files: &mut Files) {
+    let loaded = match loader.load(uri) {
+        Ok(loaded) => loaded,
+        Err(e) => {
+            files.diagnostics.push(
+                Diagnostic::error(format!("cannot read {uri}: {e}")).with_code(codes::UNRESOLVED),
+            );
+            return;
+        }
+    };
+    let Ok(file) = sources.add(loaded.name, loaded.text) else {
+        return;
+    };
+    let parsed = faultline_doc::parse(
+        &file,
+        faultline_doc::Format::Json,
+        &faultline_source::Limits::default(),
+    );
+    files.diagnostics.extend(parsed.diagnostics);
+    let Some(document) = parsed.document else {
+        return;
+    };
+    let paths = build_paths(&document.root, files);
+    for model in model_files(&directory_of(uri), paths, loader, files) {
+        if has_extension(model.path(), "json") {
+            read_json(&model, loader, sources, files);
+        } else {
+            read(&model, loader, sources, files, false);
+        }
+    }
+    // The file declaring a service is the entry.
+    if let Some(i) = files.files.iter().position(|f| {
+        f.model
+            .shapes
+            .iter()
+            .any(|s| s.kind == crate::ast::ShapeKind::Service)
+    }) {
+        let entry = files.files.remove(i);
+        files.files.insert(0, entry);
+    }
+}
+
+/// The paths a build configuration lists in `sources` and `imports`.
+fn build_paths(
+    root: &faultline_doc::Node,
+    files: &mut Files,
+) -> Vec<(String, faultline_source::Span)> {
+    let mut paths = Vec::new();
+    for key in ["sources", "imports"] {
+        for item in root.get(key).and_then(|n| n.as_array()).unwrap_or_default() {
+            match item.as_str() {
+                Some(path) => paths.push((path.to_owned(), item.span)),
+                None => files.diagnostics.push(
+                    Diagnostic::error(format!("`{key}` lists paths"))
+                        .with_code(codes::SYNTAX)
+                        .with_primary(item.span, ""),
+                ),
+            }
+        }
+    }
+    if paths.is_empty() {
+        files.diagnostics.push(
+            Diagnostic::error(
+                "smithy-build.json lists no model files in `sources` or `imports`".to_owned(),
+            )
+            .with_code(codes::UNRESOLVED)
+            .with_primary(root.span, ""),
+        );
+    }
+    paths
+}
+
+/// The model files `paths` name: files, and the model files directly in
+/// directories.
+fn model_files(
+    base: &UriRef,
+    paths: Vec<(String, faultline_source::Span)>,
+    loader: &dyn Loader,
+    files: &mut Files,
+) -> Vec<UriRef> {
+    let mut models = Vec::new();
+    for (path, span) in paths {
+        let Some(target) = UriRef::parse(path.trim_end_matches('/'))
+            .ok()
+            .and_then(|r| base.resolve_strict(&r))
+        else {
+            files.diagnostics.push(
+                Diagnostic::error(format!("{path} is outside the workspace"))
+                    .with_code(codes::UNRESOLVED)
+                    .with_primary(span, ""),
+            );
+            continue;
+        };
+        if is_model_file(target.path()) {
+            models.push(target);
+            continue;
+        }
+        let directory = UriRef::parse(&format!("{target}/")).unwrap_or(target);
+        let before = models.len();
+        for name in loader.list(&directory).unwrap_or_default() {
+            if is_model_file(&name)
+                && let Ok(reference) = UriRef::parse(&encode_name(&name))
+            {
+                models.push(directory.resolve(&reference).normalized());
+            }
+        }
+        if models.len() == before {
+            files.diagnostics.push(
+                Diagnostic::warning(format!("{path} holds no model files"))
+                    .with_code(codes::UNSUPPORTED)
+                    .with_primary(span, ""),
+            );
+        }
+    }
+    models
+}
+
+fn has_extension(path: &str, extension: &str) -> bool {
+    std::path::Path::new(path)
+        .extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case(extension))
+}
+
+/// Whether a file holds a model: IDL or a JSON AST.
+fn is_model_file(path: &str) -> bool {
+    has_extension(path, "smithy") || has_extension(path, "json")
 }
 
 /// Reads a JSON AST model: one file per namespace, a namespace with a

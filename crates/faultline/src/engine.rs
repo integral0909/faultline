@@ -994,6 +994,9 @@ pub fn format_by_extension(entry: &UriRef) -> Option<ApiFormat> {
     if path.ends_with(".jtd.json") {
         return Some(ApiFormat::Jtd);
     }
+    if path.ends_with("/smithy-build.json") {
+        return Some(ApiFormat::Smithy);
+    }
     let extension = std::path::Path::new(&path)
         .extension()?
         .to_str()?
@@ -1039,8 +1042,15 @@ fn ir_role(role: SchemaRole) -> Role {
 /// The API name used when none is configured: the entry file's stem,
 /// without the `.jtd` of a compound `.jtd.json` extension.
 pub fn default_api_name(path: &Path) -> String {
-    // A pattern (`schema/*.graphql`) is named after its directory.
-    if let Some((dir, _)) = split_pattern(path) {
+    // A pattern (`schema/*.graphql`), or a Smithy build configuration, is
+    // named after its directory.
+    let build_config = path.file_name().is_some_and(|n| n == "smithy-build.json");
+    let dir = if build_config {
+        path.parent().map(|d| (d, ""))
+    } else {
+        split_pattern(path)
+    };
+    if let Some((dir, _)) = dir {
         return dir
             .file_name()
             .map_or_else(|| "api".to_owned(), |d| d.to_string_lossy().into_owned());
@@ -1070,6 +1080,7 @@ mod tests {
         assert_eq!(stem(Path::new(".jtd.json")), ".jtd");
         assert_eq!(stem(Path::new("ééa.json")), "ééa");
         assert_eq!(stem(Path::new("api/schema/*.graphql")), "schema");
+        assert_eq!(stem(Path::new("weather/smithy-build.json")), "weather");
     }
 
     #[test]

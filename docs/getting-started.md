@@ -145,6 +145,14 @@ operations bound by their traits, others as remote procedure calls:
 faultline diff v1/model/weather.smithy v2/model/weather.smithy
 ```
 
+A model spread over several directories is named by its
+`smithy-build.json`, whose `sources` and `imports` say where the model's
+files are:
+
+```sh
+faultline diff --old-rev main weather/smithy-build.json
+```
+
 A model without services is compared as its structures and unions, used in
 the role given with `--role`. See [examples/smithy](../examples/smithy) and
 the [Smithy internals](internals/smithy.md).
