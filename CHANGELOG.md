@@ -194,7 +194,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   in a workspace, recognized by content (OpenAPI, AsyncAPI, RAML APIs,
   services in Protobuf, Thrift and Smithy, GraphQL schemas, Avro, WSDL,
   JSON Type Definitions), leaving out files that others include and listing
-  GraphQL schemas split over a directory's files as a pattern.
+  GraphQL schemas split over a directory's files as a pattern, and Smithy
+  models by their `smithy-build.json`.
 - WSDL 2.0 descriptions, read into the same model as WSDL 1.1: interfaces
   with `extends`, element-based messages, in-only operations as one-way,
   and SOAP bindings of either version.

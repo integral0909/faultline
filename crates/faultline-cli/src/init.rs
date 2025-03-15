@@ -10,7 +10,9 @@
 //!   their directory's files when other files there hold parts of the
 //!   schema;
 //! * Avro schemas, protocols and IDL files, WSDL descriptions and JSON Type
-//!   Definitions.
+//!   Definitions;
+//! * `smithy-build.json` files, in place of the Smithy files under their
+//!   directory.
 //!
 //! XML Schemas are left out, since most are included by others; add their
 //! entry documents by hand. Hidden directories and dependency or build
@@ -81,6 +83,7 @@ pub(crate) fn init(args: &InitArgs) -> Result<i32, String> {
     found.sort_by(|a, b| a.path.cmp(&b.path));
     let found = without_included(&root, found);
     let found = split_graphql(&root, found);
+    let found = within_smithy_builds(found);
     let config = render(&found);
     if args.print {
         print!("{config}");
@@ -144,6 +147,9 @@ fn recognize(path: &Path, name: &str) -> Option<&'static str> {
     let lower = name.to_ascii_lowercase();
     if lower.ends_with(".jtd.json") {
         return Some("JSON Type Definition");
+    }
+    if lower == "smithy-build.json" {
+        return Some("Smithy build");
     }
     let extension = lower.rsplit_once('.').map_or("", |(_, e)| e);
     let head = || sniff(path);
@@ -259,6 +265,24 @@ fn split_graphql(root: &Path, found: Vec<Found>) -> Vec<Found> {
                 kind: "GraphQL, split over files",
             }
         })
+        .collect()
+}
+
+/// `found` without the Smithy files under a directory that has a
+/// `smithy-build.json`: the build configuration names the whole model.
+fn within_smithy_builds(found: Vec<Found>) -> Vec<Found> {
+    let builds: Vec<String> = found
+        .iter()
+        .filter(|f| f.kind == "Smithy build")
+        .map(|f| {
+            f.path
+                .rsplit_once('/')
+                .map_or(String::new(), |(d, _)| format!("{d}/"))
+        })
+        .collect();
+    found
+        .into_iter()
+        .filter(|f| f.kind != "Smithy" || !builds.iter().any(|b| f.path.starts_with(b.as_str())))
         .collect()
 }
 

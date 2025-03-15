@@ -1108,6 +1108,14 @@ fn init_lists_the_api_descriptions_of_a_workspace() {
     write("graph/pet.graphql", "type Pet { name: String }\n");
     write("graph/queries.graphql", "query Pets { pet { name } }\n");
     write("single/schema.graphql", "type Query { ok: Boolean }\n");
+    write(
+        "weather/smithy-build.json",
+        "{\"version\": \"1.0\", \"sources\": [\"model\"]}\n",
+    );
+    write(
+        "weather/model/main.smithy",
+        "namespace w\nservice Weather {}\n",
+    );
     write("single/ops.graphql", "query Ok { ok }\n");
 
     let printed = faultline(dir.path(), &["init", "--print"]);
@@ -1125,6 +1133,7 @@ fn init_lists_the_api_descriptions_of_a_workspace() {
             "\"idl/main.thrift\"",
             "\"proto/pets.proto\"",
             "\"single/schema.graphql\"",
+            "\"weather/smithy-build.json\"",
         ],
         "a split schema is a pattern; operations beside a schema are not part of it: {config}"
     );
