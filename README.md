@@ -44,6 +44,26 @@ faultline diff examples/petstore/v1/openapi.yaml examples/petstore/v2/openapi.ya
 See [getting started](docs/getting-started.md) and
 [configuration](docs/configuration.md).
 
+## Formats
+
+| Format | Files | Compared as |
+|---|---|---|
+| OpenAPI 3.0–3.2, Swagger 2.0 | JSON or YAML with `openapi` or `swagger` | HTTP operations, webhooks and callbacks |
+| AsyncAPI 2.x, 3.0 | JSON or YAML with `asyncapi` | messages sent and received on channels |
+| RAML 0.8, 1.0 | `.raml` | HTTP operations, with libraries, traits and resource types applied |
+| Smithy 2.0 | `.smithy`, JSON AST, `smithy-build.json` | HTTP operations bound by `@http`, or RPCs |
+| Protobuf | `.proto` | RPCs, as the wire and JSON see them; HTTP operations of `google.api.http` rules |
+| Thrift | `.thrift` | RPCs, by field id and wire type |
+| GraphQL | `.graphql`, `.graphqls`, `.gql`, or a pattern of files | root fields as operations |
+| Avro | `.avsc`, `.avpr`, `.avdl` | schemas under Avro's resolution rules, and protocol messages |
+| JSON Schema | JSON or YAML | schemas, in the role given |
+| JSON Type Definition | `.jtd.json` | schemas, in the role given |
+| XML Schema | `.xsd` | global elements, as XML documents |
+| WSDL 1.1, 2.0 | `.wsdl` | SOAP operations, per binding |
+
+The [getting started](docs/getting-started.md) guide has a section for
+each, and every format has an [example](examples).
+
 ## Why another compatibility checker?
 
 * **One tool across formats.** One configuration file, one policy model and
@@ -92,6 +112,7 @@ including the tools used by CI.
 * [Troubleshooting](docs/troubleshooting.md)
 * [Performance](docs/performance.md)
 * [Rule reference](docs/rules.md)
+* [Diagnostic codes](docs/diagnostics.md)
 * [Architecture](docs/architecture.md)
 * [Development](docs/development.md)
 * [Testing](docs/testing.md)
