@@ -285,6 +285,9 @@ fn write_object(obj: &ObjectType, labels: &Labels, out: &mut String, members: &m
             group.name
         ));
     }
+    if !obj.order.is_empty() {
+        members.push(format!("in order {}", obj.order.join(", ")));
+    }
 }
 
 fn write_array(arr: &ArrayType, labels: &Labels, out: &mut String) {
@@ -300,6 +303,9 @@ fn write_array(arr: &ArrayType, labels: &Labels, out: &mut String) {
     }
     if arr.unique_items {
         out.push_str(" unique");
+    }
+    if let Some(encoding) = &arr.encoding {
+        let _ = write!(out, " encoding={encoding}");
     }
     if let Some(c) = &arr.contains {
         let _ = write!(out, " contains={} minContains={}", labels.of(c.ty), c.min);

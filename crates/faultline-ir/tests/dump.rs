@@ -134,3 +134,34 @@ fn dumping_a_deep_chain_does_not_overflow_the_stack() {
     assert!(text.ends_with("string\n"));
     assert!(faultline_ir::validate(&b.api).is_empty());
 }
+
+#[test]
+fn member_order_and_collection_encodings_are_shown() {
+    let mut b = Builder::new();
+    let item = b.string();
+    let set = b
+        .api
+        .types
+        .alloc_kind(TypeKind::Array(faultline_ir::ArrayType {
+            unique_items: true,
+            encoding: Some("set".into()),
+            ..faultline_ir::ArrayType::of(item)
+        }));
+    let any = b.api.types.alloc_kind(TypeKind::Any);
+    let mut object = faultline_ir::ObjectType::new(any);
+    object.fields = vec![
+        faultline_ir::Field::new("id", item, true),
+        faultline_ir::Field::new("tags", set, false),
+    ];
+    object.order = vec!["id".into(), "tags".into()];
+    let ty = b.api.types.alloc_kind(TypeKind::Object(object));
+    b.api.schemas.push(faultline_ir::SchemaRoot {
+        name: "order".into(),
+        ty,
+        role: faultline_ir::Role::Input,
+        origin: None,
+    });
+    let text = dump(&b.api);
+    assert!(text.contains("in order id, tags"), "{text}");
+    assert!(text.contains("unique encoding=set"), "{text}");
+}
