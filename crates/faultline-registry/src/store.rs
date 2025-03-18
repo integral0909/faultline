@@ -88,7 +88,24 @@ impl Bundle {
                 .ok_or_else(|| format!("the text of `{path}` must be a string"))?;
             texts.insert(path.clone(), text.to_owned());
         }
-        if !texts.contains_key(&entry) {
+        // A pattern (`schema/*.graphql`) names the files of a directory.
+        let (dir, name) = entry.rsplit_once('/').unwrap_or(("", entry.as_str()));
+        if name.contains('*') {
+            let prefix = if dir.is_empty() {
+                String::new()
+            } else {
+                format!("{dir}/")
+            };
+            let matched = texts.keys().any(|path| {
+                path.strip_prefix(&prefix)
+                    .is_some_and(|rest| !rest.contains('/'))
+            });
+            if !matched {
+                return Err(format!(
+                    "the entry pattern `{entry}` names a directory with no file among `files`"
+                ));
+            }
+        } else if !texts.contains_key(&entry) {
             return Err(format!("the entry document `{entry}` is not among `files`"));
         }
         Ok(Bundle {

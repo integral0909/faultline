@@ -226,6 +226,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - FL1031 covers collections whose wire encoding changes, and a removed
   field's number is only reported as unreserved where the format can
   reserve numbers.
+- The registry accepts GraphQL schemas split over files, with a pattern as
+  the entry, matched against the files sent.
 - Smithy models named by their `smithy-build.json`, read from the files and
   directories its `sources` and `imports` list.
 - The language server applies configured overlays and expands entry

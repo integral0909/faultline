@@ -35,8 +35,10 @@ fn lower(engine: &Engine, bundle: &Bundle, name: &str, sources: &SourceMap) -> L
             text.clone(),
         );
     }
-    let entry = workspace_uri(std::path::Path::new(&bundle.entry));
-    engine.lower_entry(&loader, &entry, name, bundle.format, bundle.role, sources)
+    // Through the bundle's files, so that an entry pattern
+    // (`schema/*.graphql`) matches the files sent.
+    let source = faultline::Source::new(".", &bundle.entry);
+    engine.lower_through(&loader, &source, name, bundle.format, bundle.role, sources)
 }
 
 /// Checks `new` against `history` (ascending) under `settings`: against
@@ -179,6 +181,37 @@ mod tests {
             )
             .compatible
         );
+    }
+
+    #[test]
+    fn split_graphql_schemas_are_matched_against_the_files_sent() {
+        let split = |pet: &str| {
+            Bundle::from_json(&json!({
+                "entry": "schema/*.graphql",
+                "files": {
+                    "schema/query.graphql": "type Query { pet: Pet }\n",
+                    "schema/pet.graphql": pet,
+                },
+            }))
+            .unwrap()
+        };
+        let first = split("type Pet { name: String }\n");
+        let verdict = check("graph", &first, &[], Compatibility::default(), today());
+        assert!(verdict.valid, "{}", verdict.report);
+        let history = [Record {
+            version: 1,
+            registered: "2026-09-28".into(),
+            api_version: None,
+            bundle: first,
+        }];
+        let removed = check(
+            "graph",
+            &split("type Pet { id: ID }\n"),
+            &history,
+            Compatibility::default(),
+            today(),
+        );
+        assert!(removed.valid && !removed.compatible, "{}", removed.report);
     }
 
     #[test]

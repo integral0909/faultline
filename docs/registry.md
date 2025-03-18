@@ -2,9 +2,11 @@
 
 `faultline registry serve` runs a registry that stores versions of API
 descriptions and refuses versions that would break the clients of earlier
-ones. Any format Faultline reads can be registered: OpenAPI, AsyncAPI, JSON
-Schema, Protobuf, GraphQL and Avro, including descriptions spread over many
-files.
+ones. Any format Faultline reads can be registered (OpenAPI, AsyncAPI, RAML,
+Smithy, JSON Schema, Protobuf, Thrift, GraphQL, Avro, XML Schema, WSDL and
+the others), including descriptions spread over many files. A GraphQL
+schema split over a directory's files is registered with a pattern as its
+entry (`schema/*.graphql`), matched against the files sent.
 
 ## Running a registry
 

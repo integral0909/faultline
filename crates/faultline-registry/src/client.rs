@@ -41,15 +41,24 @@ pub fn bundle(
             rendered.join("\n")
         ));
     }
-    let loader = FsLoader::new(root, engine.limits.clone())
-        .map_err(|e| format!("cannot open {}: {e}", root.display()))?;
-    let entry_uri = loader
-        .uri_for(entry)
-        .map_err(|e| format!("cannot read {}: {e}", entry.display()))?;
-    let SourceName::Path(entry_path) = display_name(&entry_uri) else {
-        return Err(format!("{} is not a workspace file", entry.display()));
+    // An entry pattern (`schema/*.graphql`) is sent as written, and the
+    // registry matches it against the files sent.
+    let pattern = entry
+        .file_name()
+        .is_some_and(|n| n.to_string_lossy().contains('*'));
+    let entry = if pattern {
+        slash_path(entry)
+    } else {
+        let loader = FsLoader::new(root, engine.limits.clone())
+            .map_err(|e| format!("cannot open {}: {e}", root.display()))?;
+        let entry_uri = loader
+            .uri_for(entry)
+            .map_err(|e| format!("cannot read {}: {e}", entry.display()))?;
+        let SourceName::Path(entry_path) = display_name(&entry_uri) else {
+            return Err(format!("{} is not a workspace file", entry.display()));
+        };
+        slash_path(&entry_path)
     };
-    let entry = slash_path(&entry_path);
     let mut files = BTreeMap::new();
     for file in sources.files() {
         let SourceName::Path(path) = file.name() else {
@@ -61,8 +70,11 @@ pub fn bundle(
         validate_path(&path)?;
         files.insert(path, file.text().to_owned());
     }
-    if !files.contains_key(&entry) {
+    if !pattern && !files.contains_key(&entry) {
         return Err(format!("{entry} was not read while lowering it"));
+    }
+    if files.is_empty() {
+        return Err(format!("{entry} matches no files"));
     }
     Ok(Bundle {
         entry,
@@ -216,6 +228,22 @@ mod tests {
         assert_eq!(
             bundle.files.keys().collect::<Vec<_>>(),
             ["api/openapi.yaml", "schemas/pet.json"]
+        );
+
+        write("graph/query.graphql", "type Query { ok: Boolean }\n");
+        write("graph/extra.graphql", "extend type Query { more: Int }\n");
+        let split = super::bundle(
+            &Engine::default(),
+            dir.path(),
+            Path::new("graph/*.graphql"),
+            None,
+            SchemaRole::Both,
+        )
+        .unwrap();
+        assert_eq!(split.entry, "graph/*.graphql", "sent as written");
+        assert_eq!(
+            split.files.keys().collect::<Vec<_>>(),
+            ["graph/extra.graphql", "graph/query.graphql"]
         );
 
         write("api/broken.yaml", "openapi: [");
