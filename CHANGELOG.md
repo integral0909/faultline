@@ -216,7 +216,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   comparing. Each version reads its own overlays; one missing from a
   revision is noted. Built on `faultline-jsonpath`, an RFC 9535 JSONPath
   implementation with filters and the standard functions. Fuzzed
-  (`jsonpath`, `apply_overlay`).
+  (`jsonpath`, `apply_overlay`). Queries visit a bounded number of nodes,
+  so an overlay target that rereads the document for every node is
+  reported instead of stalling a comparison.
 - `faultline-jtd` and `format = "jtd"`: JSON Type Definition (RFC 8927)
   schemas, checked as strictly as the RFC requires, with closed objects,
   tagged unions and named definitions. `.jtd.json` files are recognized.
