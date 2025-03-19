@@ -160,12 +160,21 @@ fn action(item: &Node, diagnostics: &mut Diagnostics) -> Option<Action> {
 /// Applies `overlay`'s actions to `document`, in order.
 pub fn apply(overlay: &Overlay, document: &mut Node, diagnostics: &mut Diagnostics) {
     for action in &overlay.actions {
-        let locations: Vec<Location> = action
+        let selected = match action
             .target
-            .select(document)
-            .into_iter()
-            .map(|m| m.location)
-            .collect();
+            .try_select(document, faultline_jsonpath::DEFAULT_BUDGET)
+        {
+            Ok(selected) => selected,
+            Err(e) => {
+                diagnostics.push(
+                    Diagnostic::error(format!("`{}` is too expensive: {e}", action.target_text))
+                        .with_code(INVALID_TARGET)
+                        .with_primary(action.target_span, ""),
+                );
+                continue;
+            }
+        };
+        let locations: Vec<Location> = selected.into_iter().map(|m| m.location).collect();
         if locations.is_empty() {
             diagnostics.push(
                 Diagnostic::warning(format!("`{}` selects nothing", action.target_text))

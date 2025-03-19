@@ -69,15 +69,51 @@ pub struct Match<'n> {
     pub node: &'n Node,
 }
 
+/// The nodes a query visits at most, by default: generous for descriptions
+/// of any real size, and a bound for queries whose filters query the
+/// document again for every node (`$..*[?@..*]`).
+pub const DEFAULT_BUDGET: u64 = 20_000_000;
+
+/// A query visited more nodes than its budget allows.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BudgetExceeded {
+    pub budget: u64,
+}
+
+impl fmt::Display for BudgetExceeded {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "the query visits more than {} nodes", self.budget)
+    }
+}
+
+impl std::error::Error for BudgetExceeded {}
+
 impl Query {
     /// The nodes the query selects from `root`, in the order RFC 9535
-    /// gives: document order for wildcards and descendants.
+    /// gives: document order for wildcards and descendants. A query that
+    /// exceeds [`DEFAULT_BUDGET`] selects nothing; use
+    /// [`try_select`](Self::try_select) to tell.
     pub fn select<'n>(&self, root: &'n Node) -> Vec<Match<'n>> {
+        self.try_select(root, DEFAULT_BUDGET).unwrap_or_default()
+    }
+
+    /// The nodes the query selects, visiting at most `budget` nodes.
+    pub fn try_select<'n>(
+        &self,
+        root: &'n Node,
+        budget: u64,
+    ) -> Result<Vec<Match<'n>>, BudgetExceeded> {
         let mut evaluator = Evaluator {
             root,
             regexes: HashMap::new(),
+            steps: 0,
+            budget,
         };
-        evaluator.query(self, root, &Location::default())
+        let selected = evaluator.query(self, root, &Location::default());
+        if evaluator.steps > budget {
+            return Err(BudgetExceeded { budget });
+        }
+        Ok(selected)
     }
 }
 
@@ -85,10 +121,26 @@ struct Evaluator<'n> {
     root: &'n Node,
     /// Compiled patterns of `match` and `search`, `None` when invalid.
     regexes: HashMap<(String, bool), Option<Regex>>,
+    /// Nodes visited so far; evaluation stops once past `budget`.
+    steps: u64,
+    budget: u64,
 }
 
 impl<'n> Evaluator<'n> {
+    fn exhausted(&self) -> bool {
+        self.steps > self.budget
+    }
+
+    /// Counts `count` visited nodes.
+    fn visit(&mut self, count: usize) {
+        self.steps = self.steps.saturating_add(count as u64);
+    }
+
     fn query(&mut self, query: &Query, current: &'n Node, at: &Location) -> Vec<Match<'n>> {
+        self.visit(1);
+        if self.exhausted() {
+            return Vec::new();
+        }
         let (start, location) = if query.relative {
             (current, at.clone())
         } else {
@@ -107,8 +159,16 @@ impl<'n> Evaluator<'n> {
     fn segment(&mut self, segment: &Segment, input: &[Match<'n>]) -> Vec<Match<'n>> {
         let mut out = Vec::new();
         for m in input {
+            if self.exhausted() {
+                return Vec::new();
+            }
             if segment.descendant {
-                for d in descendants(m) {
+                let all = descendants(m);
+                self.visit(all.len());
+                for d in all {
+                    if self.exhausted() {
+                        return Vec::new();
+                    }
                     self.selectors(&segment.selectors, &d, &mut out);
                 }
             } else {
@@ -129,7 +189,11 @@ impl<'n> Evaluator<'n> {
                         });
                     }
                 }
-                (Selector::Wildcard, _) => out.extend(children(m)),
+                (Selector::Wildcard, _) => {
+                    let kids = children(m);
+                    self.visit(kids.len());
+                    out.extend(kids);
+                }
                 (Selector::Index(i), Value::Array(items)) => {
                     if let Some(index) = normalize(*i, items.len()) {
                         out.push(Match {
@@ -147,7 +211,12 @@ impl<'n> Evaluator<'n> {
                     }
                 }
                 (Selector::Filter(expr), _) => {
-                    for child in children(m) {
+                    let kids = children(m);
+                    self.visit(kids.len());
+                    for child in kids {
+                        if self.exhausted() {
+                            return;
+                        }
                         if self.logical(expr, child.node, &child.location) {
                             out.push(child);
                         }

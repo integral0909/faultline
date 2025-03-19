@@ -9,5 +9,5 @@ pub mod ast;
 mod eval;
 mod parse;
 
-pub use eval::{Location, Match, Step};
+pub use eval::{BudgetExceeded, DEFAULT_BUDGET, Location, Match, Step};
 pub use parse::{MAX_INT, ParseError, parse};

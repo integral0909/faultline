@@ -165,3 +165,31 @@ fn normalized_paths_escape_names() {
         r"$['it\'s']['a\\b']['\n']"
     );
 }
+
+#[test]
+fn queries_that_revisit_the_document_are_bounded() {
+    // Every node's filter walks the whole document again: quadratic.
+    let items: Vec<String> = (0..300)
+        .map(|i| format!("{{\"a\": [{i}, {i}, {i}]}}"))
+        .collect();
+    let root = document(&format!("[{}]", items.join(",")));
+    let query = parse("$..*[?$..*]").unwrap();
+    assert!(
+        query
+            .try_select(&root, faultline_jsonpath::DEFAULT_BUDGET)
+            .is_ok()
+    );
+    let error = query.try_select(&root, 100_000).unwrap_err();
+    assert_eq!(error.budget, 100_000);
+    // A relative filter walks only each node's own subtree.
+    assert!(
+        parse("$..*[?@..*]")
+            .unwrap()
+            .try_select(&root, 100_000)
+            .is_ok()
+    );
+    assert!(
+        parse("$[0].a[0]").unwrap().try_select(&root, 10).is_ok(),
+        "direct paths visit few nodes"
+    );
+}
