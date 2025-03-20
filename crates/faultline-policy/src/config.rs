@@ -110,9 +110,9 @@ pub enum ApiFormat {
     ProtobufHttp,
     /// XML Schema: the global elements, used in the schema's role.
     Xsd,
-    /// WSDL 1.1 services.
+    /// WSDL 1.1 or 2.0 services.
     Wsdl,
-    /// RAML 1.0 APIs.
+    /// RAML 1.0 or 0.8 APIs.
     Raml,
     /// Apache Thrift services and types.
     Thrift,

@@ -116,8 +116,8 @@ plugins in v1.
 | `faultline-asyncapi` | AsyncAPI 2.6/3.0 lowering |
 | `faultline-xml` | Spanned, namespace-aware XML reader without DTD processing |
 | `faultline-xsd` | XML Schema reading (includes, imports) and lowering |
-| `faultline-wsdl` | WSDL 1.1 reading, SOAP bindings, lowering |
-| `faultline-raml` | RAML 1.0 includes, libraries, resource types and traits, lowering |
+| `faultline-wsdl` | WSDL 1.1 and 2.0 reading, SOAP bindings, lowering |
+| `faultline-raml` | RAML 1.0 and 0.8 includes, libraries, resource types and traits, lowering |
 | `faultline-thrift` | Thrift IDL lexer, parser, include loading, linker, lowering |
 | `faultline-jtd` | JSON Type Definition (RFC 8927) checking and lowering |
 | `faultline-jsonpath` | JSONPath (RFC 9535) parsing and evaluation |

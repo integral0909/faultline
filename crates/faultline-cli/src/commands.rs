@@ -25,9 +25,9 @@ pub(crate) enum Format {
     ProtobufHttp,
     /// XML Schema.
     Xsd,
-    /// WSDL 1.1.
+    /// WSDL 1.1 or 2.0.
     Wsdl,
-    /// RAML 1.0.
+    /// RAML 1.0 or 0.8.
     Raml,
     /// Apache Thrift IDL.
     Thrift,

@@ -252,8 +252,8 @@ See [examples/wsdl](../examples/wsdl) and the [WSDL internals](internals/wsdl.md
 
 ## RAML
 
-Files ending in `.raml` are read as RAML 1.0, with `!include`s expanded and
-libraries loaded from `uses`. Resource types and traits are applied first,
+Files ending in `.raml` are read as RAML 1.0 or 0.8 (as its RAML 1.0
+equivalent), with `!include`s expanded and libraries loaded from `uses`. Resource types and traits are applied first,
 so each operation is compared as if it had been written out in full:
 
 ```sh
