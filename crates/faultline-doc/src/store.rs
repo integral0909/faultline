@@ -68,6 +68,11 @@ impl<'a> DocumentStore<'a> {
         self.sources
     }
 
+    /// The loader documents are read with.
+    pub fn loader(&self) -> &'a dyn Loader {
+        self.loader
+    }
+
     /// The document at `uri` (fragment ignored), loading it on first use.
     pub fn get(&mut self, uri: &UriRef) -> Result<Arc<StoredDocument>, StoreError> {
         let key = uri.without_fragment().normalized();

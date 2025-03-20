@@ -1,6 +1,7 @@
 //! Messages: the object a message becomes, and payloads in each schema
 //! format.
 
+use faultline_doc::Value;
 use faultline_ir::{
     Api, Content, EnumType, EnumValue, Field, Literal, ObjectType, Retired, TypeId, TypeKind,
     TypeNode,
@@ -16,6 +17,7 @@ use crate::context::{Context, referenced_name};
 enum SchemaFormat {
     Json(Dialect),
     Avro,
+    Protobuf,
     Unsupported(String),
 }
 
@@ -54,6 +56,7 @@ fn schema_format(format: Option<&str>) -> SchemaFormat {
         "application/vnd.apache.avro"
         | "application/vnd.apache.avro+json"
         | "application/vnd.apache.avro+yaml" => SchemaFormat::Avro,
+        "application/vnd.google.protobuf" => SchemaFormat::Protobuf,
         _ => SchemaFormat::Unsupported(format.to_owned()),
     }
 }
@@ -200,6 +203,7 @@ fn payload_type(cx: &mut Context<'_, '_, '_>, at: At, format: Option<String>) ->
     match schema_format(format.as_deref()) {
         SchemaFormat::Json(dialect) => cx.schema(&at, dialect),
         SchemaFormat::Avro => avro(cx, at),
+        SchemaFormat::Protobuf => protobuf(cx, at),
         SchemaFormat::Unsupported(format) => {
             let span = at.span();
             cx.warning(
@@ -234,6 +238,47 @@ fn avro(cx: &mut Context<'_, '_, '_>, at: At) -> TypeId {
         );
         return cx.any();
     };
+    graft(cx, lowered, id)
+}
+
+/// Lowers a Protobuf schema, written as a string, with the Protobuf front
+/// end: the payload is the first message it declares.
+fn protobuf(cx: &mut Context<'_, '_, '_>, at: At) -> TypeId {
+    let Some(at) = cx.resolve(at) else {
+        return cx.any();
+    };
+    let span = at.span();
+    let Value::String(text) = &at.node().value else {
+        cx.error(
+            codes::INVALID_PROTOBUF,
+            "a Protobuf schema must be written as a string of `.proto` source",
+            span,
+        );
+        return cx.any();
+    };
+    let location = at.location();
+    let uri = location
+        .document
+        .with_fragment(Some(&location.pointer.to_string()));
+    let store = cx.lowerer.store();
+    let embedded =
+        faultline_protobuf::lower_embedded(text, &uri, span, store.loader(), store.sources());
+    let failed = embedded.diagnostics.has_errors();
+    cx.diagnostics.extend(embedded.diagnostics);
+    let Some((lowered, id)) = embedded.lowered.filter(|_| !failed) else {
+        cx.error(
+            codes::INVALID_PROTOBUF,
+            "the Protobuf schema is invalid, so the message cannot be compared",
+            span,
+        );
+        return cx.any();
+    };
+    graft(cx, lowered, id)
+}
+
+/// Copies the types of an API lowered by another front end into this one,
+/// returning the id `id` has there.
+fn graft(cx: &mut Context<'_, '_, '_>, lowered: Api, id: TypeId) -> TypeId {
     let Api { types, named, .. } = lowered;
     let api = cx.lowerer.api_mut();
     let graft = api.types.graft(types);
@@ -277,7 +322,11 @@ mod tests {
         );
         assert_eq!(
             f("application/vnd.google.protobuf;version=3"),
-            SchemaFormat::Unsupported("application/vnd.google.protobuf;version=3".into())
+            SchemaFormat::Protobuf
+        );
+        assert_eq!(
+            f("application/raml+yaml;version=1.0"),
+            SchemaFormat::Unsupported("application/raml+yaml;version=1.0".into())
         );
     }
 }

@@ -195,6 +195,12 @@ impl<'a, 'l> Lowerer<'a, 'l> {
         self.api
     }
 
+    /// The documents read so far, and the loader and source map they were
+    /// read with, for front ends that lower schemas in other languages.
+    pub fn store(&self) -> &DocumentStore<'l> {
+        self.store
+    }
+
     /// The node for the schema at `location`, lowering it (and everything it
     /// reaches) if necessary.
     pub fn lower(&mut self, location: &Location) -> TypeId {

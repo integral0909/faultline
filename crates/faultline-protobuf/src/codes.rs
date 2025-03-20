@@ -32,3 +32,6 @@ pub const UNUSED_IMPORT: DiagnosticCode = DiagnosticCode::new("FLE3012");
 /// malformed, names fields the request does not have, or binds a path
 /// twice.
 pub const HTTP_RULE: DiagnosticCode = DiagnosticCode::new("FLE3013");
+/// A schema embedded in another document (an AsyncAPI payload) declares no
+/// message for the document to use.
+pub const NO_MESSAGE: DiagnosticCode = DiagnosticCode::new("FLE3014");

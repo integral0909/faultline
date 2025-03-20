@@ -277,7 +277,7 @@ faultline diff v1/asyncapi.yaml v2/asyncapi.yaml
 Operations are identified by action and channel address
 (`op[receive payments]`, `webhook[sent]/op[send orders/{}/placed]`), so a
 description migrated from 2.6 to 3.0 compares cleanly with its old self.
-Payloads may be JSON Schema, OpenAPI schemas or Avro. See
+Payloads may be JSON Schema, OpenAPI schemas, Avro or Protobuf. See
 [examples/asyncapi](../examples/asyncapi) and the
 [AsyncAPI internals](internals/asyncapi.md).
 

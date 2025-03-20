@@ -83,6 +83,7 @@ what a code means. This reference is generated from the definitions.
 | FLE3011 | `faultline-protobuf` | A construct the syntax level does not allow (`required` in proto3, an enum whose first value is not zero in proto3, an unknown syntax). |
 | FLE3012 | `faultline-protobuf` | An import is not used (a warning). |
 | FLE3013 | `faultline-protobuf` | An HTTP rule cannot be used for the HTTP/JSON view (a warning): it is malformed, names fields the request does not have, or binds a path twice. |
+| FLE3014 | `faultline-protobuf` | A schema embedded in another document (an AsyncAPI payload) declares no message for the document to use. |
 | FLE4001 | `faultline-graphql` | The document does not follow the GraphQL grammar. |
 | FLE4002 | `faultline-graphql` | A type name refers to no definition. |
 | FLE4003 | `faultline-graphql` | Two definitions of a type, field, argument, enum value or directive. |
@@ -108,6 +109,7 @@ what a code means. This reference is generated from the definitions.
 | FLE6006 | `faultline-asyncapi` | No longer emitted: traits are applied. The code is not reused. |
 | FLE6007 | `faultline-asyncapi` | A 3.0 operation's `action` is neither `send` nor `receive`. |
 | FLE6008 | `faultline-asyncapi` | An embedded Avro schema is invalid. |
+| FLE6009 | `faultline-asyncapi` | An embedded Protobuf schema is invalid, or is not written as a string. |
 | FLE7201 | `faultline-xsd` | A document meant to be a schema is not one. |
 | FLE7202 | `faultline-xsd` | A `QName` in an attribute value uses an undeclared prefix. |
 | FLE7203 | `faultline-xsd` | A global component is declared twice. |

@@ -244,6 +244,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - FL1035 `member-order-changed`: the elements of an XML Schema `sequence`
   in a new order, which documents in the old order no longer satisfy.
 - AsyncAPI operations' `security` and messages' Kafka keys are compared.
+- AsyncAPI payloads written in Protobuf (`application/vnd.google.protobuf`),
+  compared as the first message of their source, with imports read beside
+  the document (FLE6009, FLE3014).
 - `faultline explain` explains diagnostic codes (`FLE7605`) as well as
   rules, from a catalog generated from the codes' definitions, which
   `docs/diagnostics.md` also lists. A test keeps codes unique and

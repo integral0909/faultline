@@ -59,6 +59,7 @@ since consumers stop receiving it.
 | `application/schema+json;version=…` (or `+yaml`) | JSON Schema in the named draft |
 | `application/vnd.oai.openapi…` | OpenAPI 3.0 Schema Object (3.1: JSON Schema 2020-12) |
 | `application/vnd.apache.avro…` | Avro, by the Avro front end |
+| `application/vnd.google.protobuf…` | Protobuf, by the Protobuf front end |
 | anything else | any value, with warning FLE6005 |
 
 In 2.x `schemaFormat` is a message field and applies to the payload; in 3.0
@@ -72,6 +73,15 @@ therefore apply unchanged: in a received message a new field needs a
 default, in a sent one removing a field needs the old readers to have had a
 default for it. Named Avro types become named types of the API. An Avro
 payload may also be a reference to an `.avsc` file.
+
+Protobuf payloads are `.proto` source written as a string. The Protobuf
+front end reads the source as a file of its own (named after the payload's
+location, such as `events.yaml#/channels/orders/messages/OrderPlaced/payload/schema`),
+with its imports resolved beside the AsyncAPI document, and the payload is
+the first top-level message the source declares. Its types are grafted in
+the same way, so fields are matched by number and a changed number is
+breaking. A payload that is not a string, or source with errors, is
+reported with FLE6009; source without a message, with FLE3014.
 
 ## Traits
 

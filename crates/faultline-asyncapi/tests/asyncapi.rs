@@ -1,6 +1,6 @@
 //! AsyncAPI 2.x and 3.0 lowering and comparison: directions of sent and
 //! received messages, migration between versions, and payloads in JSON
-//! Schema and Avro.
+//! Schema, Avro and Protobuf.
 
 use faultline_asyncapi::{SENT, lower_asyncapi};
 use faultline_doc::loader::MemoryLoader;
@@ -445,6 +445,100 @@ channels:
     assert!(codes.contains(&"FLE6008".to_owned()), "{codes:?}");
 }
 
+const PROTOBUF_V3: &str = r#"
+asyncapi: 3.0.0
+info: {title: Orders, version: 1.0.0}
+channels:
+  orders:
+    address: orders
+    messages:
+      OrderPlaced:
+        contentType: application/protobuf
+        payload:
+          schemaFormat: application/vnd.google.protobuf;version=3
+          schema: |
+            syntax = "proto3";
+            package shop;
+            import "money.proto";
+            message OrderPlaced {
+              string id = 1;
+              Money total = 2;
+              Status status = 3;
+            }
+            enum Status {
+              STATUS_UNSPECIFIED = 0;
+              STATUS_PAID = 1;
+            }
+operations:
+  takeOrders:
+    action: receive
+    channel: {$ref: '#/channels/orders'}
+"#;
+
+const MONEY: &str = r#"
+syntax = "proto3";
+package shop;
+message Money { int64 units = 1; string currency = 2; }
+"#;
+
+fn protobuf_api(text: &str) -> Api {
+    api_with(&[("events.yaml", text), ("money.proto", MONEY)])
+}
+
+#[test]
+fn protobuf_payloads_are_their_first_message() {
+    let old = protobuf_api(PROTOBUF_V3);
+    assert!(old.named_type("shop.OrderPlaced").is_some());
+    assert!(old.named_type("shop.Money").is_some(), "imports are read");
+    // Fields match by number, so a rename is compatible on the wire...
+    let renamed = PROTOBUF_V3.replace("string id = 1;", "string order_id = 1;");
+    let found = findings(&old, &protobuf_api(&renamed));
+    assert!(worst(&found) < Severity::Breaking, "{:?}", summary(&found));
+    // ...and a new number for a field is not.
+    let renumbered = PROTOBUF_V3.replace("string id = 1;", "string id = 4;");
+    let found = findings(&old, &protobuf_api(&renumbered));
+    assert_eq!(worst(&found), Severity::Breaking, "{:?}", summary(&found));
+}
+
+#[test]
+fn invalid_protobuf_payloads_are_reported() {
+    let codes_of = |text: &str| -> Vec<String> {
+        lower_with(&[("events.yaml", text), ("money.proto", MONEY)])
+            .diagnostics
+            .iter()
+            .filter_map(|d| d.code.map(|c| c.to_string()))
+            .collect()
+    };
+    let unresolved = codes_of(&PROTOBUF_V3.replace("Money total", "Cash total"));
+    assert!(unresolved.contains(&"FLE3003".to_owned()), "{unresolved:?}");
+    assert!(unresolved.contains(&"FLE6009".to_owned()), "{unresolved:?}");
+    let no_message = PROTOBUF_V3.replace(
+        "message OrderPlaced",
+        "enum Nothing { N = 0; }\n            message OrderPlaced",
+    );
+    assert!(
+        codes_of(&no_message).is_empty(),
+        "enums before the message are skipped"
+    );
+    let only_enums = PROTOBUF_V3.replace("message OrderPlaced", "enum OrderPlaced");
+    let only_enums = only_enums.replace(
+        "string id = 1;\n              Money total = 2;\n              Status status = 3;",
+        "PLACED = 0;",
+    );
+    assert_eq!(codes_of(&only_enums), ["FLE3014", "FLE6009"]);
+    let not_a_string = r"
+asyncapi: 2.6.0
+info: {title: Orders, version: 1.0.0}
+channels:
+  orders:
+    publish:
+      message:
+        schemaFormat: application/vnd.google.protobuf;version=3
+        payload: {type: object}
+";
+    assert_eq!(codes_of(not_a_string), ["FLE6009"]);
+}
+
 fn codes(text: &str) -> Vec<(String, bool)> {
     lower_with(&[("events.yaml", text)])
         .diagnostics
@@ -477,7 +571,7 @@ operations:
   o: {action: send, channel: {$ref: '#/channels/missing'}}
 ";
     assert_eq!(codes(unresolved), [("FLE6003".to_owned(), true)]);
-    let warnings = r#"
+    let warnings = r"
 asyncapi: 2.6.0
 info: {title: x, version: '1'}
 channels:
@@ -485,9 +579,9 @@ channels:
     subscribe:
       traits: [{description: shared}]
       message:
-        schemaFormat: application/vnd.google.protobuf;version=3
-        payload: "message X {}"
-"#;
+        schemaFormat: application/raml+yaml;version=1.0
+        payload: {type: string}
+";
     let found = codes(warnings);
     assert!(found.contains(&("FLE6005".to_owned(), false)), "{found:?}");
     assert!(

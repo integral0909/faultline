@@ -21,9 +21,9 @@ pub mod parser;
 mod wkt;
 
 use faultline_doc::UriRef;
-use faultline_doc::loader::Loader;
-use faultline_ir::{Api, Role};
-use faultline_source::{Diagnostics, SourceMap};
+use faultline_doc::loader::{LoadError, Loaded, Loader};
+use faultline_ir::{Api, QualName, Role, TypeId};
+use faultline_source::{Diagnostic, Diagnostics, SourceMap, SourceName, Span};
 
 pub use lower::RPC_MEDIA_TYPE;
 
@@ -100,5 +100,96 @@ pub fn lower_protobuf_http(
     Lowered {
         api: Some(api),
         diagnostics,
+    }
+}
+
+/// A Protobuf schema embedded in another document, lowered on its own.
+#[derive(Debug)]
+pub struct Embedded {
+    /// The types, and the message the schema describes; `None` when the
+    /// schema has errors or declares no message.
+    pub lowered: Option<(Api, TypeId)>,
+    pub diagnostics: Diagnostics,
+}
+
+/// Lowers the Protobuf source `text` found at `uri` in another document (an
+/// AsyncAPI payload, for example) and returns the type of its first
+/// top-level message. Imports are read through `loader`, relative to the
+/// directory of `uri`; `span` locates the text in its document, for
+/// diagnostics about the schema as a whole.
+pub fn lower_embedded(
+    text: &str,
+    uri: &UriRef,
+    span: Span,
+    loader: &dyn Loader,
+    sources: &SourceMap,
+) -> Embedded {
+    let embedding = Embedding {
+        uri,
+        text,
+        inner: loader,
+    };
+    let files = load::load(uri, &embedding, sources);
+    let mut diagnostics = files.diagnostics;
+    let Some(entry) = files.files.first() else {
+        return Embedded {
+            lowered: None,
+            diagnostics,
+        };
+    };
+    let package = entry.ast.package.as_ref().map(|p| p.text.as_str());
+    let Some(first) = entry.ast.messages.first() else {
+        diagnostics.push(
+            Diagnostic::error("the Protobuf schema declares no message".to_owned())
+                .with_code(codes::NO_MESSAGE)
+                .with_primary(span, ""),
+        );
+        return Embedded {
+            lowered: None,
+            diagnostics,
+        };
+    };
+    let full_name = match package {
+        Some(package) if !package.is_empty() => format!("{package}.{}", first.name.text),
+        _ => first.name.text.clone(),
+    };
+    let mut linked = linker::link(&files.files);
+    diagnostics.extend(std::mem::take(&mut linked.diagnostics));
+    diagnostics.sort();
+    if diagnostics.has_errors() {
+        return Embedded {
+            lowered: None,
+            diagnostics,
+        };
+    }
+    let api = lower::Lowerer::new(&files.files, &linked, "embedded").lower(Role::Both);
+    let id = api.named.get(&QualName::new(&full_name)).copied();
+    Embedded {
+        lowered: id.map(|id| (api, id)),
+        diagnostics,
+    }
+}
+
+/// A loader that answers for the embedded schema itself and passes every
+/// other request (its imports) on.
+struct Embedding<'a> {
+    uri: &'a UriRef,
+    text: &'a str,
+    inner: &'a dyn Loader,
+}
+
+impl Loader for Embedding<'_> {
+    fn load(&self, uri: &UriRef) -> Result<Loaded, LoadError> {
+        if uri == self.uri {
+            return Ok(Loaded {
+                name: SourceName::Virtual(self.uri.to_string()),
+                text: self.text.to_owned(),
+            });
+        }
+        self.inner.load(uri)
+    }
+
+    fn list(&self, uri: &UriRef) -> Result<Vec<String>, LoadError> {
+        self.inner.list(uri)
     }
 }
