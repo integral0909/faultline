@@ -10,6 +10,7 @@ compare them. Run the commands from the example's directory.
 | [swagger](swagger) | Swagger 2.0 | A Swagger description compared with its OpenAPI 3 successor |
 | [overlay](overlay) | OpenAPI and Overlay 1.0 | Internal operations removed by an overlay before comparing |
 | [asyncapi](asyncapi) | AsyncAPI 2.6 and 3.0 | Sent and received messages, and a migration between versions |
+| [asyncapi-protobuf](asyncapi-protobuf) | AsyncAPI and Protobuf | Kafka events whose payloads are `.proto` source |
 | [raml](raml) | RAML 1.0 | A library with a type, a trait and a resource type |
 | [smithy](smithy) | Smithy 2.0 | HTTP bindings, and a model spread over two files |
 | [grpc](grpc) | Protobuf | A gRPC service across two `.proto` files |

@@ -1428,3 +1428,39 @@ fn graphql_client_documents_are_usage() {
         .unwrap();
     assert_eq!(listed["unused"], true);
 }
+
+#[test]
+fn asyncapi_protobuf_payloads_are_compared() {
+    let dir = repo().join("examples/asyncapi-protobuf");
+    let output = faultline(
+        &dir,
+        &[
+            "diff",
+            "v1/asyncapi.yaml",
+            "v2/asyncapi.yaml",
+            "--output",
+            "json",
+        ],
+    );
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    let report: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+    let breaking: Vec<String> = report["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["severity"] == "breaking")
+        .map(|f| {
+            format!(
+                "{} {}",
+                f["rule"].as_str().unwrap(),
+                f["path"].as_str().unwrap()
+            )
+        })
+        .collect();
+    assert_eq!(
+        breaking,
+        [
+            "FL1001 webhook[sent]/op[send shop.orders.placed]/message[OrderPlaced].payload.lines[].sku"
+        ]
+    );
+}
