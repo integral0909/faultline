@@ -116,7 +116,8 @@ pub struct Embedded {
 /// AsyncAPI payload, for example) and returns the type of its first
 /// top-level message. Imports are read through `loader`, relative to the
 /// directory of `uri`; `span` locates the text in its document, for
-/// diagnostics about the schema as a whole.
+/// diagnostics about the schema as a whole. The source is named after that
+/// document and the fragment of `uri`.
 pub fn lower_embedded(
     text: &str,
     uri: &UriRef,
@@ -124,8 +125,20 @@ pub fn lower_embedded(
     loader: &dyn Loader,
     sources: &SourceMap,
 ) -> Embedded {
+    let fragment = uri.fragment().unwrap_or_default();
+    let name = match sources.get(span.source()).map(|file| file.name().clone()) {
+        Some(SourceName::Path(path)) => {
+            SourceName::Path(format!("{}#{fragment}", path.display()).into())
+        }
+        Some(SourceName::Revision { rev, path }) => SourceName::Revision {
+            rev,
+            path: format!("{path}#{fragment}"),
+        },
+        _ => SourceName::Virtual(uri.to_string()),
+    };
     let embedding = Embedding {
         uri,
+        name,
         text,
         inner: loader,
     };
@@ -174,6 +187,7 @@ pub fn lower_embedded(
 /// other request (its imports) on.
 struct Embedding<'a> {
     uri: &'a UriRef,
+    name: SourceName,
     text: &'a str,
     inner: &'a dyn Loader,
 }
@@ -182,7 +196,7 @@ impl Loader for Embedding<'_> {
     fn load(&self, uri: &UriRef) -> Result<Loaded, LoadError> {
         if uri == self.uri {
             return Ok(Loaded {
-                name: SourceName::Virtual(self.uri.to_string()),
+                name: self.name.clone(),
                 text: self.text.to_owned(),
             });
         }
