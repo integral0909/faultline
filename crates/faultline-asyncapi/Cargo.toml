@@ -17,6 +17,7 @@ faultline-doc.workspace = true
 faultline-ir.workspace = true
 faultline-jsonschema.workspace = true
 faultline-protobuf.workspace = true
+faultline-raml.workspace = true
 faultline-source.workspace = true
 
 [dev-dependencies]

@@ -18,6 +18,7 @@ enum SchemaFormat {
     Json(Dialect),
     Avro,
     Protobuf,
+    Raml,
     Unsupported(String),
 }
 
@@ -57,6 +58,7 @@ fn schema_format(format: Option<&str>) -> SchemaFormat {
         | "application/vnd.apache.avro+json"
         | "application/vnd.apache.avro+yaml" => SchemaFormat::Avro,
         "application/vnd.google.protobuf" => SchemaFormat::Protobuf,
+        "application/raml+yaml" => SchemaFormat::Raml,
         _ => SchemaFormat::Unsupported(format.to_owned()),
     }
 }
@@ -204,6 +206,7 @@ fn payload_type(cx: &mut Context<'_, '_, '_>, at: At, format: Option<String>) ->
         SchemaFormat::Json(dialect) => cx.schema(&at, dialect),
         SchemaFormat::Avro => avro(cx, at),
         SchemaFormat::Protobuf => protobuf(cx, at),
+        SchemaFormat::Raml => raml(cx, at),
         SchemaFormat::Unsupported(format) => {
             let span = at.span();
             cx.warning(
@@ -276,6 +279,25 @@ fn protobuf(cx: &mut Context<'_, '_, '_>, at: At) -> TypeId {
     graft(cx, lowered, id)
 }
 
+/// Lowers a RAML type declaration with the RAML front end.
+fn raml(cx: &mut Context<'_, '_, '_>, at: At) -> TypeId {
+    let Some(at) = cx.resolve(at) else {
+        return cx.any();
+    };
+    let embedded = faultline_raml::lower_embedded(at.node());
+    cx.diagnostics.extend(embedded.diagnostics);
+    let Some((lowered, id)) = embedded.lowered else {
+        let span = at.span();
+        cx.error(
+            codes::INVALID_RAML,
+            "the RAML type is invalid, so the message cannot be compared",
+            span,
+        );
+        return cx.any();
+    };
+    graft(cx, lowered, id)
+}
+
 /// Copies the types of an API lowered by another front end into this one,
 /// returning the id `id` has there.
 fn graft(cx: &mut Context<'_, '_, '_>, lowered: Api, id: TypeId) -> TypeId {
@@ -324,9 +346,10 @@ mod tests {
             f("application/vnd.google.protobuf;version=3"),
             SchemaFormat::Protobuf
         );
+        assert_eq!(f("application/raml+yaml;version=1.0"), SchemaFormat::Raml);
         assert_eq!(
-            f("application/raml+yaml;version=1.0"),
-            SchemaFormat::Unsupported("application/raml+yaml;version=1.0".into())
+            f("application/x-xsd"),
+            SchemaFormat::Unsupported("application/x-xsd".into())
         );
     }
 }

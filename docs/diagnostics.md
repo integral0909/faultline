@@ -110,6 +110,7 @@ what a code means. This reference is generated from the definitions.
 | FLE6007 | `faultline-asyncapi` | A 3.0 operation's `action` is neither `send` nor `receive`. |
 | FLE6008 | `faultline-asyncapi` | An embedded Avro schema is invalid. |
 | FLE6009 | `faultline-asyncapi` | An embedded Protobuf schema is invalid, or is not written as a string. |
+| FLE6010 | `faultline-asyncapi` | An embedded RAML type is invalid. |
 | FLE7201 | `faultline-xsd` | A document meant to be a schema is not one. |
 | FLE7202 | `faultline-xsd` | A `QName` in an attribute value uses an undeclared prefix. |
 | FLE7203 | `faultline-xsd` | A global component is declared twice. |

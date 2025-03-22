@@ -21,3 +21,5 @@ pub const INVALID_ACTION: DiagnosticCode = DiagnosticCode::new("FLE6007");
 pub const INVALID_AVRO: DiagnosticCode = DiagnosticCode::new("FLE6008");
 /// An embedded Protobuf schema is invalid, or is not written as a string.
 pub const INVALID_PROTOBUF: DiagnosticCode = DiagnosticCode::new("FLE6009");
+/// An embedded RAML type is invalid.
+pub const INVALID_RAML: DiagnosticCode = DiagnosticCode::new("FLE6010");

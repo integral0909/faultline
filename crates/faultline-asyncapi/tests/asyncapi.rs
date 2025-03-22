@@ -1,6 +1,6 @@
 //! AsyncAPI 2.x and 3.0 lowering and comparison: directions of sent and
 //! received messages, migration between versions, and payloads in JSON
-//! Schema, Avro and Protobuf.
+//! Schema, Avro, Protobuf and RAML.
 
 use faultline_asyncapi::{SENT, lower_asyncapi};
 use faultline_doc::loader::MemoryLoader;
@@ -539,6 +539,45 @@ channels:
     assert_eq!(codes_of(not_a_string), ["FLE6009"]);
 }
 
+const RAML_V2: &str = r"
+asyncapi: 2.6.0
+info: {title: Accounts, version: 1.0.0}
+channels:
+  users:
+    subscribe:
+      message:
+        name: UserCreated
+        schemaFormat: application/raml+yaml;version=1.0
+        payload:
+          type: object
+          properties:
+            id: string
+            email:
+              type: string
+              pattern: ^.+@.+$
+            nickname?: string
+            role:
+              enum: [admin, member]
+";
+
+#[test]
+fn raml_payloads_are_raml_types() {
+    let old = api(RAML_V2);
+    let required = RAML_V2.replace("nickname?: string", "nickname: string");
+    let found = findings(&old, &api(&required));
+    assert!(worst(&found) < Severity::Breaking, "{:?}", summary(&found));
+    let retyped = RAML_V2.replace("id: string", "id: integer");
+    let found = findings(&old, &api(&retyped));
+    assert_eq!(worst(&found), Severity::Breaking, "{:?}", summary(&found));
+    let broken = RAML_V2.replace("id: string", "id: Identifier");
+    let codes: Vec<String> = lower_with(&[("events.yaml", &broken)])
+        .diagnostics
+        .iter()
+        .filter_map(|d| d.code.map(|c| c.to_string()))
+        .collect();
+    assert_eq!(codes, ["FLE6010", "FLE7605"]);
+}
+
 fn codes(text: &str) -> Vec<(String, bool)> {
     lower_with(&[("events.yaml", text)])
         .diagnostics
@@ -579,7 +618,7 @@ channels:
     subscribe:
       traits: [{description: shared}]
       message:
-        schemaFormat: application/raml+yaml;version=1.0
+        schemaFormat: application/x-thrift
         payload: {type: string}
 ";
     let found = codes(warnings);

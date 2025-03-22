@@ -464,6 +464,7 @@ dependencies = [
  "faultline-ir",
  "faultline-jsonschema",
  "faultline-protobuf",
+ "faultline-raml",
  "faultline-rules",
  "faultline-source",
 ]

@@ -60,6 +60,7 @@ since consumers stop receiving it.
 | `application/vnd.oai.openapi…` | OpenAPI 3.0 Schema Object (3.1: JSON Schema 2020-12) |
 | `application/vnd.apache.avro…` | Avro, by the Avro front end |
 | `application/vnd.google.protobuf…` | Protobuf, by the Protobuf front end |
+| `application/raml+yaml…` | a RAML 1.0 type declaration, by the RAML front end |
 | anything else | any value, with warning FLE6005 |
 
 In 2.x `schemaFormat` is a message field and applies to the payload; in 3.0
@@ -82,6 +83,11 @@ the first top-level message the source declares. Its types are grafted in
 the same way, so fields are matched by number and a changed number is
 breaking. A payload that is not a string, or source with errors, is
 reported with FLE6009; source without a message, with FLE3014.
+
+RAML payloads are type declarations naming RAML's built-in types only,
+since the AsyncAPI document declares no RAML types to refer to. An
+invalid declaration is reported with FLE6010, and a JSON Schema inside one
+is compared as accepting any value, with a warning.
 
 ## Traits
 
