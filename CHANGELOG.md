@@ -247,6 +247,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - AsyncAPI payloads written in Protobuf (`application/vnd.google.protobuf`),
   compared as the first message of their source, with imports read beside
   the document (FLE6009, FLE3014).
+- `ir dump --rev` and `ir dump --overlay` show the model of a description at
+  a revision, or with overlays applied.
 - `--report FORMAT=FILE` for `diff` and `check` writes the report in
   another format to a file as well, so a CI job can annotate and keep a
   SARIF or Code Quality report in one run; the CI examples use it.

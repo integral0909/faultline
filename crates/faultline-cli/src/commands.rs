@@ -264,10 +264,21 @@ pub(crate) struct UsageImportArgs {
 pub(crate) struct DumpArgs {
     /// Entry document.
     file: PathBuf,
+    /// Description format (default: detected).
     #[arg(long, value_enum)]
     format: Option<Format>,
+    /// For schemas without operations: which direction documents flow.
     #[arg(long, value_enum, default_value = "both")]
     role: Role,
+    /// Read the description from this git revision instead of the working
+    /// tree.
+    #[arg(long, value_name = "REV")]
+    rev: Option<String>,
+    /// An overlay to apply before lowering; may be repeated, and the
+    /// overlays apply in order.
+    #[arg(long = "overlay", value_name = "FILE")]
+    overlays: Vec<PathBuf>,
+    /// Workspace root (default: the current directory).
     #[arg(long)]
     root: Option<PathBuf>,
 }
@@ -718,8 +729,12 @@ fn dump(args: &DumpArgs) -> Result<i32, String> {
             .map_err(|e| format!("cannot read the current directory: {e}"))?,
     };
     let sources = SourceMap::new();
+    let mut source = Source::new(&root, &args.file).with_overlays(args.overlays.clone());
+    if let Some(rev) = &args.rev {
+        source = source.at(Revision::Named(rev.clone()));
+    }
     let lowered = Engine::default().lower(
-        &Source::new(&root, &args.file),
+        &source,
         &default_api_name(&args.file),
         args.format.map(Into::into),
         args.role.into(),

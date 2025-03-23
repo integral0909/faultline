@@ -1519,3 +1519,17 @@ fn reports_are_also_written_to_files() {
     assert_eq!(output.status.code(), Some(2));
     assert!(stderr(&output).contains("expected FORMAT=FILE"));
 }
+
+#[test]
+fn ir_dump_applies_overlays() {
+    let dir = repo().join("examples/overlay");
+    let dump = |args: &[&str]| {
+        let output = faultline(&dir, &[&["ir", "dump", "v1/openapi.yaml"], args].concat());
+        assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+        stdout(&output)
+    };
+    assert!(dump(&[]).contains("op[DELETE /internal/pets/{}]"));
+    let public = dump(&["--overlay", "public.yaml"]);
+    assert!(!public.contains("/internal/"), "{public}");
+    assert!(public.contains("op[GET /pets]"));
+}

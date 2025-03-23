@@ -470,3 +470,5 @@ accepted. See [registry.md](registry.md).
 `faultline ir dump openapi.yaml` prints the normalized model Faultline
 compares, with the direction of every type. It is useful to understand why a
 finding appears where it does.
+`--rev REV` dumps the description as it was at a revision, and `--overlay`
+applies overlays first, as `diff --overlay` does.
