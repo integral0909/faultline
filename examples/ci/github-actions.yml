@@ -30,10 +30,8 @@ jobs:
         # builds. --base defaults to origin/$GITHUB_BASE_REF.
         uses: integral0909/faultline@main
         with:
-          args: check --output github
-      - name: SARIF report
-        if: always()
-        run: faultline check --output sarif --fail-on never > faultline.sarif
+          # The SARIF report is written even when the check fails.
+          args: check --output github --report sarif=faultline.sarif
       - uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:

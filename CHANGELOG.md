@@ -247,6 +247,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - AsyncAPI payloads written in Protobuf (`application/vnd.google.protobuf`),
   compared as the first message of their source, with imports read beside
   the document (FLE6009, FLE3014).
+- `--report FORMAT=FILE` for `diff` and `check` writes the report in
+  another format to a file as well, so a CI job can annotate and keep a
+  SARIF or Code Quality report in one run; the CI examples use it.
 - AsyncAPI payloads written as RAML types (`application/raml+yaml`),
   lowered by the RAML front end (FLE6010).
 - `faultline explain` explains diagnostic codes (`FLE7605`) as well as

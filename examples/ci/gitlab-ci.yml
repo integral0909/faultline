@@ -27,10 +27,9 @@ api-compatibility:
     - grep " $name.tar.gz\$" SHA256SUMS | sha256sum -c -
     - tar xzf "$name.tar.gz" && mv "$name/faultline" /usr/local/bin/
   script:
-    # --base defaults to $CI_MERGE_REQUEST_DIFF_BASE_SHA. The report is
-    # written first so that it is kept when the check fails.
-    - faultline check --output gitlab --fail-on never > gl-code-quality-report.json
-    - faultline check
+    # --base defaults to $CI_MERGE_REQUEST_DIFF_BASE_SHA. The Code Quality
+    # report is written even when the check fails.
+    - faultline check --report gitlab=gl-code-quality-report.json
   artifacts:
     when: always
     reports:

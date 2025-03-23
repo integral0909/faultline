@@ -160,6 +160,31 @@ pub(crate) struct GateArgs {
     /// Baseline of accepted findings (overrides configuration).
     #[arg(long)]
     baseline: Option<PathBuf>,
+    /// Also write the report in another format to a file, such as
+    /// `sarif=faultline.sarif`; may be repeated.
+    #[arg(long = "report", value_name = "FORMAT=FILE", value_parser = parse_report)]
+    reports: Vec<(Output, PathBuf)>,
+}
+
+/// Parses a `--report` value, `FORMAT=FILE`.
+fn parse_report(value: &str) -> Result<(Output, PathBuf), String> {
+    let (format, path) = value.split_once('=').ok_or_else(|| {
+        format!("expected FORMAT=FILE, such as sarif=faultline.sarif, not `{value}`")
+    })?;
+    if path.is_empty() {
+        return Err(format!("no file named for the {format} report"));
+    }
+    let format = <Output as clap::ValueEnum>::from_str(format, true).map_err(|_| {
+        let known: Vec<String> = <Output as clap::ValueEnum>::value_variants()
+            .iter()
+            .filter_map(|v| v.to_possible_value().map(|p| p.get_name().to_owned()))
+            .collect();
+        format!(
+            "unknown report format `{format}`; expected one of {}",
+            known.join(", ")
+        )
+    })?;
+    Ok((format, PathBuf::from(path)))
 }
 
 #[derive(Debug, Args)]
@@ -483,6 +508,10 @@ fn gate(
         apis: &comparison.apis,
         evaluation: &evaluation,
     };
+    for (format, path) in &args.reports {
+        std::fs::write(path, render(&report, (*format).into()))
+            .map_err(|e| format!("cannot write {}: {e}", path.display()))?;
+    }
     print!("{}", render(&report, args.output.into()));
     Ok(if comparison.diagnostics.has_errors() {
         exit::INVALID_INPUT

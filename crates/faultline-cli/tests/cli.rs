@@ -1464,3 +1464,58 @@ fn asyncapi_protobuf_payloads_are_compared() {
         ]
     );
 }
+
+#[test]
+fn reports_are_also_written_to_files() {
+    let dir = workspace();
+    let output = faultline(
+        dir.path(),
+        &[
+            "diff",
+            "v1/openapi.yaml",
+            "v2/openapi.yaml",
+            "--report",
+            "sarif=out/faultline.sarif",
+            "--report",
+            "JSON=report.json",
+        ],
+    );
+    // The report directory does not exist yet.
+    assert_eq!(output.status.code(), Some(2), "{}", stderr(&output));
+    assert!(stderr(&output).contains("cannot write out/faultline.sarif"));
+
+    std::fs::create_dir(dir.path().join("out")).unwrap();
+    let output = faultline(
+        dir.path(),
+        &[
+            "diff",
+            "v1/openapi.yaml",
+            "v2/openapi.yaml",
+            "--report",
+            "sarif=out/faultline.sarif",
+            "--report",
+            "JSON=report.json",
+        ],
+    );
+    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        stdout(&output).contains("breaking[FL"),
+        "text goes to stdout"
+    );
+    let sarif: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(dir.path().join("out/faultline.sarif")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(sarif["version"], "2.1.0");
+    let json: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(dir.path().join("report.json")).unwrap())
+            .unwrap();
+    assert!(!json["findings"].as_array().unwrap().is_empty());
+
+    let output = faultline(
+        dir.path(),
+        &["diff", "v1/openapi.yaml", "--report", "sarif"],
+    );
+    assert_eq!(output.status.code(), Some(2));
+    assert!(stderr(&output).contains("expected FORMAT=FILE"));
+}

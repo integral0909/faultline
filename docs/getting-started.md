@@ -80,8 +80,20 @@ reports.
 `--output` selects `text` (default), `json`, `sarif`, `markdown` (for pull
 request comments), `github` (workflow annotations), `junit`, `gitlab`
 (GitLab Code Quality, shown in merge requests), `html` (a self-contained
-page to keep as a build artifact), or `changelog`. The last is release notes in Markdown, grouped into breaking
-changes, deprecations, additions and other changes.
+page to keep as a build artifact), or `changelog`. The last is release
+notes in Markdown, grouped into breaking changes, deprecations, additions
+and other changes.
+
+`--report FORMAT=FILE` also writes the report in another format to a file,
+and may be repeated, so one run can print annotations and keep a SARIF or
+Code Quality report:
+
+```sh
+faultline check --output github --report sarif=faultline.sarif --report html=faultline.html
+```
+
+The files are written before the exit code is decided, so they are kept
+when the check fails.
 
 The JSON format is versioned by its `schema_version` field; see
 [configuration.md](configuration.md#json-report) for its fields.
