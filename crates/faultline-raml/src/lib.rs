@@ -1,4 +1,5 @@
-//! The RAML 1.0 front end.
+//! The RAML front end, for RAML 1.0 and, read as its RAML 1.0 equivalent,
+//! RAML 0.8.
 //!
 //! [`load`] reads RAML documents with their `!include`s expanded, and
 //! [`expr`] parses type expressions, which [`types`] lowers into the IR

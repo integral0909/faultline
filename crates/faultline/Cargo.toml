@@ -1,6 +1,6 @@
 [package]
 name = "faultline"
-description = "Find breaking changes in API contracts: OpenAPI, JSON Schema and more"
+description = "Find breaking changes in API contracts: OpenAPI, AsyncAPI, JSON Schema, Protobuf, GraphQL and more"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

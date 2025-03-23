@@ -1,6 +1,6 @@
 [package]
 name = "faultline-wsdl"
-description = "WSDL front end for Faultline"
+description = "WSDL 1.1 and 2.0 front end for Faultline"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

@@ -1,5 +1,5 @@
 name: Faultline
-description: Find breaking changes in API contracts (OpenAPI, AsyncAPI, JSON Schema, Protobuf, GraphQL, Avro).
+description: Find breaking changes in API contracts (OpenAPI, AsyncAPI, JSON Schema, Protobuf, GraphQL, Avro, Thrift, Smithy and more).
 author: Fredrik Ahman
 branding:
   icon: git-pull-request

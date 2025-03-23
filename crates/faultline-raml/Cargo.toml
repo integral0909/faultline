@@ -1,6 +1,6 @@
 [package]
 name = "faultline-raml"
-description = "RAML 1.0 front end for Faultline"
+description = "RAML 1.0 and 0.8 front end for Faultline"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
