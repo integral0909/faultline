@@ -258,6 +258,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rules, from a catalog generated from the codes' definitions, which
   `docs/diagnostics.md` also lists. A test keeps codes unique and
   documented.
+- GraphQL arguments and input fields that are required (non-null, without a
+  default) cannot be deprecated (`FLE4011`), as the specification requires.
 - GraphQL `@oneOf` input objects: exactly one field, not null. Making an
   input `@oneOf` breaks clients that send several fields, and its fields
   must be nullable without defaults (`FLE4010`).

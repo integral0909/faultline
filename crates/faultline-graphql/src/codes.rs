@@ -23,3 +23,6 @@ pub const RESERVED_NAME: DiagnosticCode = DiagnosticCode::new("FLE4008");
 pub const EMPTY: DiagnosticCode = DiagnosticCode::new("FLE4009");
 /// A field of a `@oneOf` input object is non-null or has a default.
 pub const ONE_OF: DiagnosticCode = DiagnosticCode::new("FLE4010");
+/// A required argument or input field (non-null, without a default) is
+/// deprecated, which the GraphQL specification forbids.
+pub const DEPRECATED_REQUIRED: DiagnosticCode = DiagnosticCode::new("FLE4011");

@@ -369,3 +369,24 @@ fn one_of_fields_are_nullable_without_defaults() {
     let codes: Vec<&str> = found.iter().map(|(code, _)| code.as_str()).collect();
     assert_eq!(codes, ["FLE4010", "FLE4010"]);
 }
+
+#[test]
+fn required_inputs_cannot_be_deprecated() {
+    let found = errors(
+        r#"
+        type Query {
+          a(x: Int! @deprecated, y: Int! = 1 @deprecated, z: Int @deprecated(reason: "use y")): Int
+        }
+        input I { a: String! @deprecated, b: String @deprecated }
+    "#,
+    );
+    let messages: Vec<&str> = found.iter().map(|(_, m)| m.as_str()).collect();
+    assert_eq!(
+        messages,
+        [
+            "`x` is required, so it cannot be deprecated; make it nullable or give it a default first",
+            "`a` is required, so it cannot be deprecated; make it nullable or give it a default first",
+        ]
+    );
+    assert!(found.iter().all(|(code, _)| code == "FLE4011"));
+}

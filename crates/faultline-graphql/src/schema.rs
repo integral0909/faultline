@@ -398,6 +398,25 @@ impl Builder {
                 self.duplicate("argument", &value.name, first);
             }
             self.type_ref(&value.ty, Position::Input);
+            // Clients must send a required value, so it cannot be on its
+            // way out.
+            if value.ty.is_non_null()
+                && value.default.is_none()
+                && let Some(directive) = value
+                    .directives
+                    .iter()
+                    .find(|d| d.name.text == "deprecated")
+            {
+                self.error(
+                    codes::DEPRECATED_REQUIRED,
+                    directive.name.span,
+                    format!(
+                        "`{}` is required, so it cannot be deprecated; make it nullable or give it a default first",
+                        value.name.text
+                    ),
+                    "deprecated here",
+                );
+            }
         }
     }
 

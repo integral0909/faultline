@@ -94,6 +94,7 @@ what a code means. This reference is generated from the definitions.
 | FLE4008 | `faultline-graphql` | A name starting with `__`, which introspection reserves. |
 | FLE4009 | `faultline-graphql` | A type or directive definition has no fields, values or members. |
 | FLE4010 | `faultline-graphql` | A field of a `@oneOf` input object is non-null or has a default. |
+| FLE4011 | `faultline-graphql` | A required argument or input field (non-null, without a default) is deprecated, which the GraphQL specification forbids. |
 | FLE5001 | `faultline-avro` | A schema is not valid Avro: a missing or ill-typed attribute. |
 | FLE5002 | `faultline-avro` | A type name refers to no primitive or earlier definition. |
 | FLE5003 | `faultline-avro` | A name, field or enum symbol is defined twice. |
