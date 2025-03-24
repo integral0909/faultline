@@ -390,3 +390,31 @@ fn required_inputs_cannot_be_deprecated() {
     );
     assert!(found.iter().all(|(code, _)| code == "FLE4011"));
 }
+
+#[test]
+fn directive_definitions_are_checked() {
+    let found = errors(
+        r"
+        type Query { a: Int }
+        directive @key(fields: String!) repeatable on OBJECT | INTERFACE
+        directive @key on FIELD
+        directive @__internal on FIELD
+        directive @cost(weight: Query, level: Int! @deprecated) on FIELD_DEFINITION | FIELD_DEFINITION | TABLE
+    ",
+    );
+    let found: Vec<String> = found
+        .iter()
+        .map(|(code, message)| format!("{code} {message}"))
+        .collect();
+    assert_eq!(
+        found,
+        [
+            "FLE4003 directive `key` is defined twice",
+            "FLE4008 `__internal` starts with `__`, which introspection reserves",
+            "FLE4004 `Query` is an object type, but an argument or input field needs one of the input types",
+            "FLE4011 `level` is required, so it cannot be deprecated; make it nullable or give it a default first",
+            "FLE4003 directive location `FIELD_DEFINITION` is defined twice",
+            "FLE4001 `TABLE` is not a directive location",
+        ]
+    );
+}

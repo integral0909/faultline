@@ -6,12 +6,36 @@ use std::collections::{HashMap, HashSet};
 use faultline_source::{Diagnostic, Diagnostics, Span};
 
 use crate::ast::{
-    Document, FieldDef, InputValue, Name, OperationKind, TypeDef, TypeDefKind, TypeRef,
+    DirectiveDef, Document, FieldDef, InputValue, Name, OperationKind, TypeDef, TypeDefKind,
+    TypeRef,
 };
 use crate::codes;
 
 /// Scalars every schema has without defining them.
 pub const BUILTIN_SCALARS: [&str; 5] = ["Int", "Float", "String", "Boolean", "ID"];
+
+/// The places a directive may be used, executable and type-system ones.
+const DIRECTIVE_LOCATIONS: [&str; 19] = [
+    "QUERY",
+    "MUTATION",
+    "SUBSCRIPTION",
+    "FIELD",
+    "FRAGMENT_DEFINITION",
+    "FRAGMENT_SPREAD",
+    "INLINE_FRAGMENT",
+    "VARIABLE_DEFINITION",
+    "SCHEMA",
+    "SCALAR",
+    "OBJECT",
+    "FIELD_DEFINITION",
+    "ARGUMENT_DEFINITION",
+    "INTERFACE",
+    "UNION",
+    "ENUM",
+    "ENUM_VALUE",
+    "INPUT_OBJECT",
+    "INPUT_FIELD_DEFINITION",
+];
 
 /// A validated schema.
 #[derive(Debug, Default)]
@@ -57,6 +81,7 @@ pub fn build(document: &Document) -> (Schema, Diagnostics) {
     builder.merge(document);
     builder.roots(document);
     builder.check();
+    builder.directives(&document.directives);
     (builder.schema, builder.diagnostics)
 }
 
@@ -343,6 +368,34 @@ impl Builder {
                 format!("`{}` must have at least one of its {what}", ty.name.text),
                 "empty",
             );
+        }
+    }
+
+    /// Directive definitions: unique names that introspection does not
+    /// reserve, arguments of input types, and the locations the
+    /// specification defines.
+    fn directives(&mut self, directives: &[DirectiveDef]) {
+        let mut seen = HashMap::new();
+        for directive in directives {
+            self.reserved(&directive.name);
+            if let Some(first) = seen.insert(directive.name.text.as_str(), directive.name.span) {
+                self.duplicate("directive", &directive.name, first);
+            }
+            self.input_values(&directive.arguments);
+            let mut locations = HashMap::new();
+            for location in &directive.locations {
+                if !DIRECTIVE_LOCATIONS.contains(&location.text.as_str()) {
+                    self.error(
+                        codes::SYNTAX,
+                        location.span,
+                        format!("`{}` is not a directive location", location.text),
+                        "unknown location",
+                    );
+                } else if let Some(first) = locations.insert(location.text.as_str(), location.span)
+                {
+                    self.duplicate("directive location", location, first);
+                }
+            }
         }
     }
 
