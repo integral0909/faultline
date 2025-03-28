@@ -48,8 +48,10 @@ body, its type is the response, and subscriptions stream their responses.
 
 A directive with a location clients use in queries (`QUERY`, `FIELD`,
 `FRAGMENT_SPREAD` and the other executable locations) is an operation too,
-`directive/cached`. Its request has two fields: `location`, a closed enum
-of the executable locations it declares, and `arguments`, as for a field.
+`directive/cached`. Its request is the list of its uses at one place,
+with at most one item unless the directive is `repeatable`; each use has
+two fields: `location`, a closed enum of the executable locations it
+declares, and `arguments`, as for a field.
 Directives whose locations are all in the type system (`OBJECT`,
 `FIELD_DEFINITION`, …) are for schema authors and tools, and are not
 compared.
@@ -86,8 +88,9 @@ new implementation of an interface is a new `__typename` value. Arguments
 and input fields are judged as requests: a new required argument, a removed
 argument or input field, or an argument made non-null breaks clients.
 Likewise for an executable directive: removing it, removing one of its
-locations, or adding a required argument breaks queries that use it, and
-new locations and optional arguments are compatible.
+locations, making it no longer `repeatable`, or adding a required argument
+breaks queries that use it, and new locations and optional arguments are
+compatible.
 
 ## Limitations
 
@@ -95,9 +98,7 @@ new locations and optional arguments are compatible.
   one directory (`schema/*.graphql`); files in several directories must be
   combined first.
 * Type-system directives other than `@deprecated` and `@oneOf` do not
-  affect the comparison, and neither does `repeatable`: a directive that
-  stops being repeatable breaks queries that repeat it, and is not
-  reported.
+  affect the comparison.
 * Custom scalars are assumed to be strings; a change from one custom scalar
   to another is reported as a format change.
 * Renaming a type is visible only through `__typename`, as an enum value

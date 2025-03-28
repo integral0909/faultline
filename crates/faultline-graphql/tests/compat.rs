@@ -297,14 +297,24 @@ fn directives_used_in_queries_are_part_of_the_api() {
         with("directive @cached(ttl: Int) on FIELD\ndirective @key(fields: String!) on OBJECT");
     assert_eq!(
         summary(&old, &narrowed),
-        ["FL1006 breaking op[directive/cached]/request[application/graphql].location"]
+        ["FL1006 breaking op[directive/cached]/request[application/graphql][].location"]
     );
     let required = with(
         "directive @cached(ttl: Int, scope: String!) on FIELD | QUERY\ndirective @key(fields: String!) on OBJECT",
     );
     assert_eq!(
         summary(&old, &required),
-        ["FL1002 breaking op[directive/cached]/request[application/graphql].arguments"]
+        ["FL1002 breaking op[directive/cached]/request[application/graphql][].arguments"]
+    );
+    let repeatable = old.replace("@cached(ttl: Int) on", "@cached(ttl: Int) repeatable on");
+    let found = summary(&old, &repeatable);
+    assert!(found.iter().all(|f| f.contains(" info ")), "{found:?}");
+    let found = summary(&repeatable, &old);
+    assert!(
+        found
+            .iter()
+            .any(|f| f.contains(" breaking op[directive/cached]")),
+        "queries that repeat it break: {found:?}"
     );
     // Widening is compatible, and directives only schemas use are not
     // compared.
@@ -315,8 +325,8 @@ fn directives_used_in_queries_are_part_of_the_api() {
     assert_eq!(
         found,
         [
-            "FL1002 info op[directive/cached]/request[application/graphql].arguments",
-            "FL1005 info op[directive/cached]/request[application/graphql].location",
+            "FL1002 info op[directive/cached]/request[application/graphql][].arguments",
+            "FL1005 info op[directive/cached]/request[application/graphql][].location",
         ]
     );
 }

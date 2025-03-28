@@ -6,9 +6,10 @@
 //!
 //! A directive clients may write in queries (one with an executable
 //! location, such as `FIELD`) is an operation too (`directive/cached`):
-//! its request is the location it is used at, one of those it declares,
-//! and its arguments. Removing it, one of its locations, or adding a
-//! required argument breaks the queries that use it.
+//! its request is the list of its uses at one place, each a location it
+//! declares and its arguments, with at most one use unless it is
+//! `repeatable`. Removing it, one of its locations, its repeatability, or
+//! adding a required argument breaks the queries that use it.
 //!
 //! Values are described as they appear in a response, from the client's
 //! point of view:
@@ -120,7 +121,8 @@ impl<'a> Lowerer<'a> {
     }
 
     /// A directive clients write in queries, as an operation whose request
-    /// is where and how it is used. Directives used only in schemas are
+    /// is where and how it is used, once or, if it is repeatable, more
+    /// often. Directives used only in schemas are
     /// not part of the API clients see.
     fn directive(&mut self, directive: &DirectiveDef) {
         let locations: Vec<&Name> = directive
@@ -156,6 +158,13 @@ impl<'a> Lowerer<'a> {
             .api
             .types
             .alloc(TypeNode::new(TypeKind::Object(usage)).with_origin(directive.span));
+        let mut uses = ArrayType::of(usage);
+        uses.min_items = 1;
+        uses.max_items = (!directive.repeatable).then_some(1);
+        let uses = self
+            .api
+            .types
+            .alloc(TypeNode::new(TypeKind::Array(uses)).with_origin(directive.span));
         let mut op = Operation::new(OperationKey::Rpc {
             service: "directive".to_owned(),
             method: directive.name.text.clone(),
@@ -164,7 +173,7 @@ impl<'a> Lowerer<'a> {
             required: true,
             content: vec![Content {
                 media_type: GRAPHQL_MEDIA_TYPE.to_owned(),
-                ty: usage,
+                ty: uses,
                 origin: Some(directive.span),
             }],
             meta: Meta::default(),
