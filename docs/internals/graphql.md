@@ -35,13 +35,24 @@ operation types, from `schema { … }` or else the default names `Query`,
 * an object or interface provides every field, with its arguments, of each
   interface it implements;
 * no name starts with `__`, and no type is empty;
-* a query root exists.
+* a query root exists;
+* required arguments and input fields are not deprecated;
+* directive definitions have unique names, arguments of input types, and
+  known locations, each listed once.
 
 ## Lowering
 
 Each field of a root type becomes an operation, `query/pets`,
 `mutation/addPet` or `subscription/petAdded`: its arguments are the request
 body, its type is the response, and subscriptions stream their responses.
+
+A directive with a location clients use in queries (`QUERY`, `FIELD`,
+`FRAGMENT_SPREAD` and the other executable locations) is an operation too,
+`directive/cached`. Its request has two fields: `location`, a closed enum
+of the executable locations it declares, and `arguments`, as for a field.
+Directives whose locations are all in the type system (`OBJECT`,
+`FIELD_DEFINITION`, …) are for schema authors and tools, and are not
+compared.
 
 Values are modelled as a client sees them:
 
@@ -74,14 +85,19 @@ responses, shown with a witness such as `{"__typename": "Shelter", …}`, and a
 new implementation of an interface is a new `__typename` value. Arguments
 and input fields are judged as requests: a new required argument, a removed
 argument or input field, or an argument made non-null breaks clients.
+Likewise for an executable directive: removing it, removing one of its
+locations, or adding a required argument breaks queries that use it, and
+new locations and optional arguments are compatible.
 
 ## Limitations
 
 * A schema split across files is read from the files a pattern matches in
   one directory (`schema/*.graphql`); files in several directories must be
   combined first.
-* Directive definitions and uses other than `@deprecated` and `@oneOf` do
-  not affect the comparison.
+* Type-system directives other than `@deprecated` and `@oneOf` do not
+  affect the comparison, and neither does `repeatable`: a directive that
+  stops being repeatable breaks queries that repeat it, and is not
+  reported.
 * Custom scalars are assumed to be strings; a change from one custom scalar
   to another is reported as a format change.
 * Renaming a type is visible only through `__typename`, as an enum value

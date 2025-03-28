@@ -4,6 +4,12 @@
 //! `mutation/addPet`, `subscription/petAdded`): its arguments are the
 //! request, its type the response, and subscriptions stream responses.
 //!
+//! A directive clients may write in queries (one with an executable
+//! location, such as `FIELD`) is an operation too (`directive/cached`):
+//! its request is the location it is used at, one of those it declares,
+//! and its arguments. Removing it, one of its locations, or adding a
+//! required argument breaks the queries that use it.
+//!
 //! Values are described as they appear in a response, from the client's
 //! point of view:
 //!
@@ -29,10 +35,10 @@ use faultline_ir::{
 };
 
 use crate::ast::{
-    Directive, FieldDef, InputValue, OperationKind, TypeDef, TypeDefKind, TypeRef, Value,
-    deprecation,
+    Directive, DirectiveDef, FieldDef, InputValue, Name, OperationKind, TypeDef, TypeDefKind,
+    TypeRef, Value, deprecation,
 };
-use crate::schema::Schema;
+use crate::schema::{EXECUTABLE_LOCATIONS, Schema};
 
 /// The field every object value carries, naming its type.
 pub const TYPENAME: &str = "__typename";
@@ -66,6 +72,9 @@ impl<'a> Lowerer<'a> {
             for field in fields {
                 self.operation(*kind, field);
             }
+        }
+        for directive in &self.schema.directives {
+            self.directive(directive);
         }
         while let Some(name) = self.pending.pop() {
             self.define(&name);
@@ -107,6 +116,62 @@ impl<'a> Lowerer<'a> {
         });
         op.meta = meta(field.description.as_ref(), &field.directives);
         op.origin = Some(field.name.span);
+        self.api.operations.push(op);
+    }
+
+    /// A directive clients write in queries, as an operation whose request
+    /// is where and how it is used. Directives used only in schemas are
+    /// not part of the API clients see.
+    fn directive(&mut self, directive: &DirectiveDef) {
+        let locations: Vec<&Name> = directive
+            .locations
+            .iter()
+            .filter(|l| EXECUTABLE_LOCATIONS.contains(&l.text.as_str()))
+            .collect();
+        if locations.is_empty() {
+            return;
+        }
+        let location = self.api.types.alloc(
+            TypeNode::new(TypeKind::Enum(EnumType {
+                values: locations
+                    .iter()
+                    .map(|l| EnumValue::new(Literal::string(&l.text)))
+                    .collect(),
+                open: false,
+                retired: Retired::default(),
+                writer_exact: false,
+            }))
+            .with_origin(directive.span),
+        );
+        let arguments = self.arguments(&directive.arguments);
+        let never = self.api.types.alloc_kind(TypeKind::Never);
+        let mut usage = ObjectType::new(never);
+        let mut location = Field::new("location", location, true);
+        location.origin = locations.first().map(|l| l.span);
+        usage.fields.push(location);
+        let mut arguments = Field::new("arguments", arguments, true);
+        arguments.origin = Some(directive.span);
+        usage.fields.push(arguments);
+        let usage = self
+            .api
+            .types
+            .alloc(TypeNode::new(TypeKind::Object(usage)).with_origin(directive.span));
+        let mut op = Operation::new(OperationKey::Rpc {
+            service: "directive".to_owned(),
+            method: directive.name.text.clone(),
+        });
+        op.request_body = Some(RequestBody {
+            required: true,
+            content: vec![Content {
+                media_type: GRAPHQL_MEDIA_TYPE.to_owned(),
+                ty: usage,
+                origin: Some(directive.span),
+            }],
+            meta: Meta::default(),
+            origin: Some(directive.span),
+        });
+        op.meta.description.clone_from(&directive.description);
+        op.origin = Some(directive.name.span);
         self.api.operations.push(op);
     }
 

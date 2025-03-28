@@ -276,3 +276,47 @@ fn one_of_inputs_take_exactly_one_field() {
     );
     assert!(wider.iter().all(|s| !s.contains("breaking")), "{wider:?}");
 }
+
+#[test]
+fn directives_used_in_queries_are_part_of_the_api() {
+    let with = |directives: &str| schema(PET, directives);
+    let old = with(
+        "directive @cached(ttl: Int) on FIELD | QUERY\ndirective @key(fields: String!) on OBJECT",
+    );
+    assert!(
+        summary(&old, &old).is_empty(),
+        "an unchanged schema has no changes"
+    );
+    // Queries using the directive stop validating.
+    let removed = with("directive @key(fields: String!) on OBJECT");
+    assert_eq!(
+        summary(&old, &removed),
+        ["FL2001 breaking op[directive/cached]"]
+    );
+    let narrowed =
+        with("directive @cached(ttl: Int) on FIELD\ndirective @key(fields: String!) on OBJECT");
+    assert_eq!(
+        summary(&old, &narrowed),
+        ["FL1006 breaking op[directive/cached]/request[application/graphql].location"]
+    );
+    let required = with(
+        "directive @cached(ttl: Int, scope: String!) on FIELD | QUERY\ndirective @key(fields: String!) on OBJECT",
+    );
+    assert_eq!(
+        summary(&old, &required),
+        ["FL1002 breaking op[directive/cached]/request[application/graphql].arguments"]
+    );
+    // Widening is compatible, and directives only schemas use are not
+    // compared.
+    let widened = with(
+        "directive @cached(ttl: Int, scope: String) on FIELD | QUERY | FRAGMENT_SPREAD\ndirective @key(fields: [String!]!) on OBJECT | INTERFACE",
+    );
+    let found = summary(&old, &widened);
+    assert_eq!(
+        found,
+        [
+            "FL1002 info op[directive/cached]/request[application/graphql].arguments",
+            "FL1005 info op[directive/cached]/request[application/graphql].location",
+        ]
+    );
+}

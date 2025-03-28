@@ -14,7 +14,8 @@ use crate::codes;
 /// Scalars every schema has without defining them.
 pub const BUILTIN_SCALARS: [&str; 5] = ["Int", "Float", "String", "Boolean", "ID"];
 
-/// The places a directive may be used, executable and type-system ones.
+/// The places a directive may be used: the executable locations, in
+/// queries, then the type-system ones.
 const DIRECTIVE_LOCATIONS: [&str; 19] = [
     "QUERY",
     "MUTATION",
@@ -24,6 +25,7 @@ const DIRECTIVE_LOCATIONS: [&str; 19] = [
     "FRAGMENT_SPREAD",
     "INLINE_FRAGMENT",
     "VARIABLE_DEFINITION",
+    // Type-system locations.
     "SCHEMA",
     "SCALAR",
     "OBJECT",
@@ -37,6 +39,18 @@ const DIRECTIVE_LOCATIONS: [&str; 19] = [
     "INPUT_FIELD_DEFINITION",
 ];
 
+/// The locations where clients use directives, in queries.
+pub const EXECUTABLE_LOCATIONS: [&str; 8] = [
+    "QUERY",
+    "MUTATION",
+    "SUBSCRIPTION",
+    "FIELD",
+    "FRAGMENT_DEFINITION",
+    "FRAGMENT_SPREAD",
+    "INLINE_FRAGMENT",
+    "VARIABLE_DEFINITION",
+];
+
 /// A validated schema.
 #[derive(Debug, Default)]
 pub struct Schema {
@@ -45,6 +59,8 @@ pub struct Schema {
     index: HashMap<String, usize>,
     /// The root type of each operation kind the schema supports.
     pub roots: Vec<(OperationKind, String)>,
+    /// Directive definitions, the first of each name, in document order.
+    pub directives: Vec<DirectiveDef>,
 }
 
 impl Schema {
@@ -380,6 +396,8 @@ impl Builder {
             self.reserved(&directive.name);
             if let Some(first) = seen.insert(directive.name.text.as_str(), directive.name.span) {
                 self.duplicate("directive", &directive.name, first);
+            } else {
+                self.schema.directives.push(directive.clone());
             }
             self.input_values(&directive.arguments);
             let mut locations = HashMap::new();
