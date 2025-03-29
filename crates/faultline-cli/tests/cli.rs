@@ -610,7 +610,7 @@ fn graphql_schemas_are_detected_and_compared() {
     );
     assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
     let report: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
-    assert_eq!(report["summary"]["breaking"], 5, "{report:#}");
+    assert_eq!(report["summary"]["breaking"], 6, "{report:#}");
     let union = report["findings"]
         .as_array()
         .unwrap()

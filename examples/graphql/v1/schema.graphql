@@ -47,3 +47,6 @@ input NewPet {
 }
 
 scalar DateTime
+
+"""Serve the field or query from the cache for `ttl` seconds."""
+directive @cached(ttl: Int = 60) on QUERY | FIELD
