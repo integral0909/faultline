@@ -8,6 +8,10 @@
 //! Fragments are expanded where they are spread; type conditions are
 //! ignored, so a field selected on any member counts. Aliases do not
 //! matter, and argument values are never read.
+//!
+//! Each use of a directive the schema defines for queries is a call of
+//! `directive/cached`, with the arguments it is given recorded as
+//! `()arguments.ttl`.
 
 use std::collections::HashMap;
 
@@ -52,9 +56,24 @@ pub fn import<S: AsRef<str>>(api: &Api, documents: impl IntoIterator<Item = S>) 
     let mut fragments: HashMap<String, Vec<Item>> = HashMap::new();
     let mut operations = Vec::new();
     for text in documents {
-        let (ops, frags) = parse(text.as_ref());
+        let (ops, frags, uses) = parse(text.as_ref());
         operations.extend(ops);
         fragments.extend(frags);
+        for (name, arguments) in uses {
+            let Some(usage) = index.operations.get_mut(&format!("directive/{name}")) else {
+                // Built-in directives (`@include`, `@skip`) are not defined
+                // by the schema.
+                continue;
+            };
+            usage.calls += 1;
+            *usage.fields.entry("()location".to_owned()).or_default() += 1;
+            for argument in arguments {
+                *usage
+                    .fields
+                    .entry(format!("()arguments.{argument}"))
+                    .or_default() += 1;
+            }
+        }
     }
     for operation in operations {
         for item in flatten(&operation.items, &fragments, 0) {
@@ -124,12 +143,23 @@ fn flatten(items: &[Item], fragments: &HashMap<String, Vec<Item>>, depth: usize)
     out
 }
 
-/// Operations and fragments of one document. Malformed parts are skipped:
-/// usage import is best effort, and the documents belong to clients.
-fn parse(text: &str) -> (Vec<Operation>, HashMap<String, Vec<Item>>) {
+/// A directive used in a document, with the names of its arguments.
+type DirectiveUse = (String, Vec<String>);
+
+/// Operations, fragments and directive uses of one document. Malformed
+/// parts are skipped: usage import is best effort, and the documents
+/// belong to clients.
+fn parse(
+    text: &str,
+) -> (
+    Vec<Operation>,
+    HashMap<String, Vec<Item>>,
+    Vec<DirectiveUse>,
+) {
     let mut parser = Parser {
         tokens: tokenize(SourceId::from_raw(0), text),
         pos: 0,
+        uses: Vec::new(),
     };
     let mut operations = Vec::new();
     let mut fragments = HashMap::new();
@@ -166,12 +196,13 @@ fn parse(text: &str) -> (Vec<Operation>, HashMap<String, Vec<Item>>) {
             parser.bump();
         }
     }
-    (operations, fragments)
+    (operations, fragments, parser.uses)
 }
 
 struct Parser {
     tokens: Vec<Token>,
     pos: usize,
+    uses: Vec<DirectiveUse>,
 }
 
 impl Parser {
@@ -194,13 +225,18 @@ impl Parser {
         }
     }
 
-    /// Skips a name, variable definitions and directives up to `{`.
+    /// Skips a name and variable definitions up to `{`, recording the
+    /// directives of the operation and its variables.
     fn skip_until_selection_set(&mut self) {
         let mut depth = 0usize;
         loop {
             match self.peek() {
                 TokenKind::Eof => return,
                 TokenKind::Punct('{') if depth == 0 => return,
+                TokenKind::Punct('@') => {
+                    self.directives();
+                    continue;
+                }
                 TokenKind::Punct('(' | '[') => depth += 1,
                 TokenKind::Punct(')' | ']') => depth = depth.saturating_sub(1),
                 _ => {}
@@ -234,12 +270,18 @@ impl Parser {
         names
     }
 
+    /// Records the directives at the current position.
     fn directives(&mut self) {
         while self.peek() == &TokenKind::Punct('@') {
             self.bump();
-            self.bump();
-            if self.peek() == &TokenKind::Punct('(') {
-                self.arguments();
+            let name = self.name();
+            let arguments = if self.peek() == &TokenKind::Punct('(') {
+                self.arguments()
+            } else {
+                Vec::new()
+            };
+            if let Some(name) = name {
+                self.uses.push((name, arguments));
             }
         }
     }
@@ -343,7 +385,7 @@ mod tests {
 
     #[test]
     fn arguments_are_named_without_values() {
-        let (ops, _) = parse(
+        let (ops, _, _) = parse(
             r#"{ pets(first: 10, filter: {species: CAT, tags: ["a"]}, after: $cursor) { name } }"#,
         );
         let Item::Field(pets) = &ops[0].items[0] else {
@@ -354,9 +396,9 @@ mod tests {
 
     #[test]
     fn operations_fragments_and_aliases() {
-        let (ops, fragments) = parse(
+        let (ops, fragments, uses) = parse(
             r"
-            query Pets($n: Int = 5) @cached { mine: pets(first: $n) { ...PetFields } }
+            query Pets($n: Int = 5 @since(v: 2)) @cached { mine: pets(first: $n) { ...PetFields } }
             mutation { addPet(input: {name: x}) { id } }
             fragment PetFields on Pet { name owner { ... on Person { name } } }
             ",
@@ -369,5 +411,12 @@ mod tests {
         };
         assert_eq!(pets.name, "pets", "aliases are resolved to the field");
         assert!(fragments.contains_key("PetFields"));
+        assert_eq!(
+            uses,
+            [
+                ("since".to_owned(), vec!["v".to_owned()]),
+                ("cached".to_owned(), vec![])
+            ]
+        );
     }
 }

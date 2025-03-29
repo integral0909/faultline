@@ -1369,7 +1369,7 @@ fn graphql_client_documents_are_usage() {
     }
     std::fs::write(
         dir.path().join("client.graphql"),
-        "query Pet($id: ID!) { pet(id: $id) { name species ...Owner } }\nfragment Owner on Pet { owner { name } }\nmutation { addPet(input: {name: \"x\", species: CAT}) { id } }\n",
+        "query Pet($id: ID!) @cached(ttl: 5) { pet(id: $id) { name species ...Owner } }\nfragment Owner on Pet { owner { name } }\nmutation { addPet(input: {name: \"x\", species: CAT}) { id } }\n",
     )
     .unwrap();
     let import = faultline(
@@ -1414,6 +1414,8 @@ fn graphql_client_documents_are_usage() {
         "{report:#}"
     );
     assert_eq!(severity("op[mutation/removePet]"), ["info"]);
+    // The client uses `@cached` on a query, where it is no longer allowed.
+    assert_eq!(severity("op[directive/cached]"), ["info", "breaking"]);
     // Clients send `NewPet`, which gained a required field.
     assert!(
         severity("op[mutation/addPet]/request").contains(&"breaking".to_owned()),

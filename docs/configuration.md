@@ -155,6 +155,10 @@ or from the GraphQL documents clients send:
 faultline usage import schema.graphql --graphql clients/**/*.graphql
 ```
 
+Every root field a document selects counts as a call of its operation, and
+every use of a directive the schema defines for queries (`@cached`) as a
+call of `directive/cached`, so a directive no client writes is unused.
+
 or from recorded traffic, HTTP Archives exported by browsers or proxies,
 which also show the header parameters and request body members clients
 send (responses are ignored: what a server sent does not show what clients

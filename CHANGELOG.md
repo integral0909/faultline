@@ -263,6 +263,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GraphQL directives that clients use in queries are compared as operations
   (`directive/cached`): removing one, a location of one, its
   repeatability, or adding a required argument is breaking.
+  `usage import --graphql` records the directives client documents use.
 - GraphQL directive definitions are validated: unique, unreserved names,
   arguments of input types, and known, distinct locations.
 - GraphQL `@oneOf` input objects: exactly one field, not null. Making an
