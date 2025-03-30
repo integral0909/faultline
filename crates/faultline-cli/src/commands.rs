@@ -446,7 +446,15 @@ fn check(args: &CheckArgs) -> Result<i32, String> {
     }
     for name in &args.apis {
         if !config.apis.iter().any(|api| &api.name == name) {
-            return Err(format!("no [[api]] named {name} in the configuration"));
+            let names: Vec<&str> = config.apis.iter().map(|api| api.name.as_str()).collect();
+            return Err(if names.is_empty() {
+                format!("no [[api]] named {name}: the configuration lists no APIs")
+            } else {
+                format!(
+                    "no [[api]] named {name}; the configuration has {}",
+                    names.join(", ")
+                )
+            });
         }
     }
     let targets: Vec<Target> = config

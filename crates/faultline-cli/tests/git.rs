@@ -204,7 +204,11 @@ fn apis_missing_from_the_base_are_new() {
 
     let unknown = faultline(dir.path(), &["check", "--base", "main", "--api", "nope"]);
     assert_eq!(unknown.status.code(), Some(2));
-    assert!(stderr(&unknown).contains("no [[api]] named nope"));
+    assert!(
+        stderr(&unknown).contains("no [[api]] named nope; the configuration has petstore, events"),
+        "{}",
+        stderr(&unknown)
+    );
 }
 
 #[test]
