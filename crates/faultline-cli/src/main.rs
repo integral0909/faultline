@@ -36,8 +36,11 @@ enum Command {
     /// List every rule.
     Rules {
         /// Print the rule reference as Markdown.
-        #[arg(long)]
+        #[arg(long, conflicts_with = "json")]
         markdown: bool,
+        /// Print the rules as JSON, for tools.
+        #[arg(long)]
+        json: bool,
     },
     /// Inspect Faultline's model of an API.
     Ir {

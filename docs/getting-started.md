@@ -45,7 +45,7 @@ Every finding has:
 
 * a **severity** — `breaking`, `risky` or compatible (`info`);
 * a **rule** (`FL1007`), explained by `faultline explain FL1007` and listed in
-  the [rule reference](rules.md);
+  the [rule reference](rules.md) (and, for tools, by `faultline rules --json`);
 * a **path** naming the position in the API
   (`op[GET /pets]/param[query:limit]`);
 * where it could be shown, an **example value** that the old version accepted

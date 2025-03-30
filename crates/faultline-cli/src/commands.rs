@@ -299,11 +299,13 @@ pub(crate) fn run(command: Command) -> i32 {
         Command::Init(args) => crate::init::init(&args),
         Command::Baseline(args) => baseline(&args),
         Command::Explain { rule } => explain(&rule),
-        Command::Rules { markdown } => {
+        Command::Rules { markdown, json } => {
             print!(
                 "{}",
                 if markdown {
                     rules_markdown()
+                } else if json {
+                    rules_json()
                 } else {
                     rules_table()
                 }
@@ -591,6 +593,32 @@ fn rules_table() -> String {
 }
 
 /// The rule reference in Markdown, as committed in `docs/rules.md`.
+/// The rule catalog as JSON: each rule's code, name, dimension, summary,
+/// Markdown explanation and documentation page.
+fn rules_json() -> String {
+    let rules: Vec<serde_json::Value> = faultline_rules::RULES
+        .iter()
+        .map(|rule| {
+            serde_json::json!({
+                "code": rule.code,
+                "name": rule.name,
+                "dimension": rule.dimension.as_str(),
+                "summary": rule.title,
+                "explanation": rule.explanation,
+                "help_uri": format!(
+                    "{}/blob/main/docs/rules.md#{}",
+                    faultline_report::TOOL_URI,
+                    rule.code.to_ascii_lowercase()
+                ),
+            })
+        })
+        .collect();
+    let mut out = serde_json::to_string_pretty(&serde_json::json!({ "rules": rules }))
+        .expect("the catalog serializes");
+    out.push('\n');
+    out
+}
+
 pub(crate) fn rules_markdown() -> String {
     let mut out = String::from(
         "# Rules\n\n\

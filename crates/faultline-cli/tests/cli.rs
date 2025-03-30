@@ -1535,3 +1535,21 @@ fn ir_dump_applies_overlays() {
     assert!(!public.contains("/internal/"), "{public}");
     assert!(public.contains("op[GET /pets]"));
 }
+
+#[test]
+fn rules_are_listed_as_json() {
+    let output = faultline(&repo(), &["rules", "--json"]);
+    assert_eq!(output.status.code(), Some(0));
+    let catalog: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+    let rules = catalog["rules"].as_array().unwrap();
+    assert_eq!(rules.len(), faultline_rules::RULES.len());
+    let first = &rules[0];
+    assert_eq!(first["code"], "FL1001");
+    assert_eq!(first["name"], "type-changed");
+    assert!(
+        first["help_uri"]
+            .as_str()
+            .unwrap()
+            .ends_with("/docs/rules.md#fl1001")
+    );
+}
