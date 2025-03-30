@@ -1553,3 +1553,15 @@ fn rules_are_listed_as_json() {
             .ends_with("/docs/rules.md#fl1001")
     );
 }
+
+#[test]
+fn misspelled_rules_are_suggested() {
+    let explain = |query: &str| {
+        let output = faultline(&repo(), &["explain", query]);
+        assert_eq!(output.status.code(), Some(2));
+        stderr(&output)
+    };
+    assert!(explain("enum-value-remove").contains("did you mean enum-value-removed (FL1006)?"));
+    assert!(explain("FL1O01").contains("did you mean type-changed (FL1001)?"));
+    assert!(explain("nothing-like-it").contains("`faultline rules` lists them"));
+}

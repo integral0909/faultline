@@ -565,6 +565,38 @@ fn baseline(args: &BaselineArgs) -> Result<i32, String> {
     Ok(exit::PASSED)
 }
 
+/// The rule whose name or code is nearest to a misspelled `query`, if one
+/// is near enough to be what was meant.
+fn closest_rule(query: &str) -> Option<&'static faultline_rules::Rule> {
+    let query = query.to_ascii_lowercase();
+    faultline_rules::RULES
+        .iter()
+        .copied()
+        .flat_map(|rule| {
+            [rule.name, rule.code]
+                .map(|candidate| (edit_distance(&query, &candidate.to_ascii_lowercase()), rule))
+        })
+        .filter(|(distance, _)| *distance <= (query.len() / 4).max(1))
+        .min_by_key(|(distance, _)| *distance)
+        .map(|(_, rule)| rule)
+}
+
+/// The number of single-character insertions, deletions and substitutions
+/// that turn `a` into `b`.
+fn edit_distance(a: &str, b: &str) -> usize {
+    let b: Vec<char> = b.chars().collect();
+    let mut previous: Vec<usize> = (0..=b.len()).collect();
+    for (i, x) in a.chars().enumerate() {
+        let mut current = vec![i + 1];
+        for (j, y) in b.iter().enumerate() {
+            let substitution = previous[j] + usize::from(x != *y);
+            current.push(substitution.min(previous[j + 1] + 1).min(current[j] + 1));
+        }
+        previous = current;
+    }
+    previous[b.len()]
+}
+
 fn explain(code: &str) -> Result<i32, String> {
     if code.len() > 3 && code[..3].eq_ignore_ascii_case("FLE") {
         let (code, krate, meaning) = crate::diagnostics::DIAGNOSTICS
@@ -576,8 +608,13 @@ fn explain(code: &str) -> Result<i32, String> {
         println!("{code} ({krate})\n\n{meaning}");
         return Ok(exit::PASSED);
     }
-    let rule = faultline_rules::catalog::find(code)
-        .ok_or_else(|| format!("no rule named {code}; `faultline rules` lists them"))?;
+    let rule = faultline_rules::catalog::find(code).ok_or_else(|| match closest_rule(code) {
+        Some(rule) => format!(
+            "no rule named {code}; did you mean {} ({})?",
+            rule.name, rule.code
+        ),
+        None => format!("no rule named {code}; `faultline rules` lists them"),
+    })?;
     println!("{} {}: {}\n", rule.code, rule.name, rule.title);
     println!("{}\n", rule.explanation);
     println!("dimension: {}", rule.dimension.as_str());
