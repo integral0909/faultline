@@ -509,7 +509,10 @@ fn overrides(
         } else if let Some(rule) = faultline_rules::catalog::find(&raw.rule) {
             Some(rule.code)
         } else {
-            problems.push(format!("{at}: unknown rule \"{}\"", raw.rule));
+            let hint = faultline_rules::catalog::suggest(&raw.rule)
+                .map(|rule| format!(" (did you mean \"{}\"?)", rule.name))
+                .unwrap_or_default();
+            problems.push(format!("{at}: unknown rule \"{}\"{hint}", raw.rule));
             continue;
         };
         let Some(severity) = Severity::parse(&raw.severity) else {

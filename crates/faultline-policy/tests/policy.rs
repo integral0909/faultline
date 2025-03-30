@@ -340,3 +340,21 @@ fn names_round_trip() {
         assert_eq!(FailOn::parse(fail_on.as_str()), Some(fail_on));
     }
 }
+
+#[test]
+fn misspelled_rules_are_suggested() {
+    let error = Config::parse(
+        r#"
+[[policy.override]]
+rule = "enum-value-add"
+severity = "info"
+"#,
+    )
+    .unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("unknown rule \"enum-value-add\" (did you mean \"enum-value-added\"?)"),
+        "{error}"
+    );
+}

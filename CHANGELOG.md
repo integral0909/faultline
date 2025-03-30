@@ -247,7 +247,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - AsyncAPI payloads written in Protobuf (`application/vnd.google.protobuf`),
   compared as the first message of their source, with imports read beside
   the document (FLE6009, FLE3014).
-- `faultline explain` suggests the rule meant by a misspelled name or code.
+- `faultline explain` and `faultline.toml` overrides suggest the rule meant by
+  a misspelled name or code.
 - `faultline rules --json` lists the rule catalog for tools, with each
   rule's explanation and documentation link.
 - `ir dump --rev` and `ir dump --overlay` show the model of a description at

@@ -203,9 +203,49 @@ pub fn find(code_or_name: &str) -> Option<&'static Rule> {
     })
 }
 
+/// The rule whose code or name is nearest to a misspelled `query`, if one
+/// is near enough to be what was meant.
+pub fn suggest(query: &str) -> Option<&'static Rule> {
+    let query = query.to_ascii_lowercase();
+    RULES
+        .iter()
+        .copied()
+        .flat_map(|rule| {
+            [rule.name, rule.code]
+                .map(|candidate| (edit_distance(&query, &candidate.to_ascii_lowercase()), rule))
+        })
+        .filter(|(distance, _)| *distance <= (query.len() / 4).max(1))
+        .min_by_key(|(distance, _)| *distance)
+        .map(|(_, rule)| rule)
+}
+
+/// The number of single-character insertions, deletions and substitutions
+/// that turn `a` into `b`.
+fn edit_distance(a: &str, b: &str) -> usize {
+    let b: Vec<char> = b.chars().collect();
+    let mut previous: Vec<usize> = (0..=b.len()).collect();
+    for (i, x) in a.chars().enumerate() {
+        let mut current = vec![i + 1];
+        for (j, y) in b.iter().enumerate() {
+            let substitution = previous[j] + usize::from(x != *y);
+            current.push(substitution.min(previous[j + 1] + 1).min(current[j] + 1));
+        }
+        previous = current;
+    }
+    previous[b.len()]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn misspellings_suggest_the_rule() {
+        assert_eq!(edit_distance("kitten", "sitting"), 3);
+        assert_eq!(suggest("typechanged").map(|r| r.code), Some("FL1001"));
+        assert_eq!(suggest("FL1O06").map(|r| r.code), Some("FL1006"));
+        assert_eq!(suggest("unrelated-words"), None);
+    }
 
     #[test]
     fn codes_and_names_are_unique_and_ordered() {
