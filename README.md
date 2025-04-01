@@ -29,8 +29,8 @@ breaking[FL1007]: op[GET /pets]/param[query:limit]: maximum changed from 100 to 
 > 2.x/3.0, RAML 0.8/1.0, Smithy 2.0, JSON Schema (draft-04 to 2020-12), JSON Type
 > Definition, Protobuf (proto2, proto3, editions), Thrift, GraphQL SDL, Avro
 > (schemas, protocols and IDL), XML Schema and WSDL 1.1 and 2.0 are supported,
-> with text, JSON, SARIF, Markdown, GitHub annotation, GitLab Code Quality and
-> JUnit output. Pull requests can be checked against their base branch
+> with text, JSON, SARIF, Markdown, GitHub annotation, GitLab Code Quality,
+> JUnit, HTML and release-notes output. Pull requests can be checked against their base branch
 > straight from git, editors show findings through a language server, and a
 > schema registry refuses breaking versions. See the [roadmap](docs/architecture.md#roadmap).
 
@@ -49,12 +49,12 @@ See [getting started](docs/getting-started.md) and
 | Format | Files | Compared as |
 |---|---|---|
 | OpenAPI 3.0–3.2, Swagger 2.0 | JSON or YAML with `openapi` or `swagger` | HTTP operations, webhooks and callbacks |
-| AsyncAPI 2.x, 3.0 | JSON or YAML with `asyncapi` | messages sent and received on channels |
+| AsyncAPI 2.x, 3.0 | JSON or YAML with `asyncapi` | messages sent and received on channels, with payloads in JSON Schema, Avro, Protobuf or RAML |
 | RAML 0.8, 1.0 | `.raml` | HTTP operations, with libraries, traits and resource types applied |
 | Smithy 2.0 | `.smithy`, JSON AST, `smithy-build.json` | HTTP operations bound by `@http`, or RPCs |
 | Protobuf | `.proto` | RPCs, as the wire and JSON see them; HTTP operations of `google.api.http` rules |
 | Thrift | `.thrift` | RPCs, by field id and wire type |
-| GraphQL | `.graphql`, `.graphqls`, `.gql`, or a pattern of files | root fields as operations |
+| GraphQL | `.graphql`, `.graphqls`, `.gql`, or a pattern of files | root fields and query directives as operations |
 | Avro | `.avsc`, `.avpr`, `.avdl` | schemas under Avro's resolution rules, and protocol messages |
 | JSON Schema | JSON or YAML | schemas, in the role given |
 | JSON Type Definition | `.jtd.json` | schemas, in the role given |
