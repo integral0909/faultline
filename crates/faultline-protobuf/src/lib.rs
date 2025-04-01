@@ -150,6 +150,7 @@ pub fn lower_embedded(
             diagnostics,
         };
     };
+    sources.set_host(entry.source, span);
     let package = entry.ast.package.as_ref().map(|p| p.text.as_str());
     let Some(first) = entry.ast.messages.first() else {
         diagnostics.push(

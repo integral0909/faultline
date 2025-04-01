@@ -481,6 +481,7 @@ fn compare(
 
 /// Where a span is, for a working-tree file: its relative path and range.
 fn locate(sources: &SourceMap, span: Span) -> Option<(PathBuf, Range)> {
+    let span = sources.outermost(span);
     let file = sources.get(span.source())?;
     let SourceName::Path(path) = file.name() else {
         return None;

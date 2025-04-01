@@ -82,7 +82,10 @@ with its imports resolved beside the AsyncAPI document, and the payload is
 the first top-level message the source declares. Its types are grafted in
 the same way, so fields are matched by number and a changed number is
 breaking. A payload that is not a string, or source with errors, is
-reported with FLE6009; source without a message, with FLE3014.
+reported with FLE6009; source without a message, with FLE3014. Text
+reports quote the embedded source; JSON, SARIF, GitLab and GitHub reports
+and the language server point at the string in the AsyncAPI document that
+holds it, since they can only refer to files.
 
 RAML payloads are type declarations naming RAML's built-in types only,
 since the AsyncAPI document declares no RAML types to refer to. An

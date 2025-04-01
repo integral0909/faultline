@@ -1465,6 +1465,16 @@ fn asyncapi_protobuf_payloads_are_compared() {
             "FL1001 webhook[sent]/op[send shop.orders.placed]/message[OrderPlaced].payload.lines[].sku"
         ]
     );
+    // Machine-readable locations point at the payload in the document, not
+    // at the embedded source, which is no file of its own.
+    let finding = report["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["severity"] == "breaking")
+        .unwrap();
+    assert_eq!(finding["new_location"]["file"], "v2/asyncapi.yaml");
+    assert_eq!(finding["new_location"]["line"], 15);
 }
 
 #[test]

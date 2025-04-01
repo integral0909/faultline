@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt;
 use std::sync::{Arc, PoisonError, RwLock};
 
@@ -38,6 +39,9 @@ impl std::error::Error for SourceError {}
 #[derive(Default)]
 pub struct SourceMap {
     files: RwLock<Vec<Arc<SourceFile>>>,
+    /// For text embedded in another file (a schema written as a string in
+    /// a YAML document), the span of that string.
+    hosts: RwLock<HashMap<SourceId, Span>>,
 }
 
 impl SourceMap {
@@ -67,6 +71,40 @@ impl SourceMap {
         let file = Arc::new(SourceFile::new(SourceId::from_raw(id), name, text));
         files.push(Arc::clone(&file));
         Ok(file)
+    }
+
+    /// Records that the text of `id` was embedded in another file at `host`,
+    /// so that integrations which can only point at files on disk point
+    /// there.
+    pub fn set_host(&self, id: SourceId, host: Span) {
+        if host.source() != id {
+            self.hosts
+                .write()
+                .unwrap_or_else(PoisonError::into_inner)
+                .insert(id, host);
+        }
+    }
+
+    /// The span a file's text was embedded at, if it was embedded.
+    pub fn host(&self, id: SourceId) -> Option<Span> {
+        self.hosts
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(&id)
+            .copied()
+    }
+
+    /// The outermost span `span` was embedded in: `span` itself for text
+    /// read from a file.
+    pub fn outermost(&self, mut span: Span) -> Span {
+        // Embedding is shallow in practice; the bound guards against cycles.
+        for _ in 0..8 {
+            match self.host(span.source()) {
+                Some(host) => span = host,
+                None => break,
+            }
+        }
+        span
     }
 
     pub fn get(&self, id: SourceId) -> Option<Arc<SourceFile>> {
@@ -113,6 +151,36 @@ impl fmt::Debug for SourceMap {
 mod tests {
     use super::*;
     use std::thread;
+
+    #[test]
+    fn embedded_text_resolves_to_its_host() {
+        let map = SourceMap::new();
+        let yaml = map
+            .add(
+                SourceName::Virtual("doc.yaml".into()),
+                "schema: |\n  message A {}\n",
+            )
+            .unwrap();
+        let proto = map
+            .add(
+                SourceName::Virtual("doc.yaml#/schema".into()),
+                "message A {}\n",
+            )
+            .unwrap();
+        let host = Span::new(yaml.id(), 8, 26);
+        map.set_host(proto.id(), host);
+        let inner = Span::new(proto.id(), 8, 9);
+        assert_eq!(map.host(proto.id()), Some(host));
+        assert_eq!(map.outermost(inner), host);
+        assert_eq!(
+            map.outermost(host),
+            host,
+            "files on disk are their own host"
+        );
+        // A file cannot host itself.
+        map.set_host(yaml.id(), Span::new(yaml.id(), 0, 1));
+        assert_eq!(map.host(yaml.id()), None);
+    }
 
     #[test]
     fn ids_are_dense_and_resolvable() {

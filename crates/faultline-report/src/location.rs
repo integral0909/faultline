@@ -18,7 +18,11 @@ pub struct Location {
 }
 
 impl Location {
+    /// Where `span` is. Text embedded in another file (a Protobuf payload in
+    /// an AsyncAPI document) is located at the string that holds it, since
+    /// the integrations reports feed can only point at files.
     pub fn resolve(sources: &SourceMap, span: Span) -> Option<Location> {
+        let span = sources.outermost(span);
         let file = sources.get(span.source())?;
         let text = file.text();
         let lines = file.lines();
