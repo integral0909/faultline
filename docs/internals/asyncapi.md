@@ -88,7 +88,8 @@ and the language server point at the string in the AsyncAPI document that
 holds it, since they can only refer to files.
 
 RAML payloads are type declarations naming RAML's built-in types only,
-since the AsyncAPI document declares no RAML types to refer to. An
+since the AsyncAPI document declares no RAML types to refer to. A payload
+may also be a reference to a `#%RAML 1.0 DataType` fragment file. An
 invalid declaration is reported with FLE6010, and a JSON Schema inside one
 is compared as accepting any value, with a warning.
 

@@ -578,6 +578,37 @@ fn raml_payloads_are_raml_types() {
     assert_eq!(codes, ["FLE6010", "FLE7605"]);
 }
 
+#[test]
+fn raml_payloads_can_be_data_type_fragments() {
+    let text = r"
+asyncapi: 2.6.0
+info: {title: Accounts, version: 1.0.0}
+channels:
+  users:
+    subscribe:
+      message:
+        name: UserCreated
+        schemaFormat: application/raml+yaml;version=1.0
+        payload: {$ref: 'types/user.raml'}
+";
+    let fragment = |email: &str| {
+        format!("#%RAML 1.0 DataType\ntype: object\nproperties:\n  id: string\n  email: {email}\n")
+    };
+    let old = api_with(&[
+        ("events.yaml", text),
+        ("types/user.raml", &fragment("string")),
+    ]);
+    let new = api_with(&[
+        ("events.yaml", text),
+        ("types/user.raml", &fragment("integer")),
+    ]);
+    let found = findings(&old, &new);
+    assert_eq!(
+        summary(&found),
+        ["breaking type-changed webhook[sent]/op[send users]/message[UserCreated].payload.email"]
+    );
+}
+
 fn codes(text: &str) -> Vec<(String, bool)> {
     lower_with(&[("events.yaml", text)])
         .diagnostics

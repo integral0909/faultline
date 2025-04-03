@@ -257,7 +257,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   another format to a file as well, so a CI job can annotate and keep a
   SARIF or Code Quality report in one run; the CI examples use it.
 - AsyncAPI payloads written as RAML types (`application/raml+yaml`),
-  lowered by the RAML front end (FLE6010).
+  lowered by the RAML front end (FLE6010), inline or in a DataType fragment
+  file. Machine-readable reports locate findings in embedded Protobuf
+  source at the string that holds it.
 - `faultline explain` explains diagnostic codes (`FLE7605`) as well as
   rules, from a catalog generated from the codes' definitions, which
   `docs/diagnostics.md` also lists. A test keeps codes unique and
