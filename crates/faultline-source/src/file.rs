@@ -24,6 +24,10 @@ pub enum SourceName {
 impl fmt::Display for SourceName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            // Reports name files with `/` on every platform, like revisions.
+            SourceName::Path(path) if cfg!(windows) => {
+                f.write_str(&path.display().to_string().replace('\\', "/"))
+            }
             SourceName::Path(path) => write!(f, "{}", path.display()),
             SourceName::Revision { rev, path } => write!(f, "{rev}:{path}"),
             SourceName::Url(url) => f.write_str(url),

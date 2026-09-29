@@ -271,7 +271,13 @@ fn input_and_configuration_errors_exit_with_2() {
     let missing = faultline(dir.path(), &["diff", "v1/openapi.yaml", "v2/nope.yaml"]);
     assert_eq!(missing.status.code(), Some(2));
 
-    let outside = faultline(dir.path(), &["diff", "v1/openapi.yaml", "/etc/hosts"]);
+    // An absolute path that exists on every platform, outside the temporary
+    // workspace.
+    let elsewhere = repo().join("Cargo.toml");
+    let outside = faultline(
+        dir.path(),
+        &["diff", "v1/openapi.yaml", elsewhere.to_str().unwrap()],
+    );
     assert_eq!(outside.status.code(), Some(2));
     assert!(
         stdout(&outside).contains("outside the workspace root"),
