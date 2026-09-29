@@ -1,0 +1,6 @@
+# Check out text with LF everywhere, so generated files and snapshots compare
+# byte for byte on Windows too.
+* text=auto eol=lf
+
+# Fuzz seeds are raw inputs (HTTP requests keep their CRLFs).
+fuzz/seeds/** -text
