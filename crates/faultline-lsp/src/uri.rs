@@ -12,10 +12,7 @@ pub(crate) fn to_path(uri: &str) -> Option<PathBuf> {
         .get(..7)
         .filter(|scheme| scheme.eq_ignore_ascii_case("file://"))
         .map(|_| &uri[7..])?;
-    let (authority, path) = match rest.find('/') {
-        Some(slash) => rest.split_at(slash),
-        None => return None,
-    };
+    let (authority, path) = rest.split_at(rest.find('/')?);
     if !authority.is_empty() && !authority.eq_ignore_ascii_case("localhost") {
         return None;
     }
