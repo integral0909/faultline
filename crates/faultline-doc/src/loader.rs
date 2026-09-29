@@ -285,7 +285,15 @@ impl Loader for FsLoader {
         if !canonical.starts_with(&self.root) {
             return Err(LoadError::OutsideRoot);
         }
-        let file = std::fs::File::open(&canonical).map_err(|e| io_error(&e))?;
+        // Windows refuses to open a directory as a file ("Access is denied");
+        // it is not a document either way.
+        let file = std::fs::File::open(&canonical).map_err(|e| {
+            if canonical.is_dir() {
+                LoadError::NotFound
+            } else {
+                io_error(&e)
+            }
+        })?;
         let metadata = file.metadata().map_err(|e| io_error(&e))?;
         if !metadata.is_file() {
             return Err(LoadError::NotFound);

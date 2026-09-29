@@ -53,9 +53,9 @@ mod tests {
 
     #[test]
     fn lexical_normalization() {
-        let n = |p: &str| normalize_lexically(Path::new(p)).map(|p| p.display().to_string());
-        assert_eq!(n("a/./b/../c").as_deref(), Some("a/c"));
-        assert_eq!(n("/a/b/../../c").as_deref(), Some("/c"));
+        let n = |p: &str| normalize_lexically(Path::new(p));
+        assert_eq!(n("a/./b/../c"), Some(PathBuf::from("a/c")));
+        assert_eq!(n("/a/b/../../c"), Some(PathBuf::from("/c")));
         assert_eq!(n("a/../.."), None);
         assert_eq!(n("/.."), None);
     }
@@ -67,7 +67,9 @@ mod tests {
         let missing = dir.path().join("gone/../also-gone/x.yaml");
         assert_eq!(
             resolve_existing_prefix(&missing).unwrap(),
-            canonical.join("also-gone/x.yaml")
+            // Component by component: `/` does not separate a verbatim
+            // (`\\?\`) Windows path.
+            canonical.join("also-gone").join("x.yaml")
         );
     }
 }
